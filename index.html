@@ -493,7 +493,7 @@ let appData = {
   reviews: []
 };
 
-let activeCat = 'Kaikki';
+let activeCat = null;
 let sortMode = 'uusin'; // uusin | vanhin | paras | huonoin
 let activeGenreFilter = null;
 let activeScoreFilter = null;
@@ -509,6 +509,7 @@ let selectedScore = null;
 let selectedPartScore = null;
 
 function initApp(){
+  if(!activeCat && appData.categories.length) activeCat = appData.categories[0];
   renderCatTabs();
   renderGenreFilters();
   renderYearFilters();
@@ -543,7 +544,7 @@ function renderAll(){
 // ── KATEGORIAT ──
 function renderCatTabs(){
   const tabs = document.getElementById('catTabs');
-  const cats = ['Kaikki', ...appData.categories];
+  const cats = [...appData.categories];
   tabs.innerHTML = cats.map(c => `
     <button class="cat-tab ${c===activeCat?'active':''}" onclick="setActiveCat('${c}')">${c}</button>
   `).join('');
@@ -663,7 +664,7 @@ window.renderCards = function(){
   let reviews = [...appData.reviews];
 
   // Kategoria
-  if(activeCat!=='Kaikki') reviews = reviews.filter(r=>r.category===activeCat);
+  if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
 
   // Haku
   if(q) reviews = reviews.filter(r=>r.name.toLowerCase().includes(q));
@@ -777,6 +778,7 @@ window.openAddModal = function(){
   selectedMark = null;
   window._queueMode = false;
   document.getElementById('scoreSection').style.display='block';
+  document.getElementById('tvTypeSection').style.display='none';
   document.getElementById('modalTitle').textContent = 'Lisää arvostelu';
   document.getElementById('formName').value='';
   document.getElementById('formNote').value='';
@@ -975,7 +977,7 @@ window.openQueueModal = function(){
 window.renderQueue = function(){
   const grid = document.getElementById('cardsGrid');
   let items = (appData.queue||[]);
-  if(activeCat!=='Kaikki') items = items.filter(q=>q.category===activeCat);
+  if(activeCat) items = items.filter(q=>q.category===activeCat);
   const q = document.getElementById('searchInput') ? document.getElementById('searchInput').value.trim().toLowerCase() : '';
   if(q) items = items.filter(i=>i.name.toLowerCase().includes(q));
   if(!items.length){
