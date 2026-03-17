@@ -361,6 +361,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <select id="formGenre"></select>
     </div>
 
+    <div id="yearRangeSection" class="form-group" style="display:none;">
+      <label id="yearRangeLabel">Julkaisuvuosi</label>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="number" id="formYearStart" placeholder="esim. 2012" min="1900" max="2030" style="flex:1;">
+        <span id="yearRangeDash" style="color:var(--muted);font-size:18px;display:none;">–</span>
+        <input type="number" id="formYearEnd" placeholder="esim. 2020 tai tyhjä" min="1900" max="2030" style="flex:1;display:none;">
+      </div>
+    </div>
+
     <div id="scoreSection">
       <div class="form-group">
         <label>Arvosana *</label>
@@ -770,6 +779,7 @@ window.renderCards = function(){
       <div class="card-meta">
         <span class="meta-chip">${r.category}</span>
         ${r.genre?`<span class="meta-chip">${r.genre}</span>`:''}
+        ${r.yearStart?`<span class="meta-chip" style="color:var(--muted);">${r.yearStart}${r.yearEnd?' – '+r.yearEnd:r.category==='TV-sarjat'?' –':''}</span>`:''}
         ${isTvParts?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
         ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>':''}
@@ -803,6 +813,8 @@ window.openAddModal = function(){
   document.getElementById('modalTitle').textContent = 'Lisää arvostelu';
   document.getElementById('formName').value = '';
   document.getElementById('formNote').value = '';
+  document.getElementById('formYearStart').value = '';
+  document.getElementById('formYearEnd').value = '';
   document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
   document.getElementById('tvTypeSection').style.display = 'none';
@@ -822,6 +834,8 @@ window.editReview = function(id){
   document.getElementById('modalTitle').textContent = 'Muokkaa arvostelua';
   document.getElementById('formName').value = r.name;
   document.getElementById('formNote').value = r.note||'';
+  document.getElementById('formYearStart').value = r.yearStart||'';
+  document.getElementById('formYearEnd').value = r.yearEnd||'';
   document.getElementById('formDate').value = r.date ? r.date.split('T')[0] : new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
   populateFormCat(r.category);
@@ -842,10 +856,15 @@ window.onCatChange = function(preselectedGenre){
   const cat = document.getElementById('formCat').value;
   const isTv = cat==='TV-sarjat';
   const hasGenre = GENRE_CATS.includes(cat);
+  const hasYear = GENRE_CATS.includes(cat); // Elokuvat ja TV-sarjat
   if(!window._queueMode){
     document.getElementById('tvTypeSection').style.display = isTv?'block':'none';
   }
   document.getElementById('genreSection').style.display = hasGenre?'block':'none';
+  document.getElementById('yearRangeSection').style.display = hasYear?'block':'none';
+  document.getElementById('yearRangeLabel').textContent = isTv?'Vuosiväli':'Julkaisuvuosi';
+  document.getElementById('yearRangeDash').style.display = isTv?'inline':'none';
+  document.getElementById('formYearEnd').style.display = isTv?'block':'none';
   if(hasGenre){
     const sel = document.getElementById('formGenre');
     sel.innerHTML = `<option value="">– Ei genreä –</option>`+GENRES.map(g=>`<option value="${g}" ${g===preselectedGenre?'selected':''}>${g}</option>`).join('');
@@ -921,6 +940,8 @@ window.saveReview = async function(){
       r.tvType=isTv?selectedTvType:'';
       r.score=needsScore?selectedScore:null;
       r.mark=selectedMark;
+      r.yearStart=document.getElementById('formYearStart').value||'';
+      r.yearEnd=document.getElementById('formYearEnd').value||'';
       r.date=(document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z';
       r.note=document.getElementById('formNote').value;
     }
@@ -934,6 +955,8 @@ window.saveReview = async function(){
       score: needsScore?selectedScore:null,
       parts: [],
       mark: selectedMark,
+      yearStart: document.getElementById('formYearStart').value||'',
+      yearEnd: document.getElementById('formYearEnd').value||'',
       note: document.getElementById('formNote').value
     });
   }
