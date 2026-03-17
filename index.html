@@ -153,6 +153,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .empty-icon{font-size:48px;margin-bottom:12px;}
 .empty-title{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--muted);letter-spacing:1px;}
 
+/* MERKKI NAPIT */
+.mark-btn { flex:1; padding:10px 8px; background:var(--bg3); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:13px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.15s; text-align:center; }
+.mark-btn.active-heart { background:rgba(255,100,130,0.18); border-color:#ff6482; color:#ff6482; }
+.mark-btn.active-skull { background:rgba(160,160,160,0.15); border-color:#aaa; color:#ccc; }
+.mark-btn.active-none { background:var(--bg3); border-color:var(--border); opacity:1!important; }
+
 /* ASETUKSET */
 .settings-btn{padding:8px 12px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:18px;cursor:pointer;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;}
 .cat-manage{display:flex;flex-direction:column;gap:8px;}
@@ -217,6 +223,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <button class="filter-chip" data-score="mid" onclick="toggleScoreFilter(this)">5–7 👍</button>
       <button class="filter-chip" data-score="low" onclick="toggleScoreFilter(this)">1–4 👎</button>
     </div>
+    <div class="filter-label" style="margin-top:12px;">Merkintä</div>
+    <div class="filter-row" id="markFilters">
+      <button class="filter-chip" data-mark="heart" onclick="toggleMarkFilter(this)">❤️ Suosikit</button>
+      <button class="filter-chip" data-mark="skull" onclick="toggleMarkFilter(this)">💀 Huonot</button>
+    </div>
   </div>
 
   <div class="cards-grid" id="cardsGrid"></div>
@@ -259,7 +270,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
     <div class="form-group">
       <label>Nimi *</label>
-      <input type="text" id="formName" placeholder="esim. Oppenheimer">
+      <input type="text" id="formName" placeholder="esim. OPPENHEIMER" oninput="this.value=this.value.toUpperCase()">
     </div>
 
     <div id="genreSection" class="form-group" style="display:none;">
@@ -271,6 +282,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div class="form-group">
         <label>Arvosana *</label>
         <div class="score-picker" id="scorePicker"></div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Merkintä</label>
+      <div style="display:flex;gap:10px;">
+        <button class="mark-btn" id="markHeart" onclick="toggleMark('heart')" title="Suosikki – katso uudelleen!">❤️ Suosikki</button>
+        <button class="mark-btn" id="markSkull" onclick="toggleMark('skull')" title="Todella huono">💀 Huono</button>
+        <button class="mark-btn" id="markNone" onclick="toggleMark(null)" style="opacity:0.5;">✕ Ei merkkiä</button>
       </div>
     </div>
 
@@ -430,6 +450,8 @@ let activeCat = 'Kaikki';
 let sortMode = 'uusin'; // uusin | vanhin | paras | huonoin
 let activeGenreFilter = null;
 let activeScoreFilter = null;
+let activeMarkFilter = null;
+let selectedMark = null;
 let editingId = null;
 let editingPartId = null;
 let editingPartReviewId = null;
@@ -475,6 +497,22 @@ window.toggleGenreFilter = function(btn, genre){
   activeGenreFilter = activeGenreFilter===genre ? null : genre;
   document.querySelectorAll('#genreFilters .filter-chip').forEach(b=>b.classList.remove('active'));
   if(activeGenreFilter) btn.classList.add('active');
+  renderCards();
+};
+
+window.toggleMark = function(mark){
+  selectedMark = mark;
+  document.getElementById('markHeart').className = 'mark-btn' + (mark==='heart'?' active-heart':'');
+  document.getElementById('markSkull').className = 'mark-btn' + (mark==='skull'?' active-skull':'');
+  document.getElementById('markNone').className  = 'mark-btn' + (mark===null?' active-none':'');
+  if(mark===null) document.getElementById('markNone').style.opacity='1';
+};
+
+window.toggleMarkFilter = function(btn){
+  const m = btn.dataset.mark;
+  activeMarkFilter = activeMarkFilter===m ? null : m;
+  document.querySelectorAll('#markFilters .filter-chip').forEach(b=>b.classList.remove('active'));
+  if(activeMarkFilter) btn.classList.add('active');
   renderCards();
 };
 
@@ -555,6 +593,11 @@ window.renderCards = function(){
     });
   }
 
+  // Merkki
+  if(activeMarkFilter){
+    reviews = reviews.filter(r=>r.mark===activeMarkFilter);
+  }
+
   // Järjestys
   reviews.sort((a,b)=>{
     if(sortMode==='uusin') return b.id-a.id;
@@ -607,6 +650,8 @@ window.renderCards = function(){
         <span class="meta-chip">${r.category}</span>
         ${r.genre?`<span class="meta-chip">${r.genre}</span>`:''}
         ${r.tvType&&r.tvType!=='kokonaisuus'?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
+        ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
+        ${r.mark==='skull'?'<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>':''}
       </div>
       ${r.note?`<div class="card-note collapsed" id="note-${r.id}">${r.note}<br><button class="btn-expand" onclick="toggleNote(${r.id})">Näytä lisää ▾</button></div>`:''}
       ${partsHtml}
@@ -630,11 +675,13 @@ window.openAddModal = function(){
   editingId = null;
   selectedScore = null;
   selectedTvType = 'kokonaisuus';
+  selectedMark = null;
   document.getElementById('modalTitle').textContent = 'Lisää arvostelu';
   document.getElementById('formName').value='';
   document.getElementById('formNote').value='';
   populateFormCat();
   buildScorePicker('scorePicker','selectedScore');
+  window.toggleMark(r.mark||null);
   document.getElementById('addModal').classList.add('open');
 };
 
@@ -643,6 +690,7 @@ window.editReview = function(id){
   editingId = id;
   selectedScore = r.score||null;
   selectedTvType = r.tvType||'kokonaisuus';
+  selectedMark = r.mark||null;
   document.getElementById('modalTitle').textContent = 'Muokkaa arvostelua';
   document.getElementById('formName').value = r.name;
   document.getElementById('formNote').value = r.note||'';
@@ -650,6 +698,7 @@ window.editReview = function(id){
   onCatChange(r.genre);
   if(r.category==='TV-sarjat') selectTvTypeByValue(r.tvType||'kokonaisuus');
   buildScorePicker('scorePicker','selectedScore');
+  window.toggleMark(r.mark||null);
   document.getElementById('addModal').classList.add('open');
 };
 
@@ -714,6 +763,7 @@ window.saveReview = async function(){
     r.genre=GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'';
     r.tvType=isTv?selectedTvType:'';
     r.score=needsScore?selectedScore:null;
+    r.mark=selectedMark;
     r.note=document.getElementById('formNote').value;
   } else {
     appData.reviews.push({
@@ -723,6 +773,7 @@ window.saveReview = async function(){
       tvType: isTv?selectedTvType:'',
       score: needsScore?selectedScore:null,
       parts: [],
+      mark: selectedMark,
       note: document.getElementById('formNote').value
     });
   }
