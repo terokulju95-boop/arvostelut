@@ -771,7 +771,7 @@ window.renderCards = function(){
 
     return `<div class="review-card type-${typeClass}" style="animation-delay:${idx*0.06}s">
       <div class="card-top">
-        <div class="card-title">${r.name}</div>
+        <div class="card-title">${r.name.replace(/\n/g,'<br>')}</div>
         ${score!==null&&!isTvParts ? buildRing(score) : ''}
       </div>
       <div class="card-meta">
@@ -1118,7 +1118,7 @@ window.renderTop = function(){
       ${reviews.map((r,i)=>`
         <div class="top-item">
           <span class="top-rank ${medals[i]||''}">${i+1}</span>
-          <span class="top-name">${r.name}${r.mark==='heart'?' ❤️':r.mark==='skull'?' 💀':''}</span>
+          <span class="top-name">${r.name.replace(/\n/g,' · ')}${r.mark==='heart'?' ❤️':r.mark==='skull'?' 💀':''}</span>
           <span class="top-score ${scoreClass(r.finalScore)}">${r.finalScore}</span>
         </div>
       `).join('')}
