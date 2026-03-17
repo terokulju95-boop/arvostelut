@@ -211,6 +211,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .top-name { flex: 1; font-weight: 600; font-size: 15px; }
 .top-score { font-family: "Bebas Neue",sans-serif; font-size: 26px; }
 
+/* GENRE CHIPS LOMAKKEESSA */
+.genre-chip { padding:7px 12px; border-radius:16px; border:1px solid var(--border); background:var(--bg3); color:var(--muted); font-size:13px; font-weight:500; cursor:pointer; font-family:"DM Sans",sans-serif; transition:all 0.15s; }
+.genre-chip.active { background:var(--accent); color:var(--bg); border-color:var(--accent); }
+
 /* AUTOCOMPLETE */
 .autocomplete-wrap { position: relative; }
 .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg3); border: 1px solid var(--accent); border-top: none; border-radius: 0 0 10px 10px; z-index: 200; max-height: 180px; overflow-y: auto; }
@@ -357,8 +361,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     </div>
 
     <div id="genreSection" class="form-group" style="display:none;">
-      <label>Genre</label>
-      <select id="formGenre"></select>
+      <label>Genre (voi valita useita)</label>
+      <div id="genreCheckboxes" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div>
     </div>
 
     <div id="yearRangeSection" class="form-group" style="display:none;">
@@ -719,7 +723,7 @@ window.renderCards = function(){
   let reviews = [...appData.reviews];
   if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
   if(q) reviews = reviews.filter(r=>r.name.toLowerCase().includes(q));
-  if(activeGenreFilter) reviews = reviews.filter(r=>r.genre===activeGenreFilter);
+  if(activeGenreFilter) reviews = reviews.filter(r=>Array.isArray(r.genre)?r.genre.includes(activeGenreFilter):r.genre===activeGenreFilter);
   if(activeScoreFilter){
     reviews = reviews.filter(r=>{
       const s=getReviewScore(r); if(s===null) return false;
@@ -776,10 +780,10 @@ window.renderCards = function(){
         <div class="card-title">${r.name}</div>
         ${score!==null&&!isTvParts ? buildRing(score) : ''}
       </div>
-      ${r.yearStart ? `<div style="font-size:15px;font-weight:600;color:var(--muted);margin:-4px 0 8px;letter-spacing:0.5px;">${r.yearStart}${r.yearEnd?' – '+r.yearEnd:r.category==='TV-sarjat'?' –':''}</div>` : ''}
+      ${r.yearStart ? `<div style="font-size:18px;font-weight:700;color:var(--text);margin:-4px 0 8px;letter-spacing:0.5px;">${r.yearStart}${r.yearEnd?' – '+r.yearEnd:r.category==='TV-sarjat'?' –':''}</div>` : ''}
       <div class="card-meta">
         <span class="meta-chip">${r.category}</span>
-        ${r.genre?`<span class="meta-chip">${r.genre}</span>`:''}
+        ${(Array.isArray(r.genre)?r.genre:(r.genre?[r.genre]:[])).map(g=>`<span class="meta-chip">${g}</span>`).join('')}
         ${isTvParts?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
         ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>':''}
@@ -839,7 +843,7 @@ window.editReview = function(id){
   document.getElementById('formDate').value = r.date ? r.date.split('T')[0] : new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
   populateFormCat(r.category);
-  window.onCatChange(r.genre);
+  window.onCatChange(Array.isArray(r.genre)?r.genre:(r.genre?[r.genre]:[]));
   if(r.category==='TV-sarjat') selectTvTypeByValue(r.tvType||'kokonaisuus');
   buildScorePicker('scorePicker', 'selectedScore');
   window.toggleMark(r.mark||null);
@@ -899,6 +903,14 @@ window.selectScore = function(n, pickerId, varName){
   document.querySelectorAll(`#${pickerId} .score-opt`).forEach(b=>b.classList.toggle('selected',+b.textContent===n));
 };
 
+window.toggleGenreChip = function(btn, genre){
+  btn.classList.toggle('active');
+};
+
+function getSelectedGenres(){
+  return [...document.querySelectorAll('#genreCheckboxes .genre-chip.active')].map(b=>b.textContent);
+}
+
 window.toggleMark = function(mark){
   selectedMark = mark;
   const hBtn = document.getElementById('markHeart');
@@ -936,7 +948,7 @@ window.saveReview = async function(){
     const r = appData.reviews.find(x=>x.id===editingId);
     if(r){
       r.name=name; r.category=cat;
-      r.genre=GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'';
+      r.genre=GENRE_CATS.includes(cat)?getSelectedGenres():[];
       r.tvType=isTv?selectedTvType:'';
       r.score=needsScore?selectedScore:null;
       r.mark=selectedMark;
@@ -950,7 +962,7 @@ window.saveReview = async function(){
       id: Date.now(),
       date: (document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z',
       name, category:cat,
-      genre: GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'',
+      genre: GENRE_CATS.includes(cat)?getSelectedGenres():[],
       tvType: isTv?selectedTvType:'',
       score: needsScore?selectedScore:null,
       parts: [],
