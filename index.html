@@ -695,7 +695,8 @@ function buildScorePicker(pickerId, varName){
 }
 
 window.selectScore = function(n, pickerId, varName){
-  window[varName] = n;
+  if(varName === 'selectedScore') selectedScore = n;
+  else if(varName === 'selectedPartScore') selectedPartScore = n;
   document.querySelectorAll(`#${pickerId} .score-opt`).forEach(b=>b.classList.toggle('selected',+b.textContent===n));
 };
 
