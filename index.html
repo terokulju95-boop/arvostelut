@@ -211,10 +211,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .top-name { flex: 1; font-weight: 600; font-size: 15px; }
 .top-score { font-family: "Bebas Neue",sans-serif; font-size: 26px; }
 
-/* GENRE CHIPS LOMAKKEESSA */
-.genre-chip { padding:7px 12px; border-radius:16px; border:1px solid var(--border); background:var(--bg3); color:var(--muted); font-size:13px; font-weight:500; cursor:pointer; font-family:"DM Sans",sans-serif; transition:all 0.15s; }
-.genre-chip.active { background:var(--accent); color:var(--bg); border-color:var(--accent); }
-
 /* AUTOCOMPLETE */
 .autocomplete-wrap { position: relative; }
 .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg3); border: 1px solid var(--accent); border-top: none; border-radius: 0 0 10px 10px; z-index: 200; max-height: 180px; overflow-y: auto; }
@@ -361,17 +357,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     </div>
 
     <div id="genreSection" class="form-group" style="display:none;">
-      <label>Genre (voi valita useita)</label>
-      <div id="genreCheckboxes" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div>
-    </div>
-
-    <div id="yearRangeSection" class="form-group" style="display:none;">
-      <label id="yearRangeLabel">Julkaisuvuosi</label>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <input type="number" id="formYearStart" placeholder="esim. 2012" min="1900" max="2030" style="flex:1;">
-        <span id="yearRangeDash" style="color:var(--muted);font-size:18px;display:none;">–</span>
-        <input type="number" id="formYearEnd" placeholder="esim. 2020 tai tyhjä" min="1900" max="2030" style="flex:1;display:none;">
-      </div>
+      <label>Genre</label>
+      <select id="formGenre"></select>
     </div>
 
     <div id="scoreSection">
@@ -723,7 +710,7 @@ window.renderCards = function(){
   let reviews = [...appData.reviews];
   if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
   if(q) reviews = reviews.filter(r=>r.name.toLowerCase().includes(q));
-  if(activeGenreFilter) reviews = reviews.filter(r=>Array.isArray(r.genre)?r.genre.includes(activeGenreFilter):r.genre===activeGenreFilter);
+  if(activeGenreFilter) reviews = reviews.filter(r=>r.genre===activeGenreFilter);
   if(activeScoreFilter){
     reviews = reviews.filter(r=>{
       const s=getReviewScore(r); if(s===null) return false;
@@ -780,10 +767,9 @@ window.renderCards = function(){
         <div class="card-title">${r.name}</div>
         ${score!==null&&!isTvParts ? buildRing(score) : ''}
       </div>
-      ${r.yearStart ? `<div style="font-size:18px;font-weight:700;color:var(--text);margin:-4px 0 8px;letter-spacing:0.5px;">${r.yearStart}${r.yearEnd?' – '+r.yearEnd:r.category==='TV-sarjat'?' –':''}</div>` : ''}
       <div class="card-meta">
         <span class="meta-chip">${r.category}</span>
-        ${(Array.isArray(r.genre)?r.genre:(r.genre?[r.genre]:[])).map(g=>`<span class="meta-chip">${g}</span>`).join('')}
+        ${r.genre?`<span class="meta-chip">${r.genre}</span>`:''}
         ${isTvParts?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
         ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>':''}
@@ -817,8 +803,6 @@ window.openAddModal = function(){
   document.getElementById('modalTitle').textContent = 'Lisää arvostelu';
   document.getElementById('formName').value = '';
   document.getElementById('formNote').value = '';
-  document.getElementById('formYearStart').value = '';
-  document.getElementById('formYearEnd').value = '';
   document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
   document.getElementById('tvTypeSection').style.display = 'none';
@@ -838,12 +822,10 @@ window.editReview = function(id){
   document.getElementById('modalTitle').textContent = 'Muokkaa arvostelua';
   document.getElementById('formName').value = r.name;
   document.getElementById('formNote').value = r.note||'';
-  document.getElementById('formYearStart').value = r.yearStart||'';
-  document.getElementById('formYearEnd').value = r.yearEnd||'';
   document.getElementById('formDate').value = r.date ? r.date.split('T')[0] : new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
   populateFormCat(r.category);
-  window.onCatChange(Array.isArray(r.genre)?r.genre:(r.genre?[r.genre]:[]));
+  window.onCatChange(r.genre);
   if(r.category==='TV-sarjat') selectTvTypeByValue(r.tvType||'kokonaisuus');
   buildScorePicker('scorePicker', 'selectedScore');
   window.toggleMark(r.mark||null);
@@ -860,15 +842,10 @@ window.onCatChange = function(preselectedGenre){
   const cat = document.getElementById('formCat').value;
   const isTv = cat==='TV-sarjat';
   const hasGenre = GENRE_CATS.includes(cat);
-  const hasYear = GENRE_CATS.includes(cat); // Elokuvat ja TV-sarjat
   if(!window._queueMode){
     document.getElementById('tvTypeSection').style.display = isTv?'block':'none';
   }
   document.getElementById('genreSection').style.display = hasGenre?'block':'none';
-  document.getElementById('yearRangeSection').style.display = hasYear?'block':'none';
-  document.getElementById('yearRangeLabel').textContent = isTv?'Vuosiväli':'Julkaisuvuosi';
-  document.getElementById('yearRangeDash').style.display = isTv?'inline':'none';
-  document.getElementById('formYearEnd').style.display = isTv?'block':'none';
   if(hasGenre){
     const sel = document.getElementById('formGenre');
     sel.innerHTML = `<option value="">– Ei genreä –</option>`+GENRES.map(g=>`<option value="${g}" ${g===preselectedGenre?'selected':''}>${g}</option>`).join('');
@@ -902,14 +879,6 @@ window.selectScore = function(n, pickerId, varName){
   else selectedPartScore = n;
   document.querySelectorAll(`#${pickerId} .score-opt`).forEach(b=>b.classList.toggle('selected',+b.textContent===n));
 };
-
-window.toggleGenreChip = function(btn, genre){
-  btn.classList.toggle('active');
-};
-
-function getSelectedGenres(){
-  return [...document.querySelectorAll('#genreCheckboxes .genre-chip.active')].map(b=>b.textContent);
-}
 
 window.toggleMark = function(mark){
   selectedMark = mark;
@@ -948,12 +917,10 @@ window.saveReview = async function(){
     const r = appData.reviews.find(x=>x.id===editingId);
     if(r){
       r.name=name; r.category=cat;
-      r.genre=GENRE_CATS.includes(cat)?getSelectedGenres():[];
+      r.genre=GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'';
       r.tvType=isTv?selectedTvType:'';
       r.score=needsScore?selectedScore:null;
       r.mark=selectedMark;
-      r.yearStart=document.getElementById('formYearStart').value||'';
-      r.yearEnd=document.getElementById('formYearEnd').value||'';
       r.date=(document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z';
       r.note=document.getElementById('formNote').value;
     }
@@ -962,13 +929,11 @@ window.saveReview = async function(){
       id: Date.now(),
       date: (document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z',
       name, category:cat,
-      genre: GENRE_CATS.includes(cat)?getSelectedGenres():[],
+      genre: GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'',
       tvType: isTv?selectedTvType:'',
       score: needsScore?selectedScore:null,
       parts: [],
       mark: selectedMark,
-      yearStart: document.getElementById('formYearStart').value||'',
-      yearEnd: document.getElementById('formYearEnd').value||'',
       note: document.getElementById('formNote').value
     });
   }
