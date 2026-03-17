@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Arvostelut</title>
+<meta name="theme-color" content="#0a0a0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Arvostelut">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #0a0a0f;
+  --bg2: #111118;
+  --bg3: #1a1a24;
+  --card: #16161f;
+  --border: rgba(255,255,255,0.08);
+  --accent: #e8b84b;
+  --accent2: #ff6b6b;
+  --text: #f0f0f5;
+  --muted: rgba(240,240,245,0.45);
+  --green: #4ade80;
+  --blue: #60a5fa;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* HEADER */
+#appHeader{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(10,10,15,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+.header-logo{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:var(--accent);}
+.header-logo span{color:var(--text);}
+#saveStatus{position:fixed;top:0;left:0;right:0;padding:6px;text-align:center;font-size:12px;font-weight:700;z-index:9999;opacity:0;transition:opacity 0.4s;pointer-events:none;}
+
+/* PIN */
+#pinScreen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:18px;}
+.pin-logo{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:4px;color:var(--accent);}
+.pin-sub{font-size:15px;color:var(--muted);}
+.pin-dots{display:flex;gap:14px;margin:8px 0;}
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,0.3);background:transparent;transition:all 0.15s;}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);}
+.pin-pad{display:grid;grid-template-columns:repeat(3,76px);gap:10px;}
+.pin-key{height:76px;width:76px;border-radius:16px;background:var(--card);border:1px solid var(--border);color:var(--text);font-size:26px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
+.pin-key:active{background:var(--accent);color:var(--bg);}
+.pin-error{color:var(--accent2);font-weight:600;font-size:14px;min-height:20px;}
+
+/* MAIN */
+.main{padding:70px 14px 100px;}
+
+/* KATEGORIA TABS */
+.cat-tabs{display:flex;gap:8px;overflow-x:auto;padding:14px 0 8px;scrollbar-width:none;-ms-overflow-style:none;}
+.cat-tabs::-webkit-scrollbar{display:none;}
+.cat-tab{flex-shrink:0;padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+.cat-tab.active{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+
+/* TOOLBAR */
+.toolbar{display:flex;gap:8px;margin:10px 0;align-items:center;}
+.search-box{flex:1;position:relative;}
+.search-box input{width:100%;padding:11px 14px 11px 38px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;outline:none;}
+.search-box input:focus{border-color:var(--accent);}
+.search-box input::placeholder{color:var(--muted);}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px;pointer-events:none;}
+.sort-btn{padding:11px 13px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:18px;cursor:pointer;transition:all 0.2s;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;}
+.filter-btn{padding:11px 13px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:18px;cursor:pointer;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;}
+.filter-btn.active{border-color:var(--accent);color:var(--accent);}
+
+/* FILTER PANEL */
+.filter-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;display:none;}
+.filter-panel.open{display:block;}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.filter-chip{padding:6px 12px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
+.filter-chip.active{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+.filter-label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+
+/* KORTIT */
+.cards-grid{display:flex;flex-direction:column;gap:12px;}
+.review-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;position:relative;overflow:hidden;transition:border-color 0.2s;}
+.review-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent);}
+.review-card.type-tv::before{background:var(--blue);}
+.review-card.type-ruoka::before{background:#fb923c;}
+.review-card.type-juoma::before{background:#a78bfa;}
+.review-card.type-custom::before{background:var(--green);}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
+.card-title{font-size:18px;font-weight:700;line-height:1.2;flex:1;}
+.card-score{font-family:'Bebas Neue',sans-serif;font-size:36px;line-height:1;color:var(--accent);}
+.card-score.score-high{color:var(--green);}
+.card-score.score-mid{color:var(--accent);}
+.card-score.score-low{color:var(--accent2);}
+.card-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.meta-chip{padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;background:rgba(255,255,255,0.07);}
+.card-note{font-size:14px;color:var(--muted);line-height:1.5;margin-top:6px;}
+.card-note.collapsed{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.card-actions{display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);}
+.btn-sm{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;min-height:36px;transition:all 0.15s;}
+.btn-edit{background:rgba(255,255,255,0.07);color:var(--text);}
+.btn-edit:active{background:rgba(255,255,255,0.15);}
+.btn-del{background:rgba(255,107,107,0.12);color:var(--accent2);}
+.btn-del:active{background:rgba(255,107,107,0.25);}
+.btn-expand{background:transparent;color:var(--muted);border:none;font-size:12px;cursor:pointer;padding:4px 0;font-family:'DM Sans',sans-serif;}
+
+/* TV SARJAN OSAT */
+.tv-parts{margin-top:10px;border-top:1px solid var(--border);padding-top:10px;}
+.tv-avg{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.tv-avg-label{font-size:13px;color:var(--muted);}
+.tv-avg-num{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--blue);}
+.tv-part{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.tv-part:last-child{border-bottom:none;}
+.tv-part-name{flex:1;font-size:14px;}
+.tv-part-score{font-family:'Bebas Neue',sans-serif;font-size:20px;}
+.btn-add-part{margin-top:8px;padding:8px 14px;background:rgba(96,165,250,0.1);color:var(--blue);border:1px solid rgba(96,165,250,0.3);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;}
+.btn-add-part:active{background:rgba(96,165,250,0.2);}
+
+/* FAB */
+#fab{position:fixed;bottom:20px;right:16px;width:56px;height:56px;border-radius:20px;background:var(--accent);color:var(--bg);font-size:28px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(232,184,75,0.4);z-index:100;transition:all 0.2s;font-weight:700;}
+#fab:active{transform:scale(0.92);}
+
+/* BOTTOM SHEET MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;display:none;align-items:flex-end;}
+.modal-overlay.open{display:flex;animation:fadeInM 0.2s;}
+@keyframes fadeInM{from{opacity:0}to{opacity:1}}
+.modal-sheet{background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 16px 40px;width:100%;max-height:90vh;overflow-y:auto;animation:slideUpM 0.3s cubic-bezier(0.4,0,0.2,1);}
+@keyframes slideUpM{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:36px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:0 auto 18px;}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-bottom:18px;color:var(--accent);}
+.form-group{margin-bottom:14px;}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:13px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;-webkit-appearance:none;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);}
+.form-group textarea{min-height:80px;resize:none;}
+.score-picker{display:flex;gap:6px;flex-wrap:wrap;}
+.score-opt{width:44px;height:44px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
+.score-opt.selected{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+.modal-actions{display:flex;gap:10px;margin-top:16px;}
+.btn-primary{flex:1;padding:15px;background:var(--accent);color:var(--bg);border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;min-height:52px;}
+.btn-primary:active{filter:brightness(0.9);}
+.btn-secondary{flex:1;padding:15px;background:var(--bg3);color:var(--muted);border:1px solid var(--border);border-radius:12px;font-size:16px;cursor:pointer;font-family:'DM Sans',sans-serif;min-height:52px;}
+
+/* TV TYYPIN VALINTA */
+.tv-type-opts{display:flex;flex-direction:column;gap:8px;}
+.tv-type-opt{padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all 0.15s;}
+.tv-type-opt.selected{border-color:var(--blue);background:rgba(96,165,250,0.08);}
+.tv-type-opt-title{font-weight:700;font-size:15px;margin-bottom:2px;}
+.tv-type-opt-desc{font-size:13px;color:var(--muted);}
+
+/* TYHJÄ TILA */
+.empty-state{text-align:center;padding:60px 20px;}
+.empty-icon{font-size:48px;margin-bottom:12px;}
+.empty-title{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--muted);letter-spacing:1px;}
+
+/* ASETUKSET */
+.settings-btn{padding:8px 12px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:18px;cursor:pointer;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;}
+.cat-manage{display:flex;flex-direction:column;gap:8px;}
+.cat-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:10px;}
+.cat-row-name{flex:1;font-weight:600;}
+.cat-del{background:rgba(255,107,107,0.12);color:var(--accent2);border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;}
+.add-cat-row{display:flex;gap:8px;margin-top:8px;}
+.add-cat-row input{flex:1;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;outline:none;}
+.add-cat-row input:focus{border-color:var(--accent);}
+.add-cat-btn{padding:12px 16px;background:var(--accent);color:var(--bg);border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;min-width:44px;}
+</style>
+</head>
+<body>
+
+<div id="saveStatus"></div>
+
+<!-- PIN -->
+<div id="pinScreen">
+  <div class="pin-logo">★ ARVOSTELUT</div>
+  <div class="pin-sub">Syötä PIN-koodi</div>
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot"></div><div class="pin-dot"></div>
+    <div class="pin-dot"></div><div class="pin-dot"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-key" data-v="1">1</button><button class="pin-key" data-v="2">2</button><button class="pin-key" data-v="3">3</button>
+    <button class="pin-key" data-v="4">4</button><button class="pin-key" data-v="5">5</button><button class="pin-key" data-v="6">6</button>
+    <button class="pin-key" data-v="7">7</button><button class="pin-key" data-v="8">8</button><button class="pin-key" data-v="9">9</button>
+    <button class="pin-key" data-v="back">←</button><button class="pin-key" data-v="0">0</button><button class="pin-key" data-v="clear">✕</button>
+  </div>
+  <div class="pin-error" id="pinError"></div>
+</div>
+
+<!-- HEADER -->
+<div id="appHeader">
+  <div class="header-logo">★ <span>ARVOSTELUT</span></div>
+  <button class="settings-btn" onclick="openSettings()">⚙️</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- KATEGORIATABS -->
+  <div class="cat-tabs" id="catTabs"></div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="Hae nimellä..." oninput="renderCards()">
+    </div>
+    <button class="filter-btn" id="filterToggleBtn" onclick="toggleFilter()">⚡</button>
+    <button class="sort-btn" onclick="cycleSort()" id="sortBtn" title="Järjestys">↕️</button>
+  </div>
+
+  <!-- FILTER PANEL -->
+  <div class="filter-panel" id="filterPanel">
+    <div class="filter-label">Genre</div>
+    <div class="filter-row" id="genreFilters"></div>
+    <div class="filter-label" style="margin-top:12px;">Arvosana</div>
+    <div class="filter-row" id="scoreFilters">
+      <button class="filter-chip" data-score="high" onclick="toggleScoreFilter(this)">8–10 ⭐</button>
+      <button class="filter-chip" data-score="mid" onclick="toggleScoreFilter(this)">5–7 👍</button>
+      <button class="filter-chip" data-score="low" onclick="toggleScoreFilter(this)">1–4 👎</button>
+    </div>
+  </div>
+
+  <div class="cards-grid" id="cardsGrid"></div>
+</div>
+
+<!-- FAB -->
+<button id="fab" onclick="openAddModal()">+</button>
+
+<!-- LISÄÄ/MUOKKAA MODAL -->
+<div class="modal-overlay" id="addModal" onclick="closeModalIfOutside(event,'addModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalTitle">Lisää arvostelu</div>
+
+    <div class="form-group">
+      <label>Kategoria</label>
+      <select id="formCat" onchange="onCatChange()"></select>
+    </div>
+
+    <!-- TV-sarjan tyyppi -->
+    <div id="tvTypeSection" style="display:none;">
+      <div class="form-group">
+        <label>Arvostelutyyppi</label>
+        <div class="tv-type-opts">
+          <div class="tv-type-opt selected" data-type="kokonaisuus" onclick="selectTvType(this)">
+            <div class="tv-type-opt-title">🎬 Koko sarja</div>
+            <div class="tv-type-opt-desc">Yksi arvosana koko sarjalle</div>
+          </div>
+          <div class="tv-type-opt" data-type="kaudet" onclick="selectTvType(this)">
+            <div class="tv-type-opt-title">📅 Tuotantokausittain</div>
+            <div class="tv-type-opt-desc">Arvostele jokainen kausi erikseen</div>
+          </div>
+          <div class="tv-type-opt" data-type="jaksot" onclick="selectTvType(this)">
+            <div class="tv-type-opt-title">📺 Jaksoittain</div>
+            <div class="tv-type-opt-desc">Arvostele jokainen jakso erikseen</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Nimi *</label>
+      <input type="text" id="formName" placeholder="esim. Oppenheimer">
+    </div>
+
+    <div id="genreSection" class="form-group" style="display:none;">
+      <label>Genre</label>
+      <select id="formGenre"></select>
+    </div>
+
+    <div id="scoreSection">
+      <div class="form-group">
+        <label>Arvosana *</label>
+        <div class="score-picker" id="scorePicker"></div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Lisätiedot</label>
+      <textarea id="formNote" placeholder="Vapaa kommentti..."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('addModal')">Peruuta</button>
+      <button class="btn-primary" onclick="saveReview()">Tallenna</button>
+    </div>
+  </div>
+</div>
+
+<!-- TV OSA MODAL -->
+<div class="modal-overlay" id="partModal" onclick="closeModalIfOutside(event,'partModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="partModalTitle">Lisää osa</div>
+    <div class="form-group">
+      <label id="partNameLabel">Nimi *</label>
+      <input type="text" id="partName" placeholder="esim. Kausi 1">
+    </div>
+    <div class="form-group">
+      <label>Arvosana *</label>
+      <div class="score-picker" id="partScorePicker"></div>
+    </div>
+    <div class="form-group">
+      <label>Lisätiedot</label>
+      <textarea id="partNote" placeholder="Vapaa kommentti..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('partModal')">Peruuta</button>
+      <button class="btn-primary" onclick="savePart()">Tallenna</button>
+    </div>
+  </div>
+</div>
+
+<!-- ASETUKSET MODAL -->
+<div class="modal-overlay" id="settingsModal" onclick="closeModalIfOutside(event,'settingsModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Asetukset</div>
+    <div class="form-group">
+      <label>Kategoriat</label>
+      <div class="cat-manage" id="catManageList"></div>
+      <div class="add-cat-row">
+        <input type="text" id="newCatInput" placeholder="Uusi kategoria...">
+        <button class="add-cat-btn" onclick="addCategory()">+</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA_VUBuT2lcDtrtMEUZV-U8CNy0Rv1XSNI",
+  authDomain: "arvostelut-a07dd.firebaseapp.com",
+  projectId: "arvostelut-a07dd",
+  storageBucket: "arvostelut-a07dd.firebasestorage.app",
+  messagingSenderId: "998880403275",
+  appId: "1:998880403275:web:08ce4b3ef0489d31de52ce"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+const DATA_DOC = doc(db, "arvostelut", "data");
+const PIN_DOC  = doc(db, "arvostelut", "pin");
+const PIN_SESSION = "arvostelut_pin_ok";
+let isSaving = false;
+
+function showStatus(msg, color){
+  const el = document.getElementById('saveStatus');
+  el.textContent=msg; el.style.background=color; el.style.color='white'; el.style.opacity='1';
+  setTimeout(()=>el.style.opacity='0', 2200);
+}
+
+window.fbSave = async function(){
+  if(isSaving) return;
+  isSaving=true; showStatus('💾 Tallennetaan...','#f97316');
+  try{
+    localStorage.setItem('arvostelut_bkp', JSON.stringify(appData));
+    await setDoc(DATA_DOC, { json: JSON.stringify(appData) });
+    showStatus('✅ Tallennettu','#22c55e');
+  } catch(e){ showStatus('❌ Virhe','#dc2626'); }
+  isSaving=false;
+};
+
+async function fbLoad(){
+  try{
+    const snap = await getDoc(DATA_DOC);
+    if(snap.exists()){
+      appData = JSON.parse(snap.data().json);
+    } else {
+      const bkp = localStorage.getItem('arvostelut_bkp');
+      if(bkp) appData = JSON.parse(bkp);
+      if(appData.reviews.length > 0) await window.fbSave();
+    }
+  } catch(e){
+    showStatus('⚠️ Yhteysvirhe','#f59e0b');
+    const bkp = localStorage.getItem('arvostelut_bkp');
+    if(bkp) appData = JSON.parse(bkp);
+  }
+  initApp();
+  onSnapshot(DATA_DOC, snap => {
+    if(!snap.exists() || isSaving) return;
+    try{ appData = JSON.parse(snap.data().json); renderAll(); } catch(e){}
+  });
+}
+
+// PIN
+let pinBuffer = '';
+function renderPinDots(){ document.querySelectorAll('.pin-dot').forEach((d,i)=>d.classList.toggle('filled', i<pinBuffer.length)); }
+async function checkPin(){
+  const err = document.getElementById('pinError');
+  try{
+    const snap = await getDoc(PIN_DOC);
+    if(!snap.exists()){ err.textContent='PIN-asetuksia ei löydy'; pinBuffer=''; renderPinDots(); return; }
+    if(pinBuffer === snap.data().code){
+      sessionStorage.setItem(PIN_SESSION,'1');
+      document.getElementById('pinScreen').style.display='none';
+      fbLoad();
+    } else {
+      err.textContent='Väärä PIN-koodi';
+      pinBuffer=''; setTimeout(()=>renderPinDots(),300);
+    }
+  } catch(e){ err.textContent='Yhteysvirhe'; pinBuffer=''; renderPinDots(); }
+}
+function handlePin(v){
+  const err=document.getElementById('pinError'); err.textContent='';
+  if(v==='clear'){ pinBuffer=''; renderPinDots(); return; }
+  if(v==='back'){ pinBuffer=pinBuffer.slice(0,-1); renderPinDots(); return; }
+  if(pinBuffer.length>=4) return;
+  pinBuffer+=v; renderPinDots();
+  if(pinBuffer.length===4) checkPin();
+}
+document.querySelectorAll('.pin-key').forEach(b=>b.addEventListener('click',()=>handlePin(b.dataset.v)));
+if(sessionStorage.getItem(PIN_SESSION)){ document.getElementById('pinScreen').style.display='none'; fbLoad(); }
+</script>
+
+<script>
+// ── DATA ──
+const DEFAULT_CATS = ['Elokuvat','TV-sarjat','Ruuat','Juomat'];
+const GENRES = ['Toiminta','Komedia','Draama','Kauhu','Sci-fi','Trilleri','Dokumentti','Animaatio','Romantiikka','Fantasia','Seikkailu','Musiikki','Urheilu','Rikostarina','Historia','Sota','Western','Noir','Perhe','Tositapahtumat'];
+const GENRE_CATS = ['Elokuvat','TV-sarjat'];
+
+let appData = {
+  categories: [...DEFAULT_CATS],
+  reviews: []
+};
+
+let activeCat = 'Kaikki';
+let sortMode = 'uusin'; // uusin | vanhin | paras | huonoin
+let activeGenreFilter = null;
+let activeScoreFilter = null;
+let editingId = null;
+let editingPartId = null;
+let editingPartReviewId = null;
+let selectedTvType = 'kokonaisuus';
+let selectedScore = null;
+let selectedPartScore = null;
+
+function initApp(){
+  renderCatTabs();
+  renderGenreFilters();
+  renderAll();
+}
+
+function renderAll(){
+  renderCatTabs();
+  renderCards();
+}
+
+// ── KATEGORIAT ──
+function renderCatTabs(){
+  const tabs = document.getElementById('catTabs');
+  const cats = ['Kaikki', ...appData.categories];
+  tabs.innerHTML = cats.map(c => `
+    <button class="cat-tab ${c===activeCat?'active':''}" onclick="setActiveCat('${c}')">${c}</button>
+  `).join('');
+}
+
+window.setActiveCat = function(cat){
+  activeCat = cat;
+  renderCatTabs();
+  renderCards();
+};
+
+// ── GENRE FILTERIT ──
+function renderGenreFilters(){
+  const el = document.getElementById('genreFilters');
+  el.innerHTML = GENRES.map(g => `
+    <button class="filter-chip ${g===activeGenreFilter?'active':''}" onclick="toggleGenreFilter(this,'${g}')">${g}</button>
+  `).join('');
+}
+
+window.toggleGenreFilter = function(btn, genre){
+  activeGenreFilter = activeGenreFilter===genre ? null : genre;
+  document.querySelectorAll('#genreFilters .filter-chip').forEach(b=>b.classList.remove('active'));
+  if(activeGenreFilter) btn.classList.add('active');
+  renderCards();
+};
+
+window.toggleScoreFilter = function(btn){
+  const s = btn.dataset.score;
+  activeScoreFilter = activeScoreFilter===s ? null : s;
+  document.querySelectorAll('#scoreFilters .filter-chip').forEach(b=>b.classList.remove('active'));
+  if(activeScoreFilter) btn.classList.add('active');
+  renderCards();
+};
+
+window.toggleFilter = function(){
+  const panel = document.getElementById('filterPanel');
+  const btn = document.getElementById('filterToggleBtn');
+  const open = !panel.classList.contains('open');
+  panel.classList.toggle('open', open);
+  btn.classList.toggle('active', open);
+};
+
+window.cycleSort = function(){
+  const modes = ['uusin','vanhin','paras','huonoin'];
+  sortMode = modes[(modes.indexOf(sortMode)+1)%modes.length];
+  const icons = {uusin:'🕐',vanhin:'📅',paras:'⭐',huonoin:'📉'};
+  const labels = {uusin:'Uusin ensin',vanhin:'Vanhin ensin',paras:'Paras ensin',huonoin:'Huonoin ensin'};
+  document.getElementById('sortBtn').textContent = icons[sortMode];
+  showToast(labels[sortMode]);
+  renderCards();
+};
+
+function showToast(msg){
+  showStatusMsg(msg,'#333');
+}
+function showStatusMsg(msg,color){
+  const el=document.getElementById('saveStatus');
+  el.textContent=msg; el.style.background=color; el.style.color='white'; el.style.opacity='1';
+  setTimeout(()=>el.style.opacity='0',1500);
+}
+
+// ── KORTIT ──
+function getReviewScore(r){
+  if(r.tvType && r.tvType!=='kokonaisuus' && r.parts && r.parts.length>0){
+    const sum = r.parts.reduce((a,p)=>a+(p.score||0),0);
+    return Math.round((sum/r.parts.length)*10)/10;
+  }
+  return r.score||null;
+}
+
+function scoreClass(s){ return s>=8?'score-high':s>=5?'score-mid':'score-low'; }
+
+function catType(cat){
+  if(cat==='TV-sarjat') return 'tv';
+  if(cat==='Ruuat') return 'ruoka';
+  if(cat==='Juomat') return 'juoma';
+  return 'custom';
+}
+
+window.renderCards = function(){
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  let reviews = [...appData.reviews];
+
+  // Kategoria
+  if(activeCat!=='Kaikki') reviews = reviews.filter(r=>r.category===activeCat);
+
+  // Haku
+  if(q) reviews = reviews.filter(r=>r.name.toLowerCase().includes(q));
+
+  // Genre
+  if(activeGenreFilter) reviews = reviews.filter(r=>r.genre===activeGenreFilter);
+
+  // Arvosana
+  if(activeScoreFilter){
+    reviews = reviews.filter(r=>{
+      const s=getReviewScore(r);
+      if(s===null) return false;
+      if(activeScoreFilter==='high') return s>=8;
+      if(activeScoreFilter==='mid') return s>=5&&s<8;
+      return s<5;
+    });
+  }
+
+  // Järjestys
+  reviews.sort((a,b)=>{
+    if(sortMode==='uusin') return b.id-a.id;
+    if(sortMode==='vanhin') return a.id-b.id;
+    if(sortMode==='paras') return (getReviewScore(b)||0)-(getReviewScore(a)||0);
+    return (getReviewScore(a)||0)-(getReviewScore(b)||0);
+  });
+
+  const grid = document.getElementById('cardsGrid');
+  if(!reviews.length){
+    grid.innerHTML=`<div class="empty-state"><div class="empty-icon">🎬</div><div class="empty-title">Ei arvosteluja vielä</div></div>`;
+    return;
+  }
+
+  grid.innerHTML = reviews.map(r=>{
+    const score = getReviewScore(r);
+    const hasScore = score!==null;
+    const isTvParts = r.tvType && r.tvType!=='kokonaisuus';
+    const typeClass = catType(r.category);
+
+    let partsHtml = '';
+    if(isTvParts && r.parts && r.parts.length>0){
+      const avg = getReviewScore(r);
+      const partLabel = r.tvType==='kaudet' ? 'Kausi' : 'Jakso';
+      partsHtml = `<div class="tv-parts">
+        <div class="tv-avg"><span class="tv-avg-label">Keskiarvo</span><span class="tv-avg-num">${avg}/10</span></div>
+        ${r.parts.map((p,i)=>`
+          <div class="tv-part">
+            <span class="tv-part-name">${p.name}</span>
+            <span class="tv-part-score ${scoreClass(p.score)}">${p.score}</span>
+            <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editPart(${r.id},${i})">✏️</button>
+            <button class="btn-sm btn-del" style="padding:4px 8px;font-size:12px;" onclick="deletePart(${r.id},${i})">✕</button>
+          </div>
+        `).join('')}
+        <button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää ${partLabel.toLowerCase()}</button>
+      </div>`;
+    } else if(isTvParts){
+      const partLabel = r.tvType==='kaudet' ? 'kausi' : 'jakso';
+      partsHtml = `<div class="tv-parts">
+        <button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää ${partLabel}</button>
+      </div>`;
+    }
+
+    return `<div class="review-card type-${typeClass}">
+      <div class="card-top">
+        <div class="card-title">${r.name}</div>
+        ${hasScore&&!isTvParts ? `<div class="card-score ${scoreClass(score)}">${score}</div>` : ''}
+      </div>
+      <div class="card-meta">
+        <span class="meta-chip">${r.category}</span>
+        ${r.genre?`<span class="meta-chip">${r.genre}</span>`:''}
+        ${r.tvType&&r.tvType!=='kokonaisuus'?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
+      </div>
+      ${r.note?`<div class="card-note collapsed" id="note-${r.id}">${r.note}<br><button class="btn-expand" onclick="toggleNote(${r.id})">Näytä lisää ▾</button></div>`:''}
+      ${partsHtml}
+      <div class="card-actions">
+        <button class="btn-sm btn-edit" onclick="editReview(${r.id})">✏️ Muokkaa</button>
+        <button class="btn-sm btn-del" onclick="deleteReview(${r.id})">🗑️ Poista</button>
+      </div>
+    </div>`;
+  }).join('');
+};
+
+window.toggleNote = function(id){
+  const el = document.getElementById('note-'+id);
+  el.classList.toggle('collapsed');
+  const btn = el.querySelector('.btn-expand');
+  btn.textContent = el.classList.contains('collapsed') ? 'Näytä lisää ▾' : 'Piilota ▴';
+};
+
+// ── LISÄÄ/MUOKKAA ──
+window.openAddModal = function(){
+  editingId = null;
+  selectedScore = null;
+  selectedTvType = 'kokonaisuus';
+  document.getElementById('modalTitle').textContent = 'Lisää arvostelu';
+  document.getElementById('formName').value='';
+  document.getElementById('formNote').value='';
+  populateFormCat();
+  buildScorePicker('scorePicker','selectedScore');
+  document.getElementById('addModal').classList.add('open');
+};
+
+window.editReview = function(id){
+  const r = appData.reviews.find(x=>x.id===id); if(!r) return;
+  editingId = id;
+  selectedScore = r.score||null;
+  selectedTvType = r.tvType||'kokonaisuus';
+  document.getElementById('modalTitle').textContent = 'Muokkaa arvostelua';
+  document.getElementById('formName').value = r.name;
+  document.getElementById('formNote').value = r.note||'';
+  populateFormCat(r.category);
+  onCatChange(r.genre);
+  if(r.category==='TV-sarjat') selectTvTypeByValue(r.tvType||'kokonaisuus');
+  buildScorePicker('scorePicker','selectedScore');
+  document.getElementById('addModal').classList.add('open');
+};
+
+function populateFormCat(selected){
+  const sel = document.getElementById('formCat');
+  sel.innerHTML = appData.categories.map(c=>`<option value="${c}" ${c===selected?'selected':''}>${c}</option>`).join('');
+  onCatChange();
+}
+
+window.onCatChange = function(preselectedGenre){
+  const cat = document.getElementById('formCat').value;
+  const isTv = cat==='TV-sarjat';
+  const hasGenre = GENRE_CATS.includes(cat);
+  document.getElementById('tvTypeSection').style.display = isTv?'block':'none';
+  document.getElementById('genreSection').style.display = hasGenre?'block':'none';
+  if(hasGenre){
+    const sel = document.getElementById('formGenre');
+    sel.innerHTML = `<option value="">– Ei genreä –</option>`+GENRES.map(g=>`<option value="${g}" ${g===preselectedGenre?'selected':''}>${g}</option>`).join('');
+  }
+};
+
+window.selectTvType = function(el){
+  document.querySelectorAll('.tv-type-opt').forEach(e=>e.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedTvType = el.dataset.type;
+  // Piilota arvosana jos ei kokonaisuus
+  document.getElementById('scoreSection').style.display = selectedTvType==='kokonaisuus'?'block':'none';
+};
+
+function selectTvTypeByValue(val){
+  document.querySelectorAll('.tv-type-opt').forEach(e=>{
+    e.classList.toggle('selected', e.dataset.type===val);
+  });
+  selectedTvType = val;
+  document.getElementById('scoreSection').style.display = val==='kokonaisuus'?'block':'none';
+}
+
+function buildScorePicker(pickerId, varName){
+  const el = document.getElementById(pickerId);
+  el.innerHTML = [1,2,3,4,5,6,7,8,9,10].map(n=>`
+    <button class="score-opt ${window[varName]===n?'selected':''}" onclick="selectScore(${n},'${pickerId}','${varName}')">${n}</button>
+  `).join('');
+}
+
+window.selectScore = function(n, pickerId, varName){
+  window[varName] = n;
+  document.querySelectorAll(`#${pickerId} .score-opt`).forEach(b=>b.classList.toggle('selected',+b.textContent===n));
+};
+
+window.saveReview = async function(){
+  const name = document.getElementById('formName').value.trim();
+  if(!name){ alert('Anna nimi!'); return; }
+  const cat = document.getElementById('formCat').value;
+  const isTv = cat==='TV-sarjat';
+  const needsScore = !isTv || selectedTvType==='kokonaisuus';
+  if(needsScore && !selectedScore){ alert('Valitse arvosana!'); return; }
+
+  if(editingId){
+    const r = appData.reviews.find(x=>x.id===editingId);
+    r.name=name; r.category=cat;
+    r.genre=GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'';
+    r.tvType=isTv?selectedTvType:'';
+    r.score=needsScore?selectedScore:null;
+    r.note=document.getElementById('formNote').value;
+  } else {
+    appData.reviews.push({
+      id: Date.now(),
+      name, category:cat,
+      genre: GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'',
+      tvType: isTv?selectedTvType:'',
+      score: needsScore?selectedScore:null,
+      parts: [],
+      note: document.getElementById('formNote').value
+    });
+  }
+  closeModal('addModal');
+  await window.fbSave();
+  renderCards();
+};
+
+window.deleteReview = async function(id){
+  if(!confirm('Poistetaanko arvostelu?')) return;
+  appData.reviews = appData.reviews.filter(r=>r.id!==id);
+  await window.fbSave();
+  renderCards();
+};
+
+// ── TV OSAT ──
+window.openAddPart = function(reviewId){
+  editingPartId = null;
+  editingPartReviewId = reviewId;
+  selectedPartScore = null;
+  const r = appData.reviews.find(x=>x.id===reviewId);
+  const label = r.tvType==='kaudet'?'kausi':'jakso';
+  document.getElementById('partModalTitle').textContent = `Lisää ${label}`;
+  document.getElementById('partNameLabel').textContent = `${label.charAt(0).toUpperCase()+label.slice(1)} nimi *`;
+  document.getElementById('partName').value='';
+  document.getElementById('partNote').value='';
+  buildScorePicker('partScorePicker','selectedPartScore');
+  document.getElementById('partModal').classList.add('open');
+};
+
+window.editPart = function(reviewId, partIdx){
+  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
+  const p = r.parts[partIdx];
+  editingPartReviewId = reviewId;
+  editingPartId = partIdx;
+  selectedPartScore = p.score;
+  const label = r.tvType==='kaudet'?'kausi':'jakso';
+  document.getElementById('partModalTitle').textContent = `Muokkaa ${label}a`;
+  document.getElementById('partName').value = p.name;
+  document.getElementById('partNote').value = p.note||'';
+  buildScorePicker('partScorePicker','selectedPartScore');
+  document.getElementById('partModal').classList.add('open');
+};
+
+window.savePart = async function(){
+  const name = document.getElementById('partName').value.trim();
+  if(!name){ alert('Anna nimi!'); return; }
+  if(!selectedPartScore){ alert('Valitse arvosana!'); return; }
+  const r = appData.reviews.find(x=>x.id===editingPartReviewId); if(!r) return;
+  if(!r.parts) r.parts=[];
+  const partData = { name, score:selectedPartScore, note:document.getElementById('partNote').value };
+  if(editingPartId!==null) r.parts[editingPartId]=partData;
+  else r.parts.push(partData);
+  closeModal('partModal');
+  await window.fbSave();
+  renderCards();
+};
+
+window.deletePart = async function(reviewId, partIdx){
+  if(!confirm('Poistetaanko?')) return;
+  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
+  r.parts.splice(partIdx,1);
+  await window.fbSave();
+  renderCards();
+};
+
+// ── ASETUKSET ──
+window.openSettings = function(){
+  renderCatManage();
+  document.getElementById('settingsModal').classList.add('open');
+};
+
+function renderCatManage(){
+  const el = document.getElementById('catManageList');
+  el.innerHTML = appData.categories.map((c,i)=>`
+    <div class="cat-row">
+      <span class="cat-row-name">${c}</span>
+      ${!DEFAULT_CATS.includes(c)?`<button class="cat-del" onclick="deleteCat(${i})">Poista</button>`:'<span style="font-size:12px;color:var(--muted);">vakio</span>'}
+    </div>
+  `).join('');
+}
+
+window.addCategory = async function(){
+  const val = document.getElementById('newCatInput').value.trim();
+  if(!val) return;
+  if(appData.categories.includes(val)){ alert('Kategoria on jo olemassa!'); return; }
+  appData.categories.push(val);
+  document.getElementById('newCatInput').value='';
+  renderCatManage();
+  renderAll();
+  await window.fbSave();
+};
+
+window.deleteCat = async function(i){
+  const cat = appData.categories[i];
+  if(appData.reviews.some(r=>r.category===cat)){
+    alert('Poista ensin kaikki tämän kategorian arvostelut!'); return;
+  }
+  if(!confirm(`Poistetaanko kategoria "${cat}"?`)) return;
+  appData.categories.splice(i,1);
+  renderCatManage();
+  renderAll();
+  await window.fbSave();
+};
+
+// ── MODAALIT ──
+window.closeModal = function(id){
+  document.getElementById(id).classList.remove('open');
+};
+window.closeModalIfOutside = function(e,id){
+  if(e.target===document.getElementById(id)) closeModal(id);
+};
+
+// ── INIT ──
+// (initApp kutsutaan Firebase-latauksen jälkeen)
+</script>
+</body>
+</html>
