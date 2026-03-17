@@ -219,8 +219,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .autocomplete-item:active { background: rgba(232,184,75,0.1); }
 .autocomplete-item mark { background: none; color: var(--accent); font-weight: 700; }
 
-/* PÄIVÄMÄÄRÄ */
-.card-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
+/* GENRE CHIPIT */
+.genre-chip{padding:7px 13px;border-radius:16px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
+.genre-chip-active{background:rgba(232,184,75,0.18)!important;border-color:var(--accent)!important;color:var(--accent)!important;}
+
 
 /* NÄKYMÄ NAPIT */
 .view-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
@@ -348,17 +350,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="form-group">
       <label>Nimi *</label>
       <div class="autocomplete-wrap">
-        <input type="text" id="formName" placeholder="esim. OPPENHEIMER"
-          oninput="this.value=this.value.toUpperCase(); setTimeout(()=>showNameSuggestions(this.value),0)"
+        <textarea id="formName" placeholder="esim. OPPENHEIMER&#10;2002"
+          oninput="this.value=this.value.toUpperCase(); setTimeout(()=>showNameSuggestions(this.value.split('\n')[0]),0)"
           onkeydown="handleAcKey(event)"
-          autocomplete="off">
+          autocomplete="off"
+          rows="2"
+          style="resize:none;min-height:64px;line-height:1.5;"></textarea>
         <div class="autocomplete-list" id="acList" style="display:none;"></div>
       </div>
     </div>
 
     <div id="genreSection" class="form-group" style="display:none;">
       <label>Genre</label>
-      <select id="formGenre"></select>
+      <div id="genreChips" style="display:flex;flex-wrap:wrap;gap:7px;margin-top:2px;"></div>
     </div>
 
     <div id="scoreSection">
@@ -710,7 +714,10 @@ window.renderCards = function(){
   let reviews = [...appData.reviews];
   if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
   if(q) reviews = reviews.filter(r=>r.name.toLowerCase().includes(q));
-  if(activeGenreFilter) reviews = reviews.filter(r=>r.genre===activeGenreFilter);
+  if(activeGenreFilter) reviews = reviews.filter(r=>{
+    const genres = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
+    return genres.includes(activeGenreFilter);
+  });
   if(activeScoreFilter){
     reviews = reviews.filter(r=>{
       const s=getReviewScore(r); if(s===null) return false;
@@ -769,7 +776,10 @@ window.renderCards = function(){
       </div>
       <div class="card-meta">
         <span class="meta-chip">${r.category}</span>
-        ${r.genre?`<span class="meta-chip">${r.genre}</span>`:''}
+        ${(()=>{
+          const genres = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
+          return genres.map(g=>`<span class="meta-chip">${g}</span>`).join('');
+        })()}
         ${isTvParts?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
         ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>':''}
@@ -847,10 +857,25 @@ window.onCatChange = function(preselectedGenre){
   }
   document.getElementById('genreSection').style.display = hasGenre?'block':'none';
   if(hasGenre){
-    const sel = document.getElementById('formGenre');
-    sel.innerHTML = `<option value="">– Ei genreä –</option>`+GENRES.map(g=>`<option value="${g}" ${g===preselectedGenre?'selected':''}>${g}</option>`).join('');
+    // pre-selected: support array or string (backward compat)
+    let preArr = [];
+    if(Array.isArray(preselectedGenre)) preArr = preselectedGenre;
+    else if(preselectedGenre) preArr = [preselectedGenre];
+    const chips = document.getElementById('genreChips');
+    chips.innerHTML = GENRES.map(g=>`
+      <button type="button" class="genre-chip${preArr.includes(g)?' genre-chip-active':''}" onclick="toggleGenreChip(this,'${g}')">${g}</button>
+    `).join('');
   }
 };
+
+window.toggleGenreChip = function(el, genre){
+  el.classList.toggle('genre-chip-active');
+};
+
+function getSelectedGenres(){
+  const chips = document.querySelectorAll('#genreChips .genre-chip-active');
+  return Array.from(chips).map(c=>c.textContent.trim());
+}
 
 window.selectTvType = function(el){
   document.querySelectorAll('.tv-type-opt').forEach(e=>e.classList.remove('selected'));
@@ -900,7 +925,7 @@ window.saveReview = async function(){
     if(!appData.queue) appData.queue=[];
     appData.queue.push({
       id: Date.now(), name, category: cat,
-      genre: GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'',
+      genre: GENRE_CATS.includes(cat)?getSelectedGenres():[],
       note: document.getElementById('formNote').value
     });
     closeModal('addModal');
@@ -917,7 +942,7 @@ window.saveReview = async function(){
     const r = appData.reviews.find(x=>x.id===editingId);
     if(r){
       r.name=name; r.category=cat;
-      r.genre=GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'';
+      r.genre=GENRE_CATS.includes(cat)?getSelectedGenres():[];
       r.tvType=isTv?selectedTvType:'';
       r.score=needsScore?selectedScore:null;
       r.mark=selectedMark;
@@ -929,7 +954,7 @@ window.saveReview = async function(){
       id: Date.now(),
       date: (document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z',
       name, category:cat,
-      genre: GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'',
+      genre: GENRE_CATS.includes(cat)?getSelectedGenres():[],
       tvType: isTv?selectedTvType:'',
       score: needsScore?selectedScore:null,
       parts: [],
@@ -1055,8 +1080,13 @@ window.queueToReview = function(idx){
     catSel.value = item.category;
     window.onCatChange(item.genre);
     if(item.genre){
-      const genreSel = document.getElementById('formGenre');
-      if(genreSel) genreSel.value = item.genre;
+      // Support both array and string
+      const genres = Array.isArray(item.genre) ? item.genre : (item.genre ? [item.genre] : []);
+      setTimeout(()=>{
+        document.querySelectorAll('#genreChips .genre-chip').forEach(chip=>{
+          if(genres.includes(chip.textContent.trim())) chip.classList.add('genre-chip-active');
+        });
+      }, 50);
     }
     document.getElementById('formNote').value = item.note||'';
   }, 400);
@@ -1158,7 +1188,12 @@ window.showNameSuggestions = function(val){
 
 window.selectAcItem = function(val){
   const inp = document.getElementById('formName');
-  if(inp) inp.value = val;
+  if(inp){
+    // Keep extra lines if any, just replace first line
+    const lines = inp.value.split('\n');
+    lines[0] = val;
+    inp.value = lines.join('\n');
+  }
   const list = document.getElementById('acList');
   if(list) list.style.display='none';
 };
