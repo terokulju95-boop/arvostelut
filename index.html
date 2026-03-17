@@ -488,19 +488,15 @@ const DEFAULT_CATS = ['Elokuvat','TV-sarjat','Ruuat','Juomat'];
 const GENRES = ['Toiminta','Komedia','Draama','Kauhu','Sci-fi','Trilleri','Dokumentti','Animaatio','Romantiikka','Fantasia','Seikkailu','Musiikki','Urheilu','Rikostarina','Historia','Sota','Western','Noir','Perhe','Tositapahtumat'];
 const GENRE_CATS = ['Elokuvat','TV-sarjat'];
 
-let appData = {
-  categories: [...DEFAULT_CATS],
-  reviews: []
-};
-
+let appData = { categories: [...DEFAULT_CATS], reviews: [], queue: [] };
 let activeCat = null;
-let sortMode = 'uusin'; // uusin | vanhin | paras | huonoin
+let sortMode = 'uusin';
 let activeGenreFilter = null;
 let activeScoreFilter = null;
 let activeMarkFilter = null;
 let activeYearFilter = null;
 let selectedMark = null;
-let currentView = 'reviews'; // reviews | queue | top
+let currentView = 'reviews';
 let editingId = null;
 let editingPartId = null;
 let editingPartReviewId = null;
@@ -510,28 +506,12 @@ let selectedPartScore = null;
 
 function initApp(){
   if(!activeCat && appData.categories.length) activeCat = appData.categories[0];
+  if(!appData.queue) appData.queue = [];
   renderCatTabs();
   renderGenreFilters();
   renderYearFilters();
   renderAll();
 }
-
-window.setView = function(view){
-  currentView = view;
-  ['reviews','queue','top'].forEach(v=>{
-    document.getElementById('viewTab'+v.charAt(0).toUpperCase()+v.slice(1)).classList.toggle('active', v===view);
-  });
-  const showCatTools = view==='reviews' || view==='queue';
-  document.getElementById('catTabs').style.display = showCatTools?'':'none';
-  document.querySelector('.toolbar').style.display = view==='reviews'?'':'none';
-  document.getElementById('filterPanel').style.display = 'none';
-  renderAll();
-};
-
-window.fabClick = function(){
-  if(currentView==='queue') openQueueModal();
-  else openAddModal();
-};
 
 function renderAll(){
   renderCatTabs();
@@ -541,25 +521,51 @@ function renderAll(){
   else if(currentView==='top') renderTop();
 }
 
-// ── KATEGORIAT ──
+// ── NÄKYMÄ ──
+window.setView = function(view){
+  currentView = view;
+  ['reviews','queue','top'].forEach(v=>{
+    const el = document.getElementById('viewTab'+v.charAt(0).toUpperCase()+v.slice(1));
+    if(el) el.classList.toggle('active', v===view);
+  });
+  const showCats = view==='reviews'||view==='queue';
+  document.getElementById('catTabs').style.display = showCats?'':'none';
+  const tb = document.querySelector('.toolbar');
+  if(tb) tb.style.display = view==='reviews'?'':'none';
+  document.getElementById('filterPanel').style.display = 'none';
+  renderAll();
+};
+
+window.fabClick = function(){
+  if(currentView==='queue') window.openQueueModal();
+  else window.openAddModal();
+};
+
+// ── KATEGORIA TABS ──
 function renderCatTabs(){
   const tabs = document.getElementById('catTabs');
-  const cats = [...appData.categories];
-  tabs.innerHTML = cats.map(c => `
+  if(!tabs) return;
+  tabs.innerHTML = appData.categories.map(c=>`
     <button class="cat-tab ${c===activeCat?'active':''}" onclick="setActiveCat('${c}')">${c}</button>
   `).join('');
 }
 
 window.setActiveCat = function(cat){
   activeCat = cat;
+  activeGenreFilter = null;
+  activeScoreFilter = null;
+  activeMarkFilter = null;
+  activeYearFilter = null;
+  document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));
   renderCatTabs();
   renderCards();
 };
 
-// ── GENRE FILTERIT ──
+// ── GENREFILTERIT ──
 function renderGenreFilters(){
   const el = document.getElementById('genreFilters');
-  el.innerHTML = GENRES.map(g => `
+  if(!el) return;
+  el.innerHTML = GENRES.map(g=>`
     <button class="filter-chip ${g===activeGenreFilter?'active':''}" onclick="toggleGenreFilter(this,'${g}')">${g}</button>
   `).join('');
 }
@@ -571,31 +577,12 @@ window.toggleGenreFilter = function(btn, genre){
   renderCards();
 };
 
-function renderYearFilters(){
-  const years = [...new Set(appData.reviews
-    .filter(r=>r.date)
-    .map(r=>new Date(r.date).getFullYear())
-  )].sort((a,b)=>b-a);
-  const el = document.getElementById('yearFilters');
-  if(!el) return;
-  el.innerHTML = years.map(y=>`
-    <button class="filter-chip ${y===activeYearFilter?'active':''}" onclick="toggleYearFilter(this,${y})">${y}</button>
-  `).join('');
-}
-
-window.toggleYearFilter = function(btn, year){
-  activeYearFilter = activeYearFilter===year ? null : year;
-  document.querySelectorAll('#yearFilters .filter-chip').forEach(b=>b.classList.remove('active'));
-  if(activeYearFilter) btn.classList.add('active');
+window.toggleScoreFilter = function(btn){
+  const s = btn.dataset.score;
+  activeScoreFilter = activeScoreFilter===s ? null : s;
+  document.querySelectorAll('#scoreFilters .filter-chip').forEach(b=>b.classList.remove('active'));
+  if(activeScoreFilter) btn.classList.add('active');
   renderCards();
-};
-
-window.toggleMark = function(mark){
-  selectedMark = mark;
-  document.getElementById('markHeart').className = 'mark-btn' + (mark==='heart'?' active-heart':'');
-  document.getElementById('markSkull').className = 'mark-btn' + (mark==='skull'?' active-skull':'');
-  document.getElementById('markNone').className  = 'mark-btn' + (mark===null?' active-none':'');
-  if(mark===null) document.getElementById('markNone').style.opacity='1';
 };
 
 window.toggleMarkFilter = function(btn){
@@ -606,11 +593,19 @@ window.toggleMarkFilter = function(btn){
   renderCards();
 };
 
-window.toggleScoreFilter = function(btn){
-  const s = btn.dataset.score;
-  activeScoreFilter = activeScoreFilter===s ? null : s;
-  document.querySelectorAll('#scoreFilters .filter-chip').forEach(b=>b.classList.remove('active'));
-  if(activeScoreFilter) btn.classList.add('active');
+function renderYearFilters(){
+  const el = document.getElementById('yearFilters');
+  if(!el) return;
+  const years = [...new Set(appData.reviews.filter(r=>r.date).map(r=>new Date(r.date).getFullYear()))].sort((a,b)=>b-a);
+  el.innerHTML = years.map(y=>`
+    <button class="filter-chip ${y===activeYearFilter?'active':''}" onclick="toggleYearFilter(this,${y})">${y}</button>
+  `).join('');
+}
+
+window.toggleYearFilter = function(btn, year){
+  activeYearFilter = activeYearFilter===year ? null : year;
+  document.querySelectorAll('#yearFilters .filter-chip').forEach(b=>b.classList.remove('active'));
+  if(activeYearFilter) btn.classList.add('active');
   renderCards();
 };
 
@@ -628,20 +623,13 @@ window.cycleSort = function(){
   const icons = {uusin:'🕐',vanhin:'📅',paras:'⭐',huonoin:'📉'};
   const labels = {uusin:'Uusin ensin',vanhin:'Vanhin ensin',paras:'Paras ensin',huonoin:'Huonoin ensin'};
   document.getElementById('sortBtn').textContent = icons[sortMode];
-  showToast(labels[sortMode]);
+  const el=document.getElementById('saveStatus');
+  el.textContent=labels[sortMode]; el.style.background='#333'; el.style.color='white'; el.style.opacity='1';
+  setTimeout(()=>el.style.opacity='0',1500);
   renderCards();
 };
 
-function showToast(msg){
-  showStatusMsg(msg,'#333');
-}
-function showStatusMsg(msg,color){
-  const el=document.getElementById('saveStatus');
-  el.textContent=msg; el.style.background=color; el.style.color='white'; el.style.opacity='1';
-  setTimeout(()=>el.style.opacity='0',1500);
-}
-
-// ── KORTIT ──
+// ── PISTEYTYS ──
 function getReviewScore(r){
   if(r.tvType && r.tvType!=='kokonaisuus' && r.parts && r.parts.length>0){
     const sum = r.parts.reduce((a,p)=>a+(p.score||0),0);
@@ -651,7 +639,6 @@ function getReviewScore(r){
 }
 
 function scoreClass(s){ return s>=8?'score-high':s>=5?'score-mid':'score-low'; }
-
 function catType(cat){
   if(cat==='TV-sarjat') return 'tv';
   if(cat==='Ruuat') return 'ruoka';
@@ -659,44 +646,25 @@ function catType(cat){
   return 'custom';
 }
 
+// ── KORTIT ──
 window.renderCards = function(){
-  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const searchEl = document.getElementById('searchInput');
+  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
   let reviews = [...appData.reviews];
-
-  // Kategoria
   if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
-
-  // Haku
   if(q) reviews = reviews.filter(r=>r.name.toLowerCase().includes(q));
-
-  // Genre
   if(activeGenreFilter) reviews = reviews.filter(r=>r.genre===activeGenreFilter);
-
-  // Arvosana
   if(activeScoreFilter){
     reviews = reviews.filter(r=>{
-      const s=getReviewScore(r);
-      if(s===null) return false;
+      const s=getReviewScore(r); if(s===null) return false;
       if(activeScoreFilter==='high') return s>=8;
       if(activeScoreFilter==='mid') return s>=5&&s<8;
       return s<5;
     });
   }
+  if(activeMarkFilter) reviews = reviews.filter(r=>r.mark===activeMarkFilter);
+  if(activeYearFilter) reviews = reviews.filter(r=>r.date&&new Date(r.date).getFullYear()===activeYearFilter);
 
-  // Merkki
-  if(activeMarkFilter){
-    reviews = reviews.filter(r=>r.mark===activeMarkFilter);
-  }
-
-  // Vuosi
-  if(activeYearFilter){
-    reviews = reviews.filter(r=>{
-      if(!r.date) return false;
-      return new Date(r.date).getFullYear()===activeYearFilter;
-    });
-  }
-
-  // Järjestys
   reviews.sort((a,b)=>{
     if(sortMode==='uusin') return b.id-a.id;
     if(sortMode==='vanhin') return a.id-b.id;
@@ -712,9 +680,9 @@ window.renderCards = function(){
 
   grid.innerHTML = reviews.map(r=>{
     const score = getReviewScore(r);
-    const hasScore = score!==null;
     const isTvParts = r.tvType && r.tvType!=='kokonaisuus';
     const typeClass = catType(r.category);
+    const dateStr = r.date ? new Date(r.date).toLocaleDateString('fi-FI') : '';
 
     let partsHtml = '';
     if(isTvParts && r.parts && r.parts.length>0){
@@ -734,21 +702,18 @@ window.renderCards = function(){
       </div>`;
     } else if(isTvParts){
       const partLabel = r.tvType==='kaudet' ? 'kausi' : 'jakso';
-      partsHtml = `<div class="tv-parts">
-        <button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää ${partLabel}</button>
-      </div>`;
+      partsHtml = `<div class="tv-parts"><button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää ${partLabel}</button></div>`;
     }
 
-    const dateStr = r.date ? new Date(r.date).toLocaleDateString('fi-FI') : '';
     return `<div class="review-card type-${typeClass}">
       <div class="card-top">
         <div class="card-title">${r.name}</div>
-        ${hasScore&&!isTvParts ? `<div class="card-score ${scoreClass(score)}">${score}</div>` : ''}
+        ${score!==null&&!isTvParts ? `<div class="card-score ${scoreClass(score)}">${score}</div>` : ''}
       </div>
       <div class="card-meta">
         <span class="meta-chip">${r.category}</span>
         ${r.genre?`<span class="meta-chip">${r.genre}</span>`:''}
-        ${r.tvType&&r.tvType!=='kokonaisuus'?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
+        ${isTvParts?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
         ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>':''}
       </div>
@@ -765,9 +730,10 @@ window.renderCards = function(){
 
 window.toggleNote = function(id){
   const el = document.getElementById('note-'+id);
+  if(!el) return;
   el.classList.toggle('collapsed');
   const btn = el.querySelector('.btn-expand');
-  btn.textContent = el.classList.contains('collapsed') ? 'Näytä lisää ▾' : 'Piilota ▴';
+  if(btn) btn.textContent = el.classList.contains('collapsed') ? 'Näytä lisää ▾' : 'Piilota ▴';
 };
 
 // ── LISÄÄ/MUOKKAA ──
@@ -777,14 +743,14 @@ window.openAddModal = function(){
   selectedTvType = 'kokonaisuus';
   selectedMark = null;
   window._queueMode = false;
-  document.getElementById('scoreSection').style.display='block';
-  document.getElementById('tvTypeSection').style.display='none';
   document.getElementById('modalTitle').textContent = 'Lisää arvostelu';
-  document.getElementById('formName').value='';
-  document.getElementById('formNote').value='';
+  document.getElementById('formName').value = '';
+  document.getElementById('formNote').value = '';
+  document.getElementById('scoreSection').style.display = 'block';
+  document.getElementById('tvTypeSection').style.display = 'none';
   populateFormCat();
-  buildScorePicker('scorePicker','selectedScore');
-  window.toggleMark(r.mark||null);
+  buildScorePicker('scorePicker', 'selectedScore');
+  window.toggleMark(null);
   document.getElementById('addModal').classList.add('open');
 };
 
@@ -794,28 +760,32 @@ window.editReview = function(id){
   selectedScore = r.score||null;
   selectedTvType = r.tvType||'kokonaisuus';
   selectedMark = r.mark||null;
+  window._queueMode = false;
   document.getElementById('modalTitle').textContent = 'Muokkaa arvostelua';
   document.getElementById('formName').value = r.name;
   document.getElementById('formNote').value = r.note||'';
+  document.getElementById('scoreSection').style.display = 'block';
   populateFormCat(r.category);
-  onCatChange(r.genre);
+  window.onCatChange(r.genre);
   if(r.category==='TV-sarjat') selectTvTypeByValue(r.tvType||'kokonaisuus');
-  buildScorePicker('scorePicker','selectedScore');
+  buildScorePicker('scorePicker', 'selectedScore');
   window.toggleMark(r.mark||null);
   document.getElementById('addModal').classList.add('open');
 };
 
 function populateFormCat(selected){
   const sel = document.getElementById('formCat');
-  sel.innerHTML = appData.categories.map(c=>`<option value="${c}" ${c===selected?'selected':''}>${c}</option>`).join('');
-  onCatChange();
+  sel.innerHTML = appData.categories.map(c=>`<option value="${c}" ${c===(selected||activeCat)?'selected':''}>${c}</option>`).join('');
+  window.onCatChange();
 }
 
 window.onCatChange = function(preselectedGenre){
   const cat = document.getElementById('formCat').value;
   const isTv = cat==='TV-sarjat';
   const hasGenre = GENRE_CATS.includes(cat);
-  document.getElementById('tvTypeSection').style.display = isTv?'block':'none';
+  if(!window._queueMode){
+    document.getElementById('tvTypeSection').style.display = isTv?'block':'none';
+  }
   document.getElementById('genreSection').style.display = hasGenre?'block':'none';
   if(hasGenre){
     const sel = document.getElementById('formGenre');
@@ -827,29 +797,38 @@ window.selectTvType = function(el){
   document.querySelectorAll('.tv-type-opt').forEach(e=>e.classList.remove('selected'));
   el.classList.add('selected');
   selectedTvType = el.dataset.type;
-  // Piilota arvosana jos ei kokonaisuus
   document.getElementById('scoreSection').style.display = selectedTvType==='kokonaisuus'?'block':'none';
 };
 
 function selectTvTypeByValue(val){
-  document.querySelectorAll('.tv-type-opt').forEach(e=>{
-    e.classList.toggle('selected', e.dataset.type===val);
-  });
+  document.querySelectorAll('.tv-type-opt').forEach(e=>e.classList.toggle('selected', e.dataset.type===val));
   selectedTvType = val;
   document.getElementById('scoreSection').style.display = val==='kokonaisuus'?'block':'none';
 }
 
 function buildScorePicker(pickerId, varName){
   const el = document.getElementById(pickerId);
+  if(!el) return;
+  const cur = varName==='selectedScore' ? selectedScore : selectedPartScore;
   el.innerHTML = [1,2,3,4,5,6,7,8,9,10].map(n=>`
-    <button class="score-opt ${window[varName]===n?'selected':''}" onclick="selectScore(${n},'${pickerId}','${varName}')">${n}</button>
+    <button class="score-opt ${cur===n?'selected':''}" onclick="selectScore(${n},'${pickerId}','${varName}')">${n}</button>
   `).join('');
 }
 
 window.selectScore = function(n, pickerId, varName){
-  if(varName === 'selectedScore') selectedScore = n;
-  else if(varName === 'selectedPartScore') selectedPartScore = n;
+  if(varName==='selectedScore') selectedScore = n;
+  else selectedPartScore = n;
   document.querySelectorAll(`#${pickerId} .score-opt`).forEach(b=>b.classList.toggle('selected',+b.textContent===n));
+};
+
+window.toggleMark = function(mark){
+  selectedMark = mark;
+  const hBtn = document.getElementById('markHeart');
+  const sBtn = document.getElementById('markSkull');
+  const nBtn = document.getElementById('markNone');
+  if(hBtn) hBtn.className = 'mark-btn' + (mark==='heart'?' active-heart':'');
+  if(sBtn) sBtn.className = 'mark-btn' + (mark==='skull'?' active-skull':'');
+  if(nBtn){ nBtn.className = 'mark-btn'; nBtn.style.opacity = mark===null?'1':'0.5'; }
 };
 
 window.saveReview = async function(){
@@ -857,7 +836,6 @@ window.saveReview = async function(){
   if(!name){ alert('Anna nimi!'); return; }
   const cat = document.getElementById('formCat').value;
 
-  // JONO-MOODI
   if(window._queueMode){
     window._queueMode = false;
     if(!appData.queue) appData.queue=[];
@@ -878,12 +856,14 @@ window.saveReview = async function(){
 
   if(editingId){
     const r = appData.reviews.find(x=>x.id===editingId);
-    r.name=name; r.category=cat;
-    r.genre=GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'';
-    r.tvType=isTv?selectedTvType:'';
-    r.score=needsScore?selectedScore:null;
-    r.mark=selectedMark;
-    r.note=document.getElementById('formNote').value;
+    if(r){
+      r.name=name; r.category=cat;
+      r.genre=GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'';
+      r.tvType=isTv?selectedTvType:'';
+      r.score=needsScore?selectedScore:null;
+      r.mark=selectedMark;
+      r.note=document.getElementById('formNote').value;
+    }
   } else {
     appData.reviews.push({
       id: Date.now(),
@@ -915,12 +895,12 @@ window.openAddPart = function(reviewId){
   editingPartReviewId = reviewId;
   selectedPartScore = null;
   const r = appData.reviews.find(x=>x.id===reviewId);
-  const label = r.tvType==='kaudet'?'kausi':'jakso';
+  const label = r&&r.tvType==='kaudet'?'kausi':'jakso';
   document.getElementById('partModalTitle').textContent = `Lisää ${label}`;
   document.getElementById('partNameLabel').textContent = `${label.charAt(0).toUpperCase()+label.slice(1)} nimi *`;
   document.getElementById('partName').value='';
   document.getElementById('partNote').value='';
-  buildScorePicker('partScorePicker','selectedPartScore');
+  buildScorePicker('partScorePicker','partScore');
   document.getElementById('partModal').classList.add('open');
 };
 
@@ -934,7 +914,7 @@ window.editPart = function(reviewId, partIdx){
   document.getElementById('partModalTitle').textContent = `Muokkaa ${label}a`;
   document.getElementById('partName').value = p.name;
   document.getElementById('partNote').value = p.note||'';
-  buildScorePicker('partScorePicker','selectedPartScore');
+  buildScorePicker('partScorePicker','partScore');
   document.getElementById('partModal').classList.add('open');
 };
 
@@ -960,10 +940,10 @@ window.deletePart = async function(reviewId, partIdx){
   renderCards();
 };
 
-// ── ASETUKSET ──
 // ── JONO ──
 window.openQueueModal = function(){
   selectedMark = null;
+  window._queueMode = true;
   document.getElementById('modalTitle').textContent = '📋 Lisää jonoon';
   document.getElementById('formName').value='';
   document.getElementById('formNote').value='';
@@ -971,14 +951,15 @@ window.openQueueModal = function(){
   document.getElementById('tvTypeSection').style.display='none';
   populateFormCat();
   document.getElementById('addModal').classList.add('open');
-  window._queueMode = true;
 };
 
 window.renderQueue = function(){
   const grid = document.getElementById('cardsGrid');
-  let items = (appData.queue||[]);
+  if(!appData.queue) appData.queue=[];
+  let items = [...appData.queue];
   if(activeCat) items = items.filter(q=>q.category===activeCat);
-  const q = document.getElementById('searchInput') ? document.getElementById('searchInput').value.trim().toLowerCase() : '';
+  const searchEl = document.getElementById('searchInput');
+  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
   if(q) items = items.filter(i=>i.name.toLowerCase().includes(q));
   if(!items.length){
     grid.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Jono on tyhjä</div></div>`;
@@ -986,9 +967,7 @@ window.renderQueue = function(){
   }
   grid.innerHTML = items.map((item,idx)=>`
     <div class="review-card queue-card">
-      <div class="card-top">
-        <div class="card-title">${item.name}</div>
-      </div>
+      <div class="card-top"><div class="card-title">${item.name}</div></div>
       <div class="card-meta">
         <span class="meta-chip">${item.category}</span>
         ${item.genre?`<span class="meta-chip">${item.genre}</span>`:''}
@@ -1004,50 +983,45 @@ window.renderQueue = function(){
 };
 
 window.queueToReview = function(idx){
-  const item = (appData.queue||[])[idx];
-  if(!item) return;
-  // Siirrä arvostelu-tilaan ja täytä lomake
+  if(!appData.queue) return;
+  const item = appData.queue[idx]; if(!item) return;
+  appData.queue.splice(idx,1);
+  window.fbSave();
   setView('reviews');
   setTimeout(()=>{
-    openAddModal();
+    window.openAddModal();
     document.getElementById('formName').value = item.name;
-    document.getElementById('formCat').value = item.category;
-    onCatChange(item.genre);
-    if(item.genre) document.getElementById('formGenre').value = item.genre;
+    const catSel = document.getElementById('formCat');
+    catSel.value = item.category;
+    window.onCatChange(item.genre);
+    if(item.genre){
+      const genreSel = document.getElementById('formGenre');
+      if(genreSel) genreSel.value = item.genre;
+    }
     document.getElementById('formNote').value = item.note||'';
-    // Poista jonosta
-    appData.queue.splice(idx,1);
-    window.fbSave();
-  },300);
+  }, 400);
 };
 
 window.deleteQueue = async function(idx){
   if(!confirm('Poistetaanko jonosta?')) return;
+  if(!appData.queue) return;
   appData.queue.splice(idx,1);
   await window.fbSave();
   renderQueue();
 };
 
-window.openSettings = function(){
-  renderCatManage();
-  document.getElementById('settingsModal').classList.add('open');
-};
-
 // ── TOP-LISTA ──
 window.renderTop = function(){
   const grid = document.getElementById('cardsGrid');
-  const cats = appData.categories;
   const medals = ['gold','silver','bronze'];
-
   let html = '';
-  cats.forEach(cat=>{
+  appData.categories.forEach(cat=>{
     const reviews = appData.reviews
       .filter(r=>r.category===cat)
       .map(r=>({...r, finalScore: getReviewScore(r)}))
       .filter(r=>r.finalScore!==null)
       .sort((a,b)=>b.finalScore-a.finalScore)
       .slice(0,5);
-
     if(!reviews.length) return;
     html += `<div class="top-section">
       <div class="top-section-title">🏆 ${cat}</div>
@@ -1060,12 +1034,18 @@ window.renderTop = function(){
       `).join('')}
     </div>`;
   });
-
   grid.innerHTML = html || `<div class="empty-state"><div class="empty-icon">🏆</div><div class="empty-title">Ei arvosteluja vielä</div></div>`;
+};
+
+// ── ASETUKSET ──
+window.openSettings = function(){
+  renderCatManage();
+  document.getElementById('settingsModal').classList.add('open');
 };
 
 function renderCatManage(){
   const el = document.getElementById('catManageList');
+  if(!el) return;
   el.innerHTML = appData.categories.map((c,i)=>`
     <div class="cat-row">
       <span class="cat-row-name">${c}</span>
@@ -1092,23 +1072,24 @@ window.deleteCat = async function(i){
   }
   if(!confirm(`Poistetaanko kategoria "${cat}"?`)) return;
   appData.categories.splice(i,1);
+  if(activeCat===cat) activeCat = appData.categories[0]||null;
   renderCatManage();
   renderAll();
   await window.fbSave();
 };
 
-// ── MODAALIT ──
 // ── AUTOCOMPLETE ──
 window.showNameSuggestions = function(val){
   const list = document.getElementById('acList');
-  if(!val || val.length<1){ list.style.display='none'; return; }
-  const existing = [...new Set([
+  if(!list) return;
+  if(!val||val.length<1){ list.style.display='none'; return; }
+  const all = [...new Set([
     ...appData.reviews.map(r=>r.name),
     ...(appData.queue||[]).map(q=>q.name)
-  ])].filter(n=>n.toUpperCase().startsWith(val.toUpperCase()) && n.toUpperCase()!==val.toUpperCase()).slice(0,5);
-  if(!existing.length){ list.style.display='none'; return; }
-  list.innerHTML = existing.map(n=>`
-    <div class="autocomplete-item" onmousedown="selectAcItem('${n.replace(/'/g,"\'")}')">
+  ])].filter(n=>n.toUpperCase().startsWith(val.toUpperCase())&&n.toUpperCase()!==val.toUpperCase()).slice(0,5);
+  if(!all.length){ list.style.display='none'; return; }
+  list.innerHTML = all.map(n=>`
+    <div class="autocomplete-item" onmousedown="selectAcItem('${n.replace(/'/g,"\'")}')" ontouchstart="selectAcItem('${n.replace(/'/g,"\'")}')">
       📝 <span><mark>${n.slice(0,val.length)}</mark>${n.slice(val.length)}</span>
     </div>
   `).join('');
@@ -1116,12 +1097,17 @@ window.showNameSuggestions = function(val){
 };
 
 window.selectAcItem = function(val){
-  document.getElementById('formName').value = val;
-  document.getElementById('acList').style.display='none';
+  const inp = document.getElementById('formName');
+  if(inp) inp.value = val;
+  const list = document.getElementById('acList');
+  if(list) list.style.display='none';
 };
 
 window.handleAcKey = function(e){
-  if(e.key==='Escape') document.getElementById('acList').style.display='none';
+  if(e.key==='Escape'){
+    const list = document.getElementById('acList');
+    if(list) list.style.display='none';
+  }
 };
 
 document.addEventListener('click', e=>{
@@ -1131,15 +1117,15 @@ document.addEventListener('click', e=>{
   }
 });
 
+// ── MODAALIT ──
 window.closeModal = function(id){
-  document.getElementById(id).classList.remove('open');
-};
-window.closeModalIfOutside = function(e,id){
-  if(e.target===document.getElementById(id)) closeModal(id);
+  const el = document.getElementById(id);
+  if(el) el.classList.remove('open');
 };
 
-// ── INIT ──
-// (initApp kutsutaan Firebase-latauksen jälkeen)
+window.closeModalIfOutside = function(e, id){
+  if(e.target===document.getElementById(id)) closeModal(id);
+};
 </script>
 </body>
 </html>
