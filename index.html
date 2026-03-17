@@ -776,10 +776,10 @@ window.renderCards = function(){
         <div class="card-title">${r.name}</div>
         ${score!==null&&!isTvParts ? buildRing(score) : ''}
       </div>
+      ${r.yearStart ? `<div style="font-size:15px;font-weight:600;color:var(--muted);margin:-4px 0 8px;letter-spacing:0.5px;">${r.yearStart}${r.yearEnd?' – '+r.yearEnd:r.category==='TV-sarjat'?' –':''}</div>` : ''}
       <div class="card-meta">
         <span class="meta-chip">${r.category}</span>
         ${r.genre?`<span class="meta-chip">${r.genre}</span>`:''}
-        ${r.yearStart?`<span class="meta-chip" style="color:var(--muted);">${r.yearStart}${r.yearEnd?' – '+r.yearEnd:r.category==='TV-sarjat'?' –':''}</span>`:''}
         ${isTvParts?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
         ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>':''}
