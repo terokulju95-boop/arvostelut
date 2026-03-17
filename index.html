@@ -159,6 +159,42 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .mark-btn.active-skull { background:rgba(160,160,160,0.15); border-color:#aaa; color:#ccc; }
 .mark-btn.active-none { background:var(--bg3); border-color:var(--border); opacity:1!important; }
 
+/* ARVOSANA-RENGAS */
+.score-ring { position:relative; width:64px; height:64px; flex-shrink:0; }
+.score-ring svg { position:absolute; top:0; left:0; transform:rotate(-90deg); }
+.score-ring-bg { fill:none; stroke:rgba(255,255,255,0.08); stroke-width:4; }
+.score-ring-fill { fill:none; stroke-width:4; stroke-linecap:round; transition:stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1); }
+.score-ring-fill.high { stroke:#4ade80; }
+.score-ring-fill.mid { stroke:#e8b84b; }
+.score-ring-fill.low { stroke:#ff6b6b; }
+.score-ring-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:"Bebas Neue",sans-serif; font-size:22px; line-height:1; }
+.score-ring-num.high { color:#4ade80; }
+.score-ring-num.mid { color:#e8b84b; }
+.score-ring-num.low { color:#ff6b6b; }
+
+/* ANIMAATIOT */
+@keyframes cardSlideIn {
+  from { opacity:0; transform:translateY(20px); }
+  to { opacity:1; transform:translateY(0); }
+}
+.review-card {
+  animation: cardSlideIn 0.35s ease both;
+}
+@keyframes btnBounce {
+  0%,100% { transform:scale(1); }
+  40% { transform:scale(0.92); }
+  70% { transform:scale(1.06); }
+}
+.btn-primary:active, .btn-sm:active, .btn-to-review:active, .cat-tab:active, .score-opt:active {
+  animation: btnBounce 0.25s ease;
+}
+.score-opt {
+  transition: background 0.15s, transform 0.1s;
+}
+.score-opt.selected {
+  transform: scale(1.12);
+}
+
 /* JONO */
 .queue-card::before { background: #a78bfa !important; }
 .btn-to-review { background: rgba(232,184,75,0.15); color: var(--accent); border: 1px solid rgba(232,184,75,0.4); border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: "DM Sans",sans-serif; flex: 1; }
@@ -344,6 +380,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="form-group">
       <label>Lisätiedot</label>
       <textarea id="formNote" placeholder="Vapaa kommentti..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Päivämäärä</label>
+      <input type="date" id="formDate">
     </div>
 
     <div class="modal-actions">
@@ -629,6 +670,22 @@ window.cycleSort = function(){
   renderCards();
 };
 
+// ── ARVOSANA-RENGAS ──
+function buildRing(score){
+  const r = 28, c = 2*Math.PI*r;
+  const pct = score/10;
+  const cls = score>=8?'high':score>=5?'mid':'low';
+  return `<div class="score-ring">
+    <svg width="64" height="64" viewBox="0 0 64 64">
+      <circle class="score-ring-bg" cx="32" cy="32" r="${r}"/>
+      <circle class="score-ring-fill ${cls}" cx="32" cy="32" r="${r}"
+        stroke-dasharray="${c}"
+        stroke-dashoffset="${c*(1-pct)}"/>
+    </svg>
+    <div class="score-ring-num ${cls}">${score}</div>
+  </div>`;
+}
+
 // ── PISTEYTYS ──
 function getReviewScore(r){
   if(r.tvType && r.tvType!=='kokonaisuus' && r.parts && r.parts.length>0){
@@ -678,7 +735,7 @@ window.renderCards = function(){
     return;
   }
 
-  grid.innerHTML = reviews.map(r=>{
+  grid.innerHTML = reviews.map((r,idx)=>{
     const score = getReviewScore(r);
     const isTvParts = r.tvType && r.tvType!=='kokonaisuus';
     const typeClass = catType(r.category);
@@ -705,10 +762,10 @@ window.renderCards = function(){
       partsHtml = `<div class="tv-parts"><button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää ${partLabel}</button></div>`;
     }
 
-    return `<div class="review-card type-${typeClass}">
+    return `<div class="review-card type-${typeClass}" style="animation-delay:${idx*0.06}s">
       <div class="card-top">
         <div class="card-title">${r.name}</div>
-        ${score!==null&&!isTvParts ? `<div class="card-score ${scoreClass(score)}">${score}</div>` : ''}
+        ${score!==null&&!isTvParts ? buildRing(score) : ''}
       </div>
       <div class="card-meta">
         <span class="meta-chip">${r.category}</span>
@@ -746,6 +803,7 @@ window.openAddModal = function(){
   document.getElementById('modalTitle').textContent = 'Lisää arvostelu';
   document.getElementById('formName').value = '';
   document.getElementById('formNote').value = '';
+  document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
   document.getElementById('tvTypeSection').style.display = 'none';
   populateFormCat();
@@ -764,6 +822,7 @@ window.editReview = function(id){
   document.getElementById('modalTitle').textContent = 'Muokkaa arvostelua';
   document.getElementById('formName').value = r.name;
   document.getElementById('formNote').value = r.note||'';
+  document.getElementById('formDate').value = r.date ? r.date.split('T')[0] : new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
   populateFormCat(r.category);
   window.onCatChange(r.genre);
@@ -862,12 +921,13 @@ window.saveReview = async function(){
       r.tvType=isTv?selectedTvType:'';
       r.score=needsScore?selectedScore:null;
       r.mark=selectedMark;
+      r.date=(document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z';
       r.note=document.getElementById('formNote').value;
     }
   } else {
     appData.reviews.push({
       id: Date.now(),
-      date: new Date().toISOString(),
+      date: (document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z',
       name, category:cat,
       genre: GENRE_CATS.includes(cat)?document.getElementById('formGenre').value:'',
       tvType: isTv?selectedTvType:'',
