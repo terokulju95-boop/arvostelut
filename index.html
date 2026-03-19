@@ -296,9 +296,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="filter-row" id="genreFilters"></div>
     <div class="filter-label" style="margin-top:12px;">Arvosana</div>
     <div class="filter-row" id="scoreFilters">
-      <button class="filter-chip" data-score="high" onclick="toggleScoreFilter(this)">8–10 ⭐</button>
-      <button class="filter-chip" data-score="mid" onclick="toggleScoreFilter(this)">5–7 👍</button>
-      <button class="filter-chip" data-score="low" onclick="toggleScoreFilter(this)">1–4 👎</button>
+      <button class="filter-chip" data-score="high" onclick="toggleScoreFilter(this)">70–100 ⭐</button>
+      <button class="filter-chip" data-score="mid" onclick="toggleScoreFilter(this)">40–69 👍</button>
+      <button class="filter-chip" data-score="low" onclick="toggleScoreFilter(this)">0–39 👎</button>
     </div>
     <div class="filter-label" style="margin-top:12px;">Merkintä</div>
     <div class="filter-row" id="markFilters">
@@ -367,8 +367,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
     <div id="scoreSection">
       <div class="form-group">
-        <label>Arvosana *</label>
-        <div class="score-picker" id="scorePicker"></div>
+        <label>Arvosana * <span style="color:var(--muted);font-weight:400;">(0–100)</span></label>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input type="number" id="scoreInput" min="0" max="100" placeholder="esim. 75"
+            style="width:110px;font-size:22px;font-weight:700;text-align:center;padding:12px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--accent);font-family:'Bebas Neue',sans-serif;outline:none;"
+            oninput="this.value=this.value.replace(/[^0-9]/g,''); if(+this.value>100) this.value=100; selectedScore=this.value===''?null:+this.value; updateScorePreview();"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+          <div id="scorePreview" style="font-size:14px;color:var(--muted);"></div>
+        </div>
       </div>
     </div>
 
@@ -408,8 +414,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <input type="text" id="partName" placeholder="esim. Kausi 1">
     </div>
     <div class="form-group">
-      <label>Arvosana *</label>
-      <div class="score-picker" id="partScorePicker"></div>
+      <label>Arvosana * <span style="color:var(--muted);font-weight:400;">(0–100)</span></label>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <input type="number" id="partScoreInput" min="0" max="100" placeholder="esim. 75"
+          style="width:110px;font-size:22px;font-weight:700;text-align:center;padding:12px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--accent);font-family:'Bebas Neue',sans-serif;outline:none;"
+          oninput="this.value=this.value.replace(/[^0-9]/g,''); if(+this.value>100) this.value=100; selectedPartScore=this.value===''?null:+this.value;"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
     </div>
     <div class="form-group">
       <label>Lisätiedot</label>
@@ -677,8 +688,8 @@ window.cycleSort = function(){
 // ── ARVOSANA-RENGAS ──
 function buildRing(score){
   const r = 28, c = 2*Math.PI*r;
-  const pct = score/10;
-  const cls = score>=8?'high':score>=5?'mid':'low';
+  const pct = score/100;
+  const cls = score>=70?'high':score>=40?'mid':'low';
   return `<div class="score-ring">
     <svg width="64" height="64" viewBox="0 0 64 64">
       <circle class="score-ring-bg" cx="32" cy="32" r="${r}"/>
@@ -699,7 +710,7 @@ function getReviewScore(r){
   return r.score||null;
 }
 
-function scoreClass(s){ return s>=8?'score-high':s>=5?'score-mid':'score-low'; }
+function scoreClass(s){ return s>=70?'score-high':s>=40?'score-mid':'score-low'; }
 function catType(cat){
   if(cat==='TV-sarjat') return 'tv';
   if(cat==='Ruuat') return 'ruoka';
@@ -721,9 +732,9 @@ window.renderCards = function(){
   if(activeScoreFilter){
     reviews = reviews.filter(r=>{
       const s=getReviewScore(r); if(s===null) return false;
-      if(activeScoreFilter==='high') return s>=8;
-      if(activeScoreFilter==='mid') return s>=5&&s<8;
-      return s<5;
+      if(activeScoreFilter==='high') return s>=70;
+      if(activeScoreFilter==='mid') return s>=40&&s<70;
+      return s<40;
     });
   }
   if(activeMarkFilter) reviews = reviews.filter(r=>r.mark===activeMarkFilter);
@@ -753,7 +764,7 @@ window.renderCards = function(){
       const avg = getReviewScore(r);
       const partLabel = r.tvType==='kaudet' ? 'Kausi' : 'Jakso';
       partsHtml = `<div class="tv-parts">
-        <div class="tv-avg"><span class="tv-avg-label">Keskiarvo</span><span class="tv-avg-num">${avg}/10</span></div>
+        <div class="tv-avg"><span class="tv-avg-label">Keskiarvo</span><span class="tv-avg-num">${avg}/100</span></div>
         ${r.parts.map((p,i)=>`
           <div class="tv-part">
             <span class="tv-part-name">${p.name}</span>
@@ -784,7 +795,7 @@ window.renderCards = function(){
         ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>':''}
       </div>
-      ${r.note?`<div class="card-note collapsed" id="note-${r.id}">${r.note}<br><button class="btn-expand" onclick="toggleNote(${r.id})">Näytä lisää ▾</button></div>`:''}
+      ${r.note?`<div class="card-note" id="note-${r.id}">${r.note.replace(/\n/g,'<br>')}</div>`:''}
       ${partsHtml}
       ${dateStr?`<div class="card-date">📅 ${dateStr}</div>`:''}
       <div class="card-actions">
@@ -816,6 +827,8 @@ window.openAddModal = function(){
   document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
   document.getElementById('tvTypeSection').style.display = 'none';
+  const si=document.getElementById('scoreInput'); if(si) si.value='';
+  const prev=document.getElementById('scorePreview'); if(prev) prev.textContent='';
   populateFormCat();
   buildScorePicker('scorePicker', 'selectedScore');
   window.toggleMark(null);
@@ -825,7 +838,7 @@ window.openAddModal = function(){
 window.editReview = function(id){
   const r = appData.reviews.find(x=>x.id===id); if(!r) return;
   editingId = id;
-  selectedScore = r.score||null;
+  selectedScore = r.score!=null ? r.score : null;
   selectedTvType = r.tvType||'kokonaisuus';
   selectedMark = r.mark||null;
   window._queueMode = false;
@@ -891,18 +904,24 @@ function selectTvTypeByValue(val){
 }
 
 function buildScorePicker(pickerId, varName){
-  const el = document.getElementById(pickerId);
-  if(!el) return;
-  const cur = varName==='selectedScore' ? selectedScore : selectedPartScore;
-  el.innerHTML = [1,2,3,4,5,6,7,8,9,10].map(n=>`
-    <button class="score-opt ${cur===n?'selected':''}" onclick="selectScore(${n},'${pickerId}','${varName}')">${n}</button>
-  `).join('');
+  // Now using number inputs; just set the value
+  if(varName==='selectedScore'){
+    const inp = document.getElementById('scoreInput');
+    if(inp) inp.value = selectedScore !== null ? selectedScore : '';
+    updateScorePreview();
+  } else {
+    const inp = document.getElementById('partScoreInput');
+    if(inp) inp.value = selectedPartScore !== null ? selectedPartScore : '';
+  }
 }
 
-window.selectScore = function(n, pickerId, varName){
-  if(varName==='selectedScore') selectedScore = n;
-  else selectedPartScore = n;
-  document.querySelectorAll(`#${pickerId} .score-opt`).forEach(b=>b.classList.toggle('selected',+b.textContent===n));
+window.updateScorePreview = function(){
+  const prev = document.getElementById('scorePreview');
+  if(!prev) return;
+  if(selectedScore===null){ prev.textContent=''; return; }
+  const s = selectedScore;
+  const label = s>=80?'🟢 Erinomainen':s>=60?'🟡 Hyvä':s>=40?'🟠 Kohtalainen':'🔴 Heikko';
+  prev.textContent = label;
 };
 
 window.toggleMark = function(mark){
@@ -936,7 +955,8 @@ window.saveReview = async function(){
 
   const isTv = cat==='TV-sarjat';
   const needsScore = !isTv || selectedTvType==='kokonaisuus';
-  if(needsScore && !selectedScore){ alert('Valitse arvosana!'); return; }
+  if(needsScore){ const inp=document.getElementById('scoreInput'); selectedScore=inp&&inp.value!==''?+inp.value:null; }
+  if(needsScore && selectedScore===null){ alert('Anna arvosana (0–100)!'); return; }
 
   if(editingId){
     const r = appData.reviews.find(x=>x.id===editingId);
@@ -985,6 +1005,8 @@ window.openAddPart = function(reviewId){
   document.getElementById('partNameLabel').textContent = `${label.charAt(0).toUpperCase()+label.slice(1)} nimi *`;
   document.getElementById('partName').value='';
   document.getElementById('partNote').value='';
+  selectedPartScore=null;
+  const psi=document.getElementById('partScoreInput'); if(psi) psi.value='';
   buildScorePicker('partScorePicker','partScore');
   document.getElementById('partModal').classList.add('open');
 };
@@ -994,7 +1016,8 @@ window.editPart = function(reviewId, partIdx){
   const p = r.parts[partIdx];
   editingPartReviewId = reviewId;
   editingPartId = partIdx;
-  selectedPartScore = p.score;
+  selectedPartScore = p.score!=null ? p.score : null;
+  const editPsi=document.getElementById('partScoreInput'); if(editPsi) editPsi.value=selectedPartScore!==null?selectedPartScore:'';
   const label = r.tvType==='kaudet'?'kausi':'jakso';
   document.getElementById('partModalTitle').textContent = `Muokkaa ${label}a`;
   document.getElementById('partName').value = p.name;
@@ -1006,7 +1029,8 @@ window.editPart = function(reviewId, partIdx){
 window.savePart = async function(){
   const name = document.getElementById('partName').value.trim();
   if(!name){ alert('Anna nimi!'); return; }
-  if(!selectedPartScore){ alert('Valitse arvosana!'); return; }
+  const partInp=document.getElementById('partScoreInput'); selectedPartScore=partInp&&partInp.value!==''?+partInp.value:null;
+  if(selectedPartScore===null){ alert('Anna arvosana (0–100)!'); return; }
   const r = appData.reviews.find(x=>x.id===editingPartReviewId); if(!r) return;
   if(!r.parts) r.parts=[];
   const partData = { name, score:selectedPartScore, note:document.getElementById('partNote').value };
