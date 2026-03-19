@@ -106,15 +106,30 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 /* TV SARJAN OSAT */
 .tv-parts{margin-top:10px;border-top:1px solid var(--border);padding-top:10px;}
-.tv-avg{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.tv-avg{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
 .tv-avg-label{font-size:13px;color:var(--muted);}
 .tv-avg-num{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--blue);}
 .tv-part{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
 .tv-part:last-child{border-bottom:none;}
-.tv-part-name{flex:1;font-size:14px;}
+.tv-part-name{flex:1;font-size:14px;line-height:1.3;}
+.tv-part-info{flex:1;display:flex;flex-direction:column;gap:3px;}
+.tv-part-note{font-size:12px;color:var(--muted);line-height:1.4;}
 .tv-part-score{font-family:'Bebas Neue',sans-serif;font-size:20px;}
 .btn-add-part{margin-top:8px;padding:8px 14px;background:rgba(96,165,250,0.1);color:var(--blue);border:1px solid rgba(96,165,250,0.3);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;}
 .btn-add-part:active{background:rgba(96,165,250,0.2);}
+.btn-add-season{margin-top:8px;padding:8px 14px;background:rgba(232,184,75,0.1);color:var(--accent);border:1px solid rgba(232,184,75,0.3);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;}
+.btn-add-season:active{background:rgba(232,184,75,0.2);}
+.season-group{margin-bottom:10px;border:1px solid rgba(255,255,255,0.07);border-radius:10px;overflow:hidden;}
+.season-header{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);cursor:pointer;user-select:none;}
+.season-header:active{background:rgba(255,255,255,0.08);}
+.season-arrow{font-size:12px;color:var(--muted);transition:transform 0.2s;flex-shrink:0;}
+.season-arrow.open{transform:rotate(90deg);}
+.season-name{font-weight:700;font-size:15px;flex:1;}
+.season-avg{font-family:'Bebas Neue',sans-serif;font-size:18px;}
+.season-count{font-size:12px;color:var(--muted);}
+.season-episodes{padding:0 8px 8px;}
+.season-del{background:transparent;border:none;color:var(--accent2);font-size:16px;cursor:pointer;padding:2px 6px;opacity:0.6;}
+.season-del:active{opacity:1;}
 
 /* FAB */
 #fab{position:fixed;bottom:20px;right:16px;width:56px;height:56px;border-radius:20px;background:var(--accent);color:var(--bg);font-size:28px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(232,184,75,0.4);z-index:100;transition:all 0.2s;font-weight:700;}
@@ -160,14 +175,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .mark-btn.active-none { background:var(--bg3); border-color:var(--border); opacity:1!important; }
 
 /* ARVOSANA-RENGAS */
-.score-ring { position:relative; width:64px; height:64px; flex-shrink:0; }
+.score-ring { position:relative; width:88px; height:88px; flex-shrink:0; }
 .score-ring svg { position:absolute; top:0; left:0; transform:rotate(-90deg); }
-.score-ring-bg { fill:none; stroke:rgba(255,255,255,0.08); stroke-width:4; }
-.score-ring-fill { fill:none; stroke-width:4; stroke-linecap:round; transition:stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1); }
+.score-ring-bg { fill:none; stroke:rgba(255,255,255,0.08); stroke-width:6; }
+.score-ring-fill { fill:none; stroke-width:6; stroke-linecap:round; transition:stroke-dashoffset 0.9s cubic-bezier(0.4,0,0.2,1); filter:drop-shadow(0 0 6px currentColor); }
 .score-ring-fill.high { stroke:#4ade80; }
 .score-ring-fill.mid { stroke:#e8b84b; }
 .score-ring-fill.low { stroke:#ff6b6b; }
-.score-ring-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:"Bebas Neue",sans-serif; font-size:22px; line-height:1; }
+.score-ring-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:"Bebas Neue",sans-serif; font-size:26px; line-height:1; letter-spacing:1px; }
 .score-ring-num.high { color:#4ade80; }
 .score-ring-num.mid { color:#e8b84b; }
 .score-ring-num.low { color:#ff6b6b; }
@@ -408,10 +423,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <div class="modal-overlay" id="partModal" onclick="closeModalIfOutside(event,'partModal')">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-title" id="partModalTitle">Lisää osa</div>
+    <div class="modal-title" id="partModalTitle">Lisää jakso</div>
+    <!-- Kausi-valinta (vain jaksottain) -->
+    <div id="partSeasonSelectRow" style="display:none;" class="form-group">
+      <label>Kausi *</label>
+      <select id="partSeasonSelect" style="width:100%;padding:13px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;-webkit-appearance:none;"></select>
+    </div>
+    <!-- Jakso numero -->
+    <div id="partEpisodeRow" style="display:none;" class="form-group">
+      <label>Jakso nro</label>
+      <input type="number" id="partEpisode" min="1" placeholder="esim. 1"
+        style="width:100%;padding:13px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+    </div>
     <div class="form-group">
-      <label id="partNameLabel">Nimi *</label>
-      <input type="text" id="partName" placeholder="esim. Kausi 1">
+      <label id="partNameLabel">Nimi</label>
+      <input type="text" id="partName" placeholder="esim. Pilottijakso">
     </div>
     <div class="form-group">
       <label>Arvosana * <span style="color:var(--muted);font-weight:400;">(0–100)</span></label>
@@ -429,6 +456,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('partModal')">Peruuta</button>
       <button class="btn-primary" onclick="savePart()">Tallenna</button>
+    </div>
+  </div>
+</div>
+
+<!-- KAUSI MODAL -->
+<div class="modal-overlay" id="seasonModal" onclick="closeModalIfOutside(event,'seasonModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="seasonModalTitle">Lisää kausi</div>
+    <div class="form-group">
+      <label>Kauden nimi *</label>
+      <input type="text" id="seasonName" placeholder="esim. Kausi 1">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('seasonModal')">Peruuta</button>
+      <button class="btn-primary" onclick="saveSeason()">Lisää kausi</button>
     </div>
   </div>
 </div>
@@ -687,13 +730,13 @@ window.cycleSort = function(){
 
 // ── ARVOSANA-RENGAS ──
 function buildRing(score){
-  const r = 28, c = 2*Math.PI*r;
+  const r = 38, c = 2*Math.PI*r;
   const pct = score/100;
   const cls = score>=70?'high':score>=40?'mid':'low';
   return `<div class="score-ring">
-    <svg width="64" height="64" viewBox="0 0 64 64">
-      <circle class="score-ring-bg" cx="32" cy="32" r="${r}"/>
-      <circle class="score-ring-fill ${cls}" cx="32" cy="32" r="${r}"
+    <svg width="88" height="88" viewBox="0 0 88 88">
+      <circle class="score-ring-bg" cx="44" cy="44" r="${r}"/>
+      <circle class="score-ring-fill ${cls}" cx="44" cy="44" r="${r}"
         stroke-dasharray="${c}"
         stroke-dashoffset="${c*(1-pct)}"/>
     </svg>
@@ -703,11 +746,22 @@ function buildRing(score){
 
 // ── PISTEYTYS ──
 function getReviewScore(r){
-  if(r.tvType && r.tvType!=='kokonaisuus' && r.parts && r.parts.length>0){
-    const sum = r.parts.reduce((a,p)=>a+(p.score||0),0);
-    return Math.round((sum/r.parts.length)*10)/10;
+  if(r.tvType && r.tvType!=='kokonaisuus'){
+    if(r.tvType==='jaksot'){
+      // Laske kaikki jaksot kaikista kausista
+      const seasons = r.seasons||[];
+      const allEps = seasons.flatMap(s=>s.episodes||[]);
+      if(allEps.length===0) return null;
+      const sum = allEps.reduce((a,e)=>a+(e.score||0),0);
+      return Math.round(sum/allEps.length);
+    }
+    if(r.parts && r.parts.length>0){
+      const sum = r.parts.reduce((a,p)=>a+(p.score||0),0);
+      return Math.round((sum/r.parts.length)*10)/10;
+    }
+    return null;
   }
-  return r.score||null;
+  return r.score!=null?r.score:null;
 }
 
 function scoreClass(s){ return s>=70?'score-high':s>=40?'score-mid':'score-low'; }
@@ -760,24 +814,72 @@ window.renderCards = function(){
     const dateStr = r.date ? new Date(r.date).toLocaleDateString('fi-FI') : '';
 
     let partsHtml = '';
-    if(isTvParts && r.parts && r.parts.length>0){
+    if(isTvParts){
       const avg = getReviewScore(r);
-      const partLabel = r.tvType==='kaudet' ? 'Kausi' : 'Jakso';
-      partsHtml = `<div class="tv-parts">
-        <div class="tv-avg"><span class="tv-avg-label">Keskiarvo</span><span class="tv-avg-num">${avg}/100</span></div>
-        ${r.parts.map((p,i)=>`
-          <div class="tv-part">
-            <span class="tv-part-name">${p.name}</span>
-            <span class="tv-part-score ${scoreClass(p.score)}">${p.score}</span>
-            <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editPart(${r.id},${i})">✏️</button>
-            <button class="btn-sm btn-del" style="padding:4px 8px;font-size:12px;" onclick="deletePart(${r.id},${i})">✕</button>
-          </div>
-        `).join('')}
-        <button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää ${partLabel.toLowerCase()}</button>
-      </div>`;
-    } else if(isTvParts){
-      const partLabel = r.tvType==='kaudet' ? 'kausi' : 'jakso';
-      partsHtml = `<div class="tv-parts"><button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää ${partLabel}</button></div>`;
+      const isJaksot = r.tvType==='jaksot';
+
+      if(isJaksot){
+        // Kausiryhmittely
+        const seasons = r.seasons||[];
+        // Taaksepäin yhteensopivuus: jos vanhoja parts ilman seasons
+        let seasonHtml = '';
+        if(seasons.length===0){
+          seasonHtml = `<div style="color:var(--muted);font-size:13px;padding:8px 0;">Ei kausia vielä</div>`;
+        } else {
+          seasonHtml = seasons.map((s,si)=>{
+            const eps = s.episodes||[];
+            const sAvg = eps.length ? Math.round(eps.reduce((a,e)=>a+(e.score||0),0)/eps.length) : null;
+            const sKey = `season-${r.id}-${si}`;
+            const sCls = sAvg!==null ? scoreClass(sAvg) : '';
+            return `<div class="season-group">
+              <div class="season-header" onclick="toggleSeason('${sKey}')">
+                <span class="season-arrow" id="arr-${sKey}">▶</span>
+                <span class="season-name">${s.name}</span>
+                <span class="season-count">${eps.length} jakso${eps.length!==1?'a':''}</span>
+                ${sAvg!==null?`<span class="season-avg ${sCls}">${sAvg}</span>`:''}
+                <button class="season-del" onclick="event.stopPropagation();deleteSeason(${r.id},${si})">✕</button>
+              </div>
+              <div class="season-episodes" id="${sKey}" style="display:none;">
+                ${eps.map((ep,ei)=>`
+                  <div class="tv-part">
+                    <div class="tv-part-info">
+                      <span class="tv-part-name">${ep.episode?`<span style="color:var(--accent);font-weight:700;font-size:12px;">J${ep.episode} </span>`:''}${ep.name||''}</span>
+                      ${ep.note?`<span class="tv-part-note">${ep.note.replace(/\n/g,'<br>')}</span>`:''}
+                    </div>
+                    <span class="tv-part-score ${scoreClass(ep.score)}">${ep.score}</span>
+                    <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editEpisode(${r.id},${si},${ei})">✏️</button>
+                    <button class="btn-sm btn-del" style="padding:4px 8px;font-size:12px;" onclick="deleteEpisode(${r.id},${si},${ei})">✕</button>
+                  </div>
+                `).join('')}
+                <button class="btn-add-part" onclick="openAddPart(${r.id},${si})">+ Lisää jakso</button>
+              </div>
+            </div>`;
+          }).join('');
+        }
+        partsHtml = `<div class="tv-parts">
+          ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
+          ${seasonHtml}
+          <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>
+        </div>`;
+      } else {
+        // Kausittain (ei muutosta rakenteeseen)
+        const parts = r.parts||[];
+        partsHtml = `<div class="tv-parts">
+          ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
+          ${parts.map((p,i)=>`
+            <div class="tv-part">
+              <div class="tv-part-info">
+                <span class="tv-part-name">${p.name||''}</span>
+                ${p.note?`<span class="tv-part-note">${p.note.replace(/\n/g,'<br>')}</span>`:''}
+              </div>
+              <span class="tv-part-score ${scoreClass(p.score)}">${p.score}</span>
+              <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editPart(${r.id},${i})">✏️</button>
+              <button class="btn-sm btn-del" style="padding:4px 8px;font-size:12px;" onclick="deletePart(${r.id},${i})">✕</button>
+            </div>
+          `).join('')}
+          <button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää kausi</button>
+        </div>`;
+      }
     }
 
     return `<div class="review-card type-${typeClass}" style="animation-delay:${idx*0.06}s">
@@ -995,47 +1097,148 @@ window.deleteReview = async function(id){
 };
 
 // ── TV OSAT ──
-window.openAddPart = function(reviewId){
+let editingSeasonIdx = null;
+
+// Kausi-modal
+window.openAddSeason = function(reviewId){
+  editingPartReviewId = reviewId;
+  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
+  const nextNum = (r.seasons||[]).length + 1;
+  document.getElementById('seasonModalTitle').textContent = 'Lisää kausi';
+  document.getElementById('seasonName').value = `Kausi ${nextNum}`;
+  document.getElementById('seasonModal').classList.add('open');
+};
+
+window.saveSeason = async function(){
+  const name = document.getElementById('seasonName').value.trim();
+  if(!name){ alert('Anna kauden nimi!'); return; }
+  const r = appData.reviews.find(x=>x.id===editingPartReviewId); if(!r) return;
+  if(!r.seasons) r.seasons=[];
+  r.seasons.push({ name, episodes:[] });
+  closeModal('seasonModal');
+  await window.fbSave();
+  renderCards();
+};
+
+window.deleteSeason = async function(reviewId, si){
+  if(!confirm('Poistetaanko kausi ja kaikki sen jaksot?')) return;
+  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
+  r.seasons.splice(si,1);
+  await window.fbSave();
+  renderCards();
+};
+
+window.toggleSeason = function(key){
+  const el = document.getElementById(key);
+  const arr = document.getElementById('arr-'+key);
+  if(!el) return;
+  const open = el.style.display==='none';
+  el.style.display = open?'block':'none';
+  if(arr) arr.classList.toggle('open', open);
+};
+
+// Jakso-modal (jaksottain-moodissa)
+window.openAddPart = function(reviewId, seasonIdx){
   editingPartId = null;
   editingPartReviewId = reviewId;
+  editingSeasonIdx = seasonIdx!=null ? seasonIdx : null;
   selectedPartScore = null;
   const r = appData.reviews.find(x=>x.id===reviewId);
-  const label = r&&r.tvType==='kaudet'?'kausi':'jakso';
-  document.getElementById('partModalTitle').textContent = `Lisää ${label}`;
-  document.getElementById('partNameLabel').textContent = `${label.charAt(0).toUpperCase()+label.slice(1)} nimi *`;
+  const isJaksot = r&&r.tvType==='jaksot';
+  document.getElementById('partModalTitle').textContent = isJaksot?'Lisää jakso':'Lisää kausi';
+  document.getElementById('partNameLabel').textContent = isJaksot?'Jakson nimi':'Kauden nimi';
+  document.getElementById('partSeasonSelectRow').style.display = isJaksot?'block':'none';
+  document.getElementById('partEpisodeRow').style.display = isJaksot?'block':'none';
+  if(isJaksot){
+    const seasons = r.seasons||[];
+    const sel = document.getElementById('partSeasonSelect');
+    sel.innerHTML = seasons.map((s,i)=>`<option value="${i}" ${i===seasonIdx?'selected':''}>${s.name}</option>`).join('');
+    if(seasonIdx!=null) sel.value = seasonIdx;
+  }
   document.getElementById('partName').value='';
   document.getElementById('partNote').value='';
+  const pe=document.getElementById('partEpisode'); if(pe) pe.value='';
   selectedPartScore=null;
   const psi=document.getElementById('partScoreInput'); if(psi) psi.value='';
   buildScorePicker('partScorePicker','partScore');
   document.getElementById('partModal').classList.add('open');
 };
 
+window.editEpisode = function(reviewId, si, ei){
+  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
+  const ep = (r.seasons[si].episodes||[])[ei];
+  editingPartReviewId = reviewId;
+  editingSeasonIdx = si;
+  editingPartId = ei;
+  selectedPartScore = ep.score!=null ? ep.score : null;
+  document.getElementById('partModalTitle').textContent = 'Muokkaa jaksoa';
+  document.getElementById('partNameLabel').textContent = 'Jakson nimi';
+  document.getElementById('partSeasonSelectRow').style.display = 'block';
+  document.getElementById('partEpisodeRow').style.display = 'block';
+  const seasons = r.seasons||[];
+  const sel = document.getElementById('partSeasonSelect');
+  sel.innerHTML = seasons.map((s,i)=>`<option value="${i}" ${i===si?'selected':''}>${s.name}</option>`).join('');
+  document.getElementById('partName').value = ep.name||'';
+  document.getElementById('partNote').value = ep.note||'';
+  const pe=document.getElementById('partEpisode'); if(pe) pe.value=ep.episode||'';
+  const psi=document.getElementById('partScoreInput'); if(psi) psi.value=selectedPartScore!==null?selectedPartScore:'';
+  buildScorePicker('partScorePicker','partScore');
+  document.getElementById('partModal').classList.add('open');
+};
+
+window.deleteEpisode = async function(reviewId, si, ei){
+  if(!confirm('Poistetaanko jakso?')) return;
+  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
+  r.seasons[si].episodes.splice(ei,1);
+  await window.fbSave();
+  renderCards();
+};
+
+// Kausittain editPart (ei muutosta)
 window.editPart = function(reviewId, partIdx){
   const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
   const p = r.parts[partIdx];
   editingPartReviewId = reviewId;
   editingPartId = partIdx;
+  editingSeasonIdx = null;
   selectedPartScore = p.score!=null ? p.score : null;
   const editPsi=document.getElementById('partScoreInput'); if(editPsi) editPsi.value=selectedPartScore!==null?selectedPartScore:'';
-  const label = r.tvType==='kaudet'?'kausi':'jakso';
-  document.getElementById('partModalTitle').textContent = `Muokkaa ${label}a`;
-  document.getElementById('partName').value = p.name;
+  document.getElementById('partModalTitle').textContent = 'Muokkaa kautta';
+  document.getElementById('partNameLabel').textContent = 'Kauden nimi';
+  document.getElementById('partSeasonSelectRow').style.display = 'none';
+  document.getElementById('partEpisodeRow').style.display = 'none';
+  document.getElementById('partName').value = p.name||'';
   document.getElementById('partNote').value = p.note||'';
   buildScorePicker('partScorePicker','partScore');
   document.getElementById('partModal').classList.add('open');
 };
 
 window.savePart = async function(){
-  const name = document.getElementById('partName').value.trim();
-  if(!name){ alert('Anna nimi!'); return; }
+  const r = appData.reviews.find(x=>x.id===editingPartReviewId); if(!r) return;
+  const isJaksot = r.tvType==='jaksot';
   const partInp=document.getElementById('partScoreInput'); selectedPartScore=partInp&&partInp.value!==''?+partInp.value:null;
   if(selectedPartScore===null){ alert('Anna arvosana (0–100)!'); return; }
-  const r = appData.reviews.find(x=>x.id===editingPartReviewId); if(!r) return;
-  if(!r.parts) r.parts=[];
-  const partData = { name, score:selectedPartScore, note:document.getElementById('partNote').value };
-  if(editingPartId!==null) r.parts[editingPartId]=partData;
-  else r.parts.push(partData);
+
+  if(isJaksot){
+    const si = editingPartId!==null ? editingSeasonIdx : +document.getElementById('partSeasonSelect').value;
+    if(!r.seasons||!r.seasons[si]){ alert('Valitse kausi!'); return; }
+    const epData = {
+      name: document.getElementById('partName').value.trim(),
+      episode: document.getElementById('partEpisode').value ? +document.getElementById('partEpisode').value : null,
+      score: selectedPartScore,
+      note: document.getElementById('partNote').value
+    };
+    if(!r.seasons[si].episodes) r.seasons[si].episodes=[];
+    if(editingPartId!==null) r.seasons[si].episodes[editingPartId]=epData;
+    else r.seasons[si].episodes.push(epData);
+  } else {
+    const name = document.getElementById('partName').value.trim();
+    if(!name){ alert('Anna nimi!'); return; }
+    if(!r.parts) r.parts=[];
+    const partData = { name, score:selectedPartScore, note:document.getElementById('partNote').value };
+    if(editingPartId!==null) r.parts[editingPartId]=partData;
+    else r.parts.push(partData);
+  }
   closeModal('partModal');
   await window.fbSave();
   renderCards();
