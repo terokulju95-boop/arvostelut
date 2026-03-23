@@ -237,14 +237,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .autocomplete-item:active { background: rgba(232,184,75,0.1); }
 .autocomplete-item mark { background: none; color: var(--accent); font-weight: 700; }
 
-/* TAGIT */
-.tag-chip{padding:5px 11px;border-radius:14px;border:1px solid rgba(96,165,250,0.35);background:rgba(96,165,250,0.1);color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:5px;}
-.tag-chip.active{background:rgba(96,165,250,0.25);border-color:var(--blue);}
-.tag-chip-del{font-size:11px;opacity:0.6;margin-left:2px;}
-.meta-tag{padding:3px 9px;border-radius:10px;font-size:12px;font-weight:600;background:rgba(96,165,250,0.12);color:var(--blue);}
-.pohja-btn{padding:7px 13px;background:rgba(232,184,75,0.1);color:var(--accent);border:1px solid rgba(232,184,75,0.3);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;}
-.pohja-btn:active{background:rgba(232,184,75,0.2);}
-
 /* GENRE CHIPIT */
 .genre-chip{padding:7px 13px;border-radius:16px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
 .genre-chip-active{background:rgba(232,184,75,0.18)!important;border-color:var(--accent)!important;color:var(--accent)!important;}
@@ -414,10 +406,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     </div>
 
     <div class="form-group">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <label style="margin:0;">Lisätiedot</label>
-        <button class="pohja-btn" onclick="fillTemplate('formNote')">📋 Käytä pohjaa</button>
-      </div>
+      <label>Lisätiedot</label>
       <textarea id="formNote" placeholder="Vapaa kommentti..."></textarea>
     </div>
 
@@ -463,15 +452,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
       </div>
     </div>
-    <div id="partTagsSection" style="display:none;" class="form-group">
-      <label>Tagit</label>
-      <div id="partTagChips" style="display:flex;flex-wrap:wrap;gap:7px;margin-top:2px;"></div>
-    </div>
     <div class="form-group">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <label style="margin:0;">Lisätiedot</label>
-        <button class="pohja-btn" onclick="fillTemplate('partNote')">📋 Käytä pohjaa</button>
-      </div>
+      <label>Lisätiedot</label>
       <textarea id="partNote" placeholder="Vapaa kommentti..."></textarea>
     </div>
     <div class="modal-actions">
@@ -516,22 +498,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div class="add-cat-row">
         <input type="text" id="newGenreInput" placeholder="Uusi genre...">
         <button class="add-cat-btn" onclick="addGenre()">+</button>
-      </div>
-    </div>
-    <div class="form-group" style="margin-top:18px;">
-      <label>Tagit <span style="font-size:11px;color:var(--muted);font-weight:400;">(jaksoihin)</span></label>
-      <div class="cat-manage" id="tagManageList"></div>
-      <div class="add-cat-row">
-        <input type="text" id="newTagInput" placeholder="esim. Barney, Ted...">
-        <button class="add-cat-btn" onclick="addTag()">+</button>
-      </div>
-    </div>
-    <div class="form-group" style="margin-top:18px;">
-      <label>Arvostelupohja <span style="font-size:11px;color:var(--muted);font-weight:400;">(kysymykset)</span></label>
-      <div class="cat-manage" id="templateManageList"></div>
-      <div class="add-cat-row">
-        <input type="text" id="newTemplateInput" placeholder="esim. Paras kohtaus">
-        <button class="add-cat-btn" onclick="addTemplateQuestion()">+</button>
       </div>
     </div>
   </div>
@@ -633,9 +599,7 @@ const DEFAULT_GENRES = ['Toiminta','Komedia','Draama','Kauhu','Sci-fi','Trilleri
 let GENRES = [...DEFAULT_GENRES];
 const GENRE_CATS = ['Elokuvat','TV-sarjat'];
 
-const DEFAULT_TAGS = [];
-const DEFAULT_TEMPLATE_QUESTIONS = ['Juoni','Näyttälijät','Fiilikset / tunnelma','Paras kohtaus','Huonoin kohtaus','Suosikkihahmo'];
-let appData = { categories: [...DEFAULT_CATS], genres: [...DEFAULT_GENRES], tags: [...DEFAULT_TAGS], templateQuestions: [...DEFAULT_TEMPLATE_QUESTIONS], reviews: [], queue: [] };
+let appData = { categories: [...DEFAULT_CATS], genres: [...DEFAULT_GENRES], reviews: [], queue: [] };
 let activeCat = null;
 let sortMode = 'uusin';
 let activeGenreFilter = null;
@@ -656,8 +620,6 @@ function initApp(){
   if(!appData.queue) appData.queue = [];
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   GENRES = [...appData.genres];
-  if(!appData.tags) appData.tags = [...DEFAULT_TAGS];
-  if(!appData.templateQuestions) appData.templateQuestions = [...DEFAULT_TEMPLATE_QUESTIONS];
   renderCatTabs();
   renderGenreFilters();
   renderYearFilters();
@@ -896,7 +858,6 @@ window.renderCards = function(){
                   <div class="tv-part">
                     <div class="tv-part-info">
                       <span class="tv-part-name">${ep.episode?`<span style="color:var(--accent);font-weight:700;font-size:12px;">J${ep.episode} </span>`:''}${ep.name||''}</span>
-                      ${ep.tags&&ep.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;">${ep.tags.map(t=>`<span class="meta-tag">${t}</span>`).join('')}</div>`:''}
                       ${ep.note?`<span class="tv-part-note">${ep.note.replace(/\n/g,'<br>')}</span>`:''}
                     </div>
                     <span class="tv-part-score ${scoreClass(ep.score)}">${ep.score}</span>
@@ -1226,7 +1187,6 @@ window.openAddPart = function(reviewId, seasonIdx){
   selectedPartScore=null;
   const psi=document.getElementById('partScoreInput'); if(psi) psi.value='';
   buildScorePicker('partScorePicker','partScore');
-  if(isJaksot) buildPartTagChips([]);
   document.getElementById('partModal').classList.add('open');
 };
 
@@ -1246,7 +1206,6 @@ window.editEpisode = function(reviewId, si, ei){
   sel.innerHTML = seasons.map((s,i)=>`<option value="${i}" ${i===si?'selected':''}>${s.name}</option>`).join('');
   document.getElementById('partName').value = ep.name||'';
   document.getElementById('partNote').value = ep.note||'';
-  buildPartTagChips(ep.tags||[]);
   const pe=document.getElementById('partEpisode'); if(pe) pe.value=ep.episode||'';
   const psi=document.getElementById('partScoreInput'); if(psi) psi.value=selectedPartScore!==null?selectedPartScore:'';
   buildScorePicker('partScorePicker','partScore');
@@ -1293,8 +1252,7 @@ window.savePart = async function(){
       name: document.getElementById('partName').value.trim(),
       episode: document.getElementById('partEpisode').value ? +document.getElementById('partEpisode').value : null,
       score: selectedPartScore,
-      note: document.getElementById('partNote').value,
-      tags: getSelectedPartTags()
+      note: document.getElementById('partNote').value
     };
     if(!r.seasons[si].episodes) r.seasons[si].episodes=[];
     if(editingPartId!==null) r.seasons[si].episodes[editingPartId]=epData;
@@ -1426,12 +1384,8 @@ window.renderTop = function(){
 window.openSettings = function(){
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   GENRES = [...appData.genres];
-  if(!appData.tags) appData.tags = [];
-  if(!appData.templateQuestions) appData.templateQuestions = [...DEFAULT_TEMPLATE_QUESTIONS];
   renderCatManage();
   renderGenreManage();
-  renderTagManage();
-  renderTemplateManage();
   document.getElementById('settingsModal').classList.add('open');
 };
 
@@ -1504,103 +1458,6 @@ window.deleteGenre = async function(i){
   renderGenreManage();
   renderGenreFilters();
   await window.fbSave();
-};
-
-// ── TAGIT ──
-function renderTagManage(){
-  const el = document.getElementById('tagManageList');
-  if(!el) return;
-  if(!appData.tags) appData.tags = [];
-  if(appData.tags.length===0){
-    el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0;">Ei tageja vielä. Lisää alta!</div>';
-    return;
-  }
-  el.innerHTML = appData.tags.map((t,i)=>`
-    <div class="cat-row">
-      <span class="cat-row-name">${t}</span>
-      <button class="cat-del" onclick="deleteTag(${i})">Poista</button>
-    </div>
-  `).join('');
-}
-
-window.addTag = async function(){
-  const val = document.getElementById('newTagInput').value.trim();
-  if(!val) return;
-  if(!appData.tags) appData.tags=[];
-  if(appData.tags.includes(val)){ alert('Tagi on jo olemassa!'); return; }
-  appData.tags.push(val);
-  document.getElementById('newTagInput').value='';
-  renderTagManage();
-  await window.fbSave();
-};
-
-window.deleteTag = async function(i){
-  if(!confirm(`Poistetaanko tagi "${appData.tags[i]}"?`)) return;
-  appData.tags.splice(i,1);
-  renderTagManage();
-  await window.fbSave();
-};
-
-function buildPartTagChips(selectedTags){
-  const section = document.getElementById('partTagsSection');
-  const chips = document.getElementById('partTagChips');
-  if(!section||!chips) return;
-  if(!appData.tags||appData.tags.length===0){ section.style.display='none'; return; }
-  section.style.display='block';
-  chips.innerHTML = appData.tags.map(t=>`
-    <button type="button" class="tag-chip${(selectedTags||[]).includes(t)?' active':''}" onclick="togglePartTag(this,'${t.replace(/'/g,"\'")}')">
-      ${t}
-    </button>
-  `).join('');
-}
-
-window.togglePartTag = function(el, tag){
-  el.classList.toggle('active');
-};
-
-function getSelectedPartTags(){
-  return Array.from(document.querySelectorAll('#partTagChips .tag-chip.active')).map(b=>b.textContent.trim());
-}
-
-// ── ARVOSTELUPOHJA ──
-function renderTemplateManage(){
-  const el = document.getElementById('templateManageList');
-  if(!el) return;
-  if(!appData.templateQuestions) appData.templateQuestions = [...DEFAULT_TEMPLATE_QUESTIONS];
-  el.innerHTML = appData.templateQuestions.map((q,i)=>`
-    <div class="cat-row">
-      <span class="cat-row-name">${q}</span>
-      <button class="cat-del" onclick="deleteTemplateQuestion(${i})">Poista</button>
-    </div>
-  `).join('');
-}
-
-window.addTemplateQuestion = async function(){
-  const val = document.getElementById('newTemplateInput').value.trim();
-  if(!val) return;
-  if(!appData.templateQuestions) appData.templateQuestions=[];
-  if(appData.templateQuestions.includes(val)){ alert('Kysymys on jo olemassa!'); return; }
-  appData.templateQuestions.push(val);
-  document.getElementById('newTemplateInput').value='';
-  renderTemplateManage();
-  await window.fbSave();
-};
-
-window.deleteTemplateQuestion = async function(i){
-  if(!confirm(`Poistetaanko kysymys "${appData.templateQuestions[i]}"?`)) return;
-  appData.templateQuestions.splice(i,1);
-  renderTemplateManage();
-  await window.fbSave();
-};
-
-window.fillTemplate = function(fieldId){
-  const el = document.getElementById(fieldId);
-  if(!el) return;
-  const qs = appData.templateQuestions||DEFAULT_TEMPLATE_QUESTIONS;
-  const text = qs.map(q=>q+':\n').join('\n');
-  if(el.value && !confirm('Korvataanko nykyinen teksti pohjalla?')) return;
-  el.value = text;
-  el.focus();
 };
 
 // ── AUTOCOMPLETE ──
