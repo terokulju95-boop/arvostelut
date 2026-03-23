@@ -1370,6 +1370,8 @@ window.renderTop = function(){
 
 // ── ASETUKSET ──
 window.openSettings = function(){
+  if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
+  GENRES = [...appData.genres];
   renderCatManage();
   renderGenreManage();
   document.getElementById('settingsModal').classList.add('open');
@@ -1414,6 +1416,7 @@ window.deleteCat = async function(i){
 function renderGenreManage(){
   const el = document.getElementById('genreManageList');
   if(!el) return;
+  if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   el.innerHTML = appData.genres.map((g,i)=>`
     <div class="cat-row">
       <span class="cat-row-name">${g}</span>
