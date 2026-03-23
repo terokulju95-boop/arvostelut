@@ -492,6 +492,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <button class="add-cat-btn" onclick="addCategory()">+</button>
       </div>
     </div>
+    <div class="form-group" style="margin-top:18px;">
+      <label>Genret</label>
+      <div class="cat-manage" id="genreManageList"></div>
+      <div class="add-cat-row">
+        <input type="text" id="newGenreInput" placeholder="Uusi genre...">
+        <button class="add-cat-btn" onclick="addGenre()">+</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -587,10 +595,11 @@ if(sessionStorage.getItem(PIN_SESSION)){ document.getElementById('pinScreen').st
 <script>
 // ── DATA ──
 const DEFAULT_CATS = ['Elokuvat','TV-sarjat','Ruuat','Juomat'];
-const GENRES = ['Toiminta','Komedia','Draama','Kauhu','Sci-fi','Trilleri','Dokumentti','Animaatio','Romantiikka','Fantasia','Seikkailu','Musiikki','Urheilu','Rikostarina','Historia','Sota','Western','Noir','Perhe','Tositapahtumat'];
+const DEFAULT_GENRES = ['Toiminta','Komedia','Draama','Kauhu','Sci-fi','Trilleri','Dokumentti','Animaatio','Romantiikka','Fantasia','Seikkailu','Musiikki','Urheilu','Rikostarina','Historia','Sota','Western','Noir','Perhe','Tositapahtumat'];
+let GENRES = [...DEFAULT_GENRES];
 const GENRE_CATS = ['Elokuvat','TV-sarjat'];
 
-let appData = { categories: [...DEFAULT_CATS], reviews: [], queue: [] };
+let appData = { categories: [...DEFAULT_CATS], genres: [...DEFAULT_GENRES], reviews: [], queue: [] };
 let activeCat = null;
 let sortMode = 'uusin';
 let activeGenreFilter = null;
@@ -609,6 +618,8 @@ let selectedPartScore = null;
 function initApp(){
   if(!activeCat && appData.categories.length) activeCat = appData.categories[0];
   if(!appData.queue) appData.queue = [];
+  if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
+  GENRES = [...appData.genres];
   renderCatTabs();
   renderGenreFilters();
   renderYearFilters();
@@ -1360,6 +1371,7 @@ window.renderTop = function(){
 // ── ASETUKSET ──
 window.openSettings = function(){
   renderCatManage();
+  renderGenreManage();
   document.getElementById('settingsModal').classList.add('open');
 };
 
@@ -1395,6 +1407,41 @@ window.deleteCat = async function(i){
   if(activeCat===cat) activeCat = appData.categories[0]||null;
   renderCatManage();
   renderAll();
+  await window.fbSave();
+};
+
+// ── GENRE HALLINTA ──
+function renderGenreManage(){
+  const el = document.getElementById('genreManageList');
+  if(!el) return;
+  el.innerHTML = appData.genres.map((g,i)=>`
+    <div class="cat-row">
+      <span class="cat-row-name">${g}</span>
+      ${!DEFAULT_GENRES.includes(g)?`<button class="cat-del" onclick="deleteGenre(${i})">Poista</button>`:'<span style="font-size:12px;color:var(--muted);">vakio</span>'}
+    </div>
+  `).join('');
+}
+
+window.addGenre = async function(){
+  const val = document.getElementById('newGenreInput').value.trim();
+  if(!val) return;
+  if(appData.genres.includes(val)){ alert('Genre on jo olemassa!'); return; }
+  appData.genres.push(val);
+  GENRES = [...appData.genres];
+  document.getElementById('newGenreInput').value='';
+  renderGenreManage();
+  renderGenreFilters();
+  await window.fbSave();
+};
+
+window.deleteGenre = async function(i){
+  const genre = appData.genres[i];
+  if(DEFAULT_GENRES.includes(genre)){ alert('Vakiogenreä ei voi poistaa!'); return; }
+  if(!confirm(`Poistetaanko genre "${genre}"?`)) return;
+  appData.genres.splice(i,1);
+  GENRES = [...appData.genres];
+  renderGenreManage();
+  renderGenreFilters();
   await window.fbSave();
 };
 
