@@ -1207,10 +1207,22 @@ window.openAddPart = function(reviewId, seasonIdx){
     const sel = document.getElementById('partSeasonSelect');
     sel.innerHTML = seasons.map((s,i)=>`<option value="${i}" ${i===seasonIdx?'selected':''}>${s.name}</option>`).join('');
     if(seasonIdx!=null) sel.value = seasonIdx;
+    // Auto-täytä seuraava jaksonumero
+    const pe = document.getElementById('partEpisode');
+    if(pe){
+      if(seasonIdx!=null){
+        const eps = (seasons[seasonIdx]&&seasons[seasonIdx].episodes)||[];
+        const maxEp = eps.reduce((max,e)=>Math.max(max, e.episode||0), 0);
+        pe.value = maxEp + 1;
+      } else {
+        const allEps = seasons.flatMap(s=>s.episodes||[]);
+        const maxEp = allEps.reduce((max,e)=>Math.max(max, e.episode||0), 0);
+        pe.value = maxEp > 0 ? maxEp + 1 : 1;
+      }
+    }
   }
   document.getElementById('partName').value='';
   document.getElementById('partNote').value='';
-  const pe=document.getElementById('partEpisode'); if(pe) pe.value='';
   selectedPartScore=null;
   const psi=document.getElementById('partScoreInput'); if(psi) psi.value='';
   buildScorePicker('partScorePicker','partScore');
