@@ -879,14 +879,14 @@ window.renderCards = function(){
           }).join('');
         }
         // Laske paras/huonoin jakso kaikista kausista
-        const allEps = (r.seasons||[]).flatMap(s=>s.episodes||[]).filter(e=>e.score!=null);
+        const allEps = (r.seasons||[]).flatMap((s,si)=>(s.episodes||[]).map(e=>({...e, _si:si+1}))).filter(e=>e.score!=null);
         let bestWorstHtml = '';
         if(allEps.length > 0){
           const maxScore = Math.max(...allEps.map(e=>e.score));
           const minScore = Math.min(...allEps.map(e=>e.score));
           const bestEps = allEps.filter(e=>e.score===maxScore);
           const worstEps = allEps.filter(e=>e.score===minScore);
-          const epLabel = ep => `${ep.episode?'J'+ep.episode+' ':''}${ep.name||''}`.trim()||'–';
+          const epLabel = ep => `${ep._si?'K'+ep._si:''}${ep.episode?'J'+ep.episode:''}${(ep._si||ep.episode)&&ep.name?' ':'' }${ep.name||''}`.trim()||'–';
           bestWorstHtml = `<div class="best-worst-box">
             <div class="best-worst-row">
               <span class="best-worst-icon">🏆</span>
