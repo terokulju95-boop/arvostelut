@@ -133,6 +133,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .season-episodes{padding:0 8px 8px;}
 .season-del{background:transparent;border:none;color:var(--accent2);font-size:16px;cursor:pointer;padding:2px 6px;opacity:0.6;}
 .season-del:active{opacity:1;}
+.season-avg.score-high{color:#4ade80;}
+.season-avg.score-mid{color:#e8b84b;}
+.season-avg.score-low{color:#ff6b6b;}
+.best-worst-box{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:7px;}
+.best-worst-row{display:flex;align-items:center;gap:8px;}
+.best-worst-icon{font-size:15px;flex-shrink:0;}
+.best-worst-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;flex-shrink:0;width:52px;}
+.best-worst-names{flex:1;font-size:13px;font-weight:500;color:var(--text);}
 
 /* FAB */
 #fab{position:fixed;bottom:20px;right:16px;width:56px;height:56px;border-radius:20px;background:var(--accent);color:var(--bg);font-size:28px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(232,184,75,0.4);z-index:100;transition:all 0.2s;font-weight:700;}
@@ -870,8 +878,34 @@ window.renderCards = function(){
             </div>`;
           }).join('');
         }
+        // Laske paras/huonoin jakso kaikista kausista
+        const allEps = (r.seasons||[]).flatMap(s=>s.episodes||[]).filter(e=>e.score!=null);
+        let bestWorstHtml = '';
+        if(allEps.length > 0){
+          const maxScore = Math.max(...allEps.map(e=>e.score));
+          const minScore = Math.min(...allEps.map(e=>e.score));
+          const bestEps = allEps.filter(e=>e.score===maxScore);
+          const worstEps = allEps.filter(e=>e.score===minScore);
+          const epLabel = ep => `${ep.episode?'J'+ep.episode+' ':''}${ep.name||''}`.trim()||'–';
+          bestWorstHtml = `<div class="best-worst-box">
+            <div class="best-worst-row">
+              <span class="best-worst-icon">🏆</span>
+              <span class="best-worst-label">Paras</span>
+              <span class="best-worst-names">${bestEps.map(epLabel).join(', ')}</span>
+              <span class="tv-part-score ${scoreClass(maxScore)}" style="font-family:'Bebas Neue',sans-serif;font-size:18px;">${maxScore}</span>
+            </div>
+            ${minScore!==maxScore?`<div class="best-worst-row">
+              <span class="best-worst-icon">💀</span>
+              <span class="best-worst-label">Huonoin</span>
+              <span class="best-worst-names">${worstEps.map(epLabel).join(', ')}</span>
+              <span class="tv-part-score ${scoreClass(minScore)}" style="font-family:'Bebas Neue',sans-serif;font-size:18px;">${minScore}</span>
+            </div>`:''}
+          </div>`;
+        }
+
         partsHtml = `<div class="tv-parts">
           ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
+          ${bestWorstHtml}
           ${seasonHtml}
           <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>
         </div>`;
