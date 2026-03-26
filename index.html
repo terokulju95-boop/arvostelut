@@ -546,8 +546,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </div>
     </div>
     <div class="form-group">
-      <label>Lisätiedot</label>
-      <textarea id="partNote" placeholder="Vapaa kommentti..."></textarea>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <label style="margin:0;">Lisätiedot</label>
+        <button class="ai-btn" onclick="generateAIReviewPart()">✨ AI-arvostelu</button>
+      </div>
+      <textarea id="partNote" placeholder="Kirjoita avainsanoja: hauska, surullinen, hyvät näyttälijät..."></textarea>
+      <div class="ai-result" id="aiResultPart">
+        <div id="aiResultPartText"></div>
+        <div class="ai-result-actions">
+          <button class="ai-keep-btn" onclick="keepOwnReviewPart()">Pidän oman</button>
+          <button class="ai-use-btn" onclick="useAIReviewPart()">✨ Käytä tätä</button>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('partModal')">Peruuta</button>
@@ -1742,63 +1752,50 @@ window.generateAIReview = function(){
 
 function buildSmartReview(keywords, name, cat, genres, score){
   const kw = keywords.toLowerCase();
-  const parts = [];
+  const sentences = [];
 
-  // Tunnelma-analyysi
-  const positive = ['hauska','hyvä','loistava','mahtava','upea','erinomainen','viihdyttävä','jännittävä','koskettava','hieno','fantastinen','huikea','paras','nautinnollinen'];
-  const negative = ['tylsä','huono','pettymys','turha','heikko','pitkästyttävä','lattea','lame','ankea','tappio','epäonnistunut','kuiva'];
-  const emotional = ['surullinen','itketti','liikuttava','koskettava','tunteellinen','herkkä','raskas','dramaattinen'];
-  const funny = ['hauska','komedia','nauratti','humoristinen','viihdyttävä','piristävä','kevyt'];
-  const action = ['toiminta','vauhdikas','räjähdys','jännittävä','intensiivinen','adrenaliini','nopea'];
-  const plot = ['juoni','tarina','käsikirjoitus','käänne','yllätys','loppu','alku','rakenne'];
+  // Sanakirja: avainsana -> lause joka käyttää sitä suoraan
+  const wordMap = [
+    { words:['hauska','nauratti','humoristinen'], fn: ()=>'Huumori on parhaimmillaan ja jakso naurattaa oikeissa kohdissa.' },
+    { words:['viihdyttävä','piristävä','kevyt'], fn: ()=>'Jakso on viihdyttävä — helppo katsottava ilman suurempia odotuksia.' },
+    { words:['tylsä','pitkästyttävä','kuiva'], fn: ()=>'Paikoin tempoa voisi kiristää, sillä jakso tuntuu venähtävän turhaan.' },
+    { words:['hyvä tarina','hyvä juoni','tarina on','juoni on'], fn: ()=>'Tarina on kirjoitettu hyvin ja pitää katsojan mukana alusta loppuun.' },
+    { words:['surullinen','koskettava','itketti','liikuttava'], fn: ()=>'Jakso on yllättävän koskettava ja herättää aitoja tunteita.' },
+    { words:['jännittävä','intensiivinen','vauhdikas'], fn: ()=>'Jännitys pysyy yllä läpi jakson eikä katse halua irrottautua ruudusta.' },
+    { words:['hyvät näyttälijät','näyttelijät','roolisuoritukset'], fn: ()=>'Näyttelijäsuoritukset ovat vahvoja ja henkilöhahmot tuntuvat aidoilta.' },
+    { words:['loppu on','loppu oli','lopetus'], fn: ()=>`Lopetus on jakson vahvin hetki — se jättää hyvän fiiliksen.` },
+    { words:['huono loppu','pettymys loppu'], fn: ()=>'Lopetus jättää toivomisen varaa ja tuntuu hieman hutiloidulta.' },
+    { words:['erinomainen','loistava','mahtava','upea','fantastinen'], fn: ()=>'Kokonaisuutena yksi sarjan vahvimmista jaksoista.' },
+    { words:['huono','pettymys','heikko','turha'], fn: ()=>'Jakso ei onnistu lunastamaan odotuksia ja jää sarjan heikompaan päähän.' },
+    { words:['raukkaus','liikaa raukkaus','seksijuttuja'], fn: ()=>'Käsikirjoituksessa on turhan paljon asiaan kuulumatonta täytettä.' },
+    { words:['hahmo','hahmonkehitys','kehitys'], fn: ()=>'Hahmojen kehitys on hienosti kirjoitettu ja tuntuu luontevalta.' },
+    { words:['dramaattinen','raskas','synkkä'], fn: ()=>'Jakso on tunnelataukseltaan raskas mutta se sopii sarjan sävyyn.' },
+  ];
 
-  const posCount = positive.filter(w=>kw.includes(w)).length;
-  const negCount = negative.filter(w=>kw.includes(w)).length;
-  const isEmotional = emotional.some(w=>kw.includes(w));
-  const isFunny = funny.some(w=>kw.includes(w));
-  const isAction = action.some(w=>kw.includes(w));
-  const hasPlot = plot.some(w=>kw.includes(w));
+  // Kerää lauseet jotka osuvat käyttäjän sanoihin
+  const usedSentences = new Set();
+  wordMap.forEach(({words, fn})=>{
+    if(words.some(w=>kw.includes(w))){
+      const s = fn();
+      if(!usedSentences.has(s)){ usedSentences.add(s); sentences.push(s); }
+    }
+  });
 
-  // Aloituslause
-  const title = name ? `"${name}" ` : (cat==='Elokuvat'?'Tämä elokuva ':'Tämä sarja ');
-  if(posCount > negCount){
-    const openers = [
-      `${title}on positiivinen yllätys.`,
-      `${title}on ehdottomasti katsomisen arvoinen.`,
-      `${title}tarjoaa juuri sen mitä lupaa.`,
-    ];
-    parts.push(openers[Math.floor(Math.random()*openers.length)]);
-  } else if(negCount > posCount){
-    const openers = [
-      `${title}jättää toivomisen varaa.`,
-      `${title}ei aivan lunasta odotuksia.`,
-      `${title}on pettymys monella tapaa.`,
-    ];
-    parts.push(openers[Math.floor(Math.random()*openers.length)]);
-  } else {
-    parts.push(`${title}on kaksijakoinen kokemus.`);
+  // Jos ei löydy yhtään osumaa, käytä yleistä aloitusta
+  if(sentences.length === 0){
+    const title = name || 'Tämä jakso';
+    sentences.push(`${title} on tasapainoinen kokemus — ei huippu eikä pohja.`);
   }
 
-  // Tunnelma/tyyli
-  if(isFunny && isEmotional) parts.push('Se tasapainottaa hienosti huumorin ja tunteikkuuden välillä.');
-  else if(isFunny) parts.push('Huumorintaju on kohdillaan ja pitää tunnelman kepeänä läpi.');
-  else if(isEmotional) parts.push('Teos koskettaa syvältä ja herättää aitoja tunteita.');
-  if(isAction) parts.push('Toimintakohtaukset ovat vauhdikkaita ja pitävät katsojan varpaillaan.');
-
-  // Juonikommentti
-  if(kw.includes('loppu') || kw.includes('käänne')) parts.push('Lopetus yllättää — joko positiivisesti tai negatiivisesti riippuen mausta.');
-  else if(hasPlot && posCount > 0) parts.push('Käsikirjoitus on huoliteltu ja tarina etenee loogisesti.');
-  else if(hasPlot && negCount > 0) parts.push('Juonessa on aukkoja jotka häiritsevät katselukokemusta.');
-
-  // Yhteenveto pisteiden perusteella
+  // Lopuksi pisteisiin perustuva yhteenveto JOS pisteet on annettu
   if(score!=null){
-    if(score>=80) parts.push('Kokonaisuutena vahvasti suositeltava — ei jätä kylmäksi.');
-    else if(score>=60) parts.push('Sopii hyvin rentoon katseluiltaan, vaikka ei aivan huippuluokkaa olekaan.');
-    else if(score>=40) parts.push('Ei paras eikä huonoin — toimii jos odotukset ovat sopivat.');
-    else parts.push('Vaikea suositella eteenpäin, ellei genre osu täysin omaan makuun.');
+    if(score>=85) sentences.push(`Pisteytys ${score}/100 kertoo kaiken — ehdottomasti sarjan parhaimmistoa.`);
+    else if(score>=70) sentences.push(`Vahva jakso, ${score} pistettä ansaitusti.`);
+    else if(score>=50) sentences.push(`Kohtuullinen jakso ${score} pisteellä — ei täydellinen mutta toimiva.`);
+    else sentences.push(`${score} pistettä kuvastaa hyvin jakson tasoa — jää sarjan heikommaksi hetkeksi.`);
   }
 
-  return parts.join(' ');
+  return sentences.join(' ');
 }
 
 let savedOwnReview = '';
@@ -1810,6 +1807,31 @@ window.useAIReview = function(){
   const noteEl = document.getElementById('formNote');
   if(noteEl){ savedOwnReview = noteEl.value; noteEl.value = aiGeneratedText; }
   document.getElementById('aiResult').classList.remove('open');
+};
+
+// AI jakso-modalissa
+let aiGeneratedTextPart = '';
+window.generateAIReviewPart = function(){
+  const note = document.getElementById('partNote').value.trim();
+  const name = document.getElementById('partName').value.trim();
+  if(!note){ alert('Kirjoita ensin muutama avainsana lisätiedot-kenttään!'); return; }
+  const resultEl = document.getElementById('aiResultPart');
+  const textEl = document.getElementById('aiResultPartText');
+  resultEl.classList.add('open');
+  textEl.innerHTML = '<span style="color:var(--muted);">✨ Generoidaan...</span>';
+  setTimeout(()=>{
+    aiGeneratedTextPart = buildSmartReview(note, name, 'TV-sarjat', [], selectedPartScore);
+    textEl.innerHTML = aiGeneratedTextPart.replace(/\n/g,'<br>');
+  }, 600);
+};
+window.keepOwnReviewPart = function(){
+  document.getElementById('aiResultPart').classList.remove('open');
+  aiGeneratedTextPart = '';
+};
+window.useAIReviewPart = function(){
+  const noteEl = document.getElementById('partNote');
+  if(noteEl){ noteEl.value = aiGeneratedTextPart; }
+  document.getElementById('aiResultPart').classList.remove('open');
 };
 
 // ── KONFETTI ──
