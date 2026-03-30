@@ -1929,16 +1929,29 @@ window.openReadModal = function(id){
   const genres = Array.isArray(r.genre)?r.genre:(r.genre?[r.genre]:[]);
   const dateStr = r.date ? new Date(r.date).toLocaleDateString('fi-FI') : '';
   const cls = score!=null?(score>=70?'high':score>=40?'mid':'low'):'mid';
+
+  const extraRows = [];
+  if(r.director) extraRows.push(`<div class="read-section"><div class="read-label">🎬 Ohjaaja</div><div class="read-value">${r.director}</div></div>`);
+  if(r.cast && r.cast.length) extraRows.push(`<div class="read-section"><div class="read-label">🎭 Näyttelijät</div><div class="read-value">${r.cast.join(', ')}</div></div>`);
+  if(r.runtime) extraRows.push(`<div class="read-section"><div class="read-label">⏱️ Kesto</div><div class="read-value">${r.runtime} min</div></div>`);
+  if(r.episodes_total) extraRows.push(`<div class="read-section"><div class="read-label">📺 Jaksoja</div><div class="read-value">${r.episodes_total}</div></div>`);
+  if(r.country) extraRows.push(`<div class="read-section"><div class="read-label">🌍 Maa</div><div class="read-value">${r.country}</div></div>`);
+  if(r.tmdb_score) extraRows.push(`<div class="read-section"><div class="read-label">⭐ TMDB-arvosana</div><div class="read-value">${r.tmdb_score}/10</div></div>`);
+
+  const posterHtml = r.poster ? `<img src="https://image.tmdb.org/t/p/w200${r.poster}" style="width:70px;height:105px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="">` : '';
+
   document.getElementById('readModalContent').innerHTML = `
-    <div class="read-ring-row">
-      ${score!=null?buildRing(score):''}
-      <div>
+    <div class="read-ring-row" style="align-items:flex-start;gap:12px;">
+      ${posterHtml}
+      <div style="flex:1;">
+        ${score!=null?buildRing(score):''}
         <div class="read-title">${r.name.replace(/\n/g,'<br>')}</div>
         <div class="read-sub">${r.category}${genres.length?' · '+genres.join(', '):''}</div>
         ${r.mark==='heart'?'<span style="color:#ff6482;font-size:13px;font-weight:700;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span style="color:#aaa;font-size:13px;font-weight:700;">💀 Huono</span>':''}
       </div>
     </div>
+    ${extraRows.join('')}
     ${r.note?`<div class="read-section">
       <div class="read-label">Arvostelu</div>
       <div class="read-value">${r.note.replace(/\n/g,'<br>')}</div>
@@ -2156,14 +2169,16 @@ async function searchTmdb(query) {
     spinner.style.display = 'none';
     const items = (data.results || []).slice(0, 6).filter(i => i.media_type !== 'person');
     if (!items.length) { results.style.display = 'none'; return; }
-    results.innerHTML = items.map(item => {
+    // Tallennetaan tulokset muuttujaan — ei JSON-enkoodausta onclickiin
+    window._tmdbSearchResults = items;
+    results.innerHTML = items.map((item, idx) => {
       const title = item.title || item.name || '';
       const year = (item.release_date || item.first_air_date || '').slice(0, 4);
       const type = item.media_type === 'tv' || isTv ? 'TV' : 'Elokuva';
       const poster = item.poster_path ? `https://image.tmdb.org/t/p/w92${item.poster_path}` : '';
       const imgEl = poster ? `<img class="tmdb-poster" src="${poster}" alt="">` : `<div class="tmdb-poster" style="display:flex;align-items:center;justify-content:center;font-size:20px;">🎬</div>`;
       const genres = (item.genre_ids || []).slice(0, 2).map(id => tmdbGenreMap[id]).filter(Boolean).join(', ');
-      return `<div class="tmdb-item" onclick="fillFromTmdb(${JSON.stringify(JSON.stringify(item)).slice(1,-1)})">
+      return `<div class="tmdb-item" onclick="fillFromTmdb(${idx})">
         ${imgEl}
         <div class="tmdb-item-info">
           <div class="tmdb-item-title">${title}</div>
@@ -2186,8 +2201,9 @@ const tmdbGenreMap = {
   10765:'Sci-fi & Fantasia',10766:'Saippuasarja',10767:'Talkshow',10768:'Sota & Politiikka'
 };
 
-window.fillFromTmdb = async function(itemJson) {
-  const item = JSON.parse(itemJson);
+window.fillFromTmdb = async function(idx) {
+  const item = window._tmdbSearchResults && window._tmdbSearchResults[idx];
+  if (!item) return;
   const token = window.tmdbToken;
   const isTv = item.media_type === 'tv' || document.getElementById('formCat')?.value === 'TV-sarjat';
   const tmdbId = item.id;
