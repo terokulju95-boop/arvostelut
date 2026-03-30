@@ -674,7 +674,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
-import { getRemoteConfig, fetchAndActivate, getValue } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-remote-config.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA_VUBuT2lcDtrtMEUZV-U8CNy0Rv1XSNI",
@@ -692,12 +691,8 @@ const PIN_DOC  = doc(db, "arvostelut", "pin");
 const PIN_SESSION = "arvostelut_pin_ok";
 let isSaving = false;
 
-// Remote Config — hae TMDB token
-const remoteConfig = getRemoteConfig(fbApp);
-remoteConfig.settings = { minimumFetchIntervalMillis: 3600000 };
-fetchAndActivate(remoteConfig).then(() => {
-  window.tmdbToken = getValue(remoteConfig, 'tmdb_token').asString();
-}).catch(() => {});
+// TMDB token — aseta tähän oma tokenisi TMDB:stä
+window.tmdbToken = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyYjhkODg4ZjdkMGZkNmRlNzE4MjIxNTM2NWYzZTlmMSIsIm5iZiI6MTc3NDkwNDg1Ny42MjIwMDAyLCJzdWIiOiI2OWNhZTYxOWIwMGYyNWRlZmJjZTNjY2YiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.EGIEIkcAl8J5FloGkTmahs_L3PQ6WTIuRsV3KLg4t2g";
 
 function showStatus(msg, color){
   const el = document.getElementById('saveStatus');
