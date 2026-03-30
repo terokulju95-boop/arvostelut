@@ -91,6 +91,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .review-card.score-mid-card::before{background:linear-gradient(180deg,#e8b84b,#d97706);}
 .review-card.score-low-card::before{background:linear-gradient(180deg,#ff6b6b,#dc2626);}
 .review-card.is-favorite{box-shadow:0 0 0 1.5px rgba(255,100,130,0.5), 0 4px 24px rgba(255,100,130,0.15);}
+/* Poster taustakuva */
+.card-poster-bg{position:absolute;top:0;right:0;bottom:0;width:110px;background-size:cover;background-position:center top;border-radius:0 14px 14px 0;mask-image:linear-gradient(to left,rgba(0,0,0,0.55) 0%,transparent 100%);-webkit-mask-image:linear-gradient(to left,rgba(0,0,0,0.55) 0%,transparent 100%);pointer-events:none;}
 .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
 .card-title{font-size:18px;font-weight:700;line-height:1.2;flex:1;}
 .card-score{font-family:'Bebas Neue',sans-serif;font-size:36px;line-height:1;color:var(--accent);}
@@ -252,7 +254,37 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .autocomplete-item:active { background: rgba(232,184,75,0.1); }
 .autocomplete-item mark { background: none; color: var(--accent); font-weight: 700; }
 
-/* GENRE CHIPIT */
+/* TMDB HAKU */
+.tmdb-search-wrap { position: relative; margin-bottom: 14px; }
+.tmdb-search-input { width:100%; padding:13px 14px 13px 42px; background:var(--bg3); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:16px; font-family:'DM Sans',sans-serif; outline:none; }
+.tmdb-search-input:focus { border-color:var(--accent); }
+.tmdb-search-input::placeholder { color:var(--muted); }
+.tmdb-search-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:18px; pointer-events:none; }
+.tmdb-spinner { position:absolute; right:14px; top:50%; transform:translateY(-50%); width:18px; height:18px; border:2px solid rgba(255,255,255,0.15); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; display:none; }
+@keyframes spin { to { transform:translateY(-50%) rotate(360deg); } }
+.tmdb-results { position:absolute; top:100%; left:0; right:0; background:var(--bg3); border:1px solid var(--accent); border-top:none; border-radius:0 0 12px 12px; z-index:300; max-height:220px; overflow-y:auto; }
+.tmdb-item { display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.15s; }
+.tmdb-item:last-child { border-bottom:none; }
+.tmdb-item:active { background:rgba(232,184,75,0.1); }
+.tmdb-poster { width:36px; height:54px; border-radius:4px; object-fit:cover; background:var(--bg2); flex-shrink:0; }
+.tmdb-item-info { flex:1; min-width:0; }
+.tmdb-item-title { font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tmdb-item-meta { font-size:12px; color:var(--muted); margin-top:2px; }
+.tmdb-badge { display:inline-block; padding:2px 7px; border-radius:6px; font-size:11px; font-weight:700; background:rgba(232,184,75,0.15); color:var(--accent); margin-left:6px; }
+
+.card-extra-info{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6;}
+.card-extra-info span{margin-right:10px;}
+.tmdb-score-compare{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:rgba(96,165,250,0.1);color:var(--blue);font-size:12px;font-weight:600;margin-top:4px;}
+
+/* TMDB latausindikaattori */
+.tmdb-loading-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+.tmdb-loading-overlay.open{display:flex;}
+.tmdb-loading-title{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent);letter-spacing:2px;}
+.tmdb-loading-sub{font-size:14px;color:var(--muted);}
+.tmdb-loading-spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,0.1);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+.tmdb-progress{width:200px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;}
+.tmdb-progress-bar{height:100%;background:var(--accent);border-radius:2px;transition:width 0.3s;width:0%;}
+
 .genre-chip{padding:7px 13px;border-radius:16px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
 .genre-chip-active{background:rgba(232,184,75,0.18)!important;border-color:var(--accent)!important;color:var(--accent)!important;}
 
@@ -411,6 +443,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <!-- FAB -->
 <button id="fab" onclick="fabClick()">+</button>
 
+<!-- TMDB LATAUS -->
+<div class="tmdb-loading-overlay" id="tmdbLoadingOverlay">
+  <div class="tmdb-loading-spinner"></div>
+  <div class="tmdb-loading-title">Haetaan TMDB:stä</div>
+  <div class="tmdb-loading-sub" id="tmdbLoadingSub">Ladataan tietoja...</div>
+  <div class="tmdb-progress"><div class="tmdb-progress-bar" id="tmdbProgressBar"></div></div>
+</div>
+
 <!-- LISÄÄ/MUOKKAA MODAL -->
 <div class="modal-overlay" id="addModal" onclick="closeModalIfOutside(event,'addModal')">
   <div class="modal-sheet">
@@ -440,6 +480,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             <div class="tv-type-opt-desc">Arvostele jokainen jakso erikseen</div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- TMDB HAKU -->
+    <div id="tmdbSearchSection" class="form-group">
+      <label>🎬 Hae TMDB:stä</label>
+      <div class="tmdb-search-wrap">
+        <span class="tmdb-search-icon">🔍</span>
+        <input type="text" class="tmdb-search-input" id="tmdbSearchInput"
+          placeholder="Kirjoita elokuvan tai sarjan nimi..."
+          oninput="onTmdbInput(this.value)"
+          autocomplete="off">
+        <div class="tmdb-spinner" id="tmdbSpinner"></div>
+        <div class="tmdb-results" id="tmdbResults" style="display:none;"></div>
       </div>
     </div>
 
@@ -620,6 +674,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { getRemoteConfig, fetchAndActivate, getValue } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-remote-config.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA_VUBuT2lcDtrtMEUZV-U8CNy0Rv1XSNI",
@@ -636,6 +691,13 @@ const DATA_DOC = doc(db, "arvostelut", "data");
 const PIN_DOC  = doc(db, "arvostelut", "pin");
 const PIN_SESSION = "arvostelut_pin_ok";
 let isSaving = false;
+
+// Remote Config — hae TMDB token
+const remoteConfig = getRemoteConfig(fbApp);
+remoteConfig.settings = { minimumFetchIntervalMillis: 3600000 };
+fetchAndActivate(remoteConfig).then(() => {
+  window.tmdbToken = getValue(remoteConfig, 'tmdb_token').asString();
+}).catch(() => {});
 
 function showStatus(msg, color){
   const el = document.getElementById('saveStatus');
@@ -1058,7 +1120,16 @@ window.renderCards = function(){
 
     const scoreCardCls = score!==null ? (score>=70?'score-high-card':score>=40?'score-mid-card':'score-low-card') : '';
     const favCls = r.mark==='heart' ? 'is-favorite' : '';
+    const posterBg = r.poster ? `<div class="card-poster-bg" style="background-image:url('https://image.tmdb.org/t/p/w200${r.poster}')"></div>` : '';
+    const extraInfo = [];
+    if(r.director) extraInfo.push(`🎬 ${r.director}`);
+    if(r.runtime) extraInfo.push(`⏱️ ${r.runtime} min`);
+    if(r.episodes_total) extraInfo.push(`📺 ${r.episodes_total} jaksoa`);
+    if(r.country) extraInfo.push(`🌍 ${r.country}`);
+    if(r.cast && r.cast.length) extraInfo.push(`🎭 ${r.cast.slice(0,3).join(', ')}`);
+    const tmdbScoreHtml = r.tmdb_score ? `<span class="tmdb-score-compare">⭐ TMDB ${r.tmdb_score}</span>` : '';
     return `<div class="review-card type-${typeClass} ${scoreCardCls} ${favCls}" style="animation-delay:${idx*0.06}s" ondblclick="openReadModal(${r.id})">
+      ${posterBg}
       <div class="card-top">
         <div class="card-title">${r.name.replace(/\n/g,'<br>')}</div>
         ${score!==null&&!isTvParts ? buildRing(score) : ''}
@@ -1073,11 +1144,14 @@ window.renderCards = function(){
         ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>':''}
       </div>
+      ${extraInfo.length ? `<div class="card-extra-info">${extraInfo.map(i=>`<span>${i}</span>`).join('')}</div>` : ''}
+      ${tmdbScoreHtml}
       ${r.note?`<div class="card-note" id="note-${r.id}">${r.note.replace(/\n/g,'<br>')}</div>`:''}
       ${partsHtml}
       ${dateStr?`<div class="card-date">📅 ${dateStr}</div>`:''}
       <div class="card-actions">
         <button class="btn-sm btn-edit" onclick="editReviewWithFlip(${r.id})">✏️ Muokkaa</button>
+        ${(r.category==='Elokuvat'||r.category==='TV-sarjat') ? `<button class="btn-sm" style="background:rgba(96,165,250,0.12);color:var(--blue);" onclick="updateTmdbData(${r.id})">🎬 TMDB</button>` : ''}
         <button class="btn-sm btn-del" onclick="deleteReview(${r.id})">🗑️ Poista</button>
       </div>
     </div>`;
@@ -1099,6 +1173,9 @@ window.openAddModal = function(){
   selectedTvType = 'kokonaisuus';
   selectedMark = null;
   window._queueMode = false;
+  window._tmdbPending = null;
+  document.getElementById('tmdbSearchInput').value = '';
+  document.getElementById('tmdbResults').style.display = 'none';
   document.getElementById('modalTitle').textContent = 'Lisää arvostelu';
   document.getElementById('formName').value = '';
   document.getElementById('formNote').value = '';
@@ -1149,6 +1226,8 @@ window.onCatChange = function(preselectedGenre){
   }
   document.getElementById('genreSection').style.display = hasGenre?'block':'none';
   setTimeout(window.updateScorePrediction, 50);
+  // Näytä TMDB-haku vain elokuville ja TV-sarjoille
+  if(window.onTmdbCatChange) window.onTmdbCatChange(cat);
   if(hasGenre){
     // pre-selected: support array or string (backward compat)
     let preArr = [];
@@ -1274,9 +1353,10 @@ window.saveReview = async function(){
       r.mark=selectedMark;
       r.date=(document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z';
       r.note=document.getElementById('formNote').value;
+      // Säilytä TMDB-tiedot jos niitä ei päivitetä
     }
   } else {
-    appData.reviews.push({
+    const newReview = {
       id: Date.now(),
       date: (document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z',
       name, category:cat,
@@ -1285,13 +1365,164 @@ window.saveReview = async function(){
       score: needsScore?selectedScore:null,
       parts: [],
       mark: selectedMark,
-      note: document.getElementById('formNote').value
-    });
+      note: document.getElementById('formNote').value,
+      // TMDB-tiedot
+      poster: window._tmdbPending?.poster || null,
+      director: window._tmdbPending?.director || null,
+      runtime: window._tmdbPending?.runtime || null,
+      episodes_total: window._tmdbPending?.episodes_total || null,
+      country: window._tmdbPending?.country || null,
+      cast: window._tmdbPending?.cast || null,
+      tmdb_score: window._tmdbPending?.tmdb_score || null,
+      tmdb_id: window._tmdbPending?.tmdb_id || null,
+    };
+    // Jos TV-sarja jaksoittain ja TMDB-kaudet haettu, lisää ne
+    if(isTv && selectedTvType==='jaksot' && window._tmdbPending?.seasons) {
+      newReview.seasons = window._tmdbPending.seasons;
+    }
+    appData.reviews.push(newReview);
+    window._tmdbPending = null;
   }
   closeModal('addModal');
   await window.fbSave();
   renderCards();
   if(selectedScore===100) setTimeout(launchConfetti, 300);
+};
+
+// ── TMDB PÄIVITYS OLEMASSA OLEVAAN ARVOSTELUUN ──
+window.updateTmdbData = async function(id) {
+  const r = appData.reviews.find(x => x.id === id);
+  if (!r) return;
+  const token = window.tmdbToken;
+  if (!token) { alert('TMDB-token ei ole vielä ladattu. Yritä hetken kuluttua uudelleen.'); return; }
+
+  const isTv = r.category === 'TV-sarjat';
+  const isJaksot = r.tvType === 'jaksot';
+
+  // Hae ensin nimi hakusanana (ensimmäinen rivi)
+  const searchName = r.name.split('\n')[0].trim();
+  const overlay = document.getElementById('tmdbLoadingOverlay');
+  const subEl = document.getElementById('tmdbLoadingSub');
+  const progBar = document.getElementById('tmdbProgressBar');
+  overlay.classList.add('open');
+  subEl.textContent = `Haetaan: ${searchName}`;
+  progBar.style.width = '5%';
+
+  try {
+    const lang = 'fi-FI';
+    const searchType = isTv ? 'tv' : 'movie';
+    const searchUrl = `https://api.themoviedb.org/3/search/${searchType}?query=${encodeURIComponent(searchName)}&language=${lang}&page=1`;
+    const searchRes = await fetch(searchUrl, { headers: { Authorization: `Bearer ${token}` } });
+    const searchData = await searchRes.json();
+    const results = searchData.results || [];
+    if (!results.length) {
+      overlay.classList.remove('open');
+      alert(`Ei tuloksia haulle: "${searchName}". Kokeile muokata nimeä.`);
+      return;
+    }
+    progBar.style.width = '20%';
+
+    // Jos useita tuloksia, kysy käyttäjältä
+    let chosen = results[0];
+    if (results.length > 1) {
+      overlay.classList.remove('open');
+      const opts = results.slice(0, 5).map((item, i) => {
+        const year = (item.release_date || item.first_air_date || '').slice(0, 4);
+        return `${i + 1}. ${item.title || item.name}${year ? ' (' + year + ')' : ''}`;
+      }).join('\n');
+      const pick = prompt(`Löytyi useita tuloksia. Valitse numero (1-${Math.min(results.length,5)}):\n\n${opts}`);
+      const idx = parseInt(pick) - 1;
+      if (isNaN(idx) || idx < 0 || idx >= results.length) return;
+      chosen = results[idx];
+      overlay.classList.add('open');
+      progBar.style.width = '25%';
+    }
+
+    const tmdbId = chosen.id;
+    subEl.textContent = 'Haetaan tiedot...';
+    const detailUrl = `https://api.themoviedb.org/3/${searchType}/${tmdbId}?language=${lang}&append_to_response=credits`;
+    const detailRes = await fetch(detailUrl, { headers: { Authorization: `Bearer ${token}` } });
+    const detail = await detailRes.json();
+    progBar.style.width = '40%';
+
+    // Päivitä perustiedot — EI korvaa pisteitä tai muistiinpanoja
+    r.poster = detail.poster_path || r.poster || null;
+    r.tmdb_score = detail.vote_average ? Math.round(detail.vote_average * 10) / 10 : r.tmdb_score;
+    r.tmdb_id = tmdbId;
+    r.country = (detail.production_countries?.[0]?.iso_3166_1 || detail.origin_country?.[0] || r.country || null);
+    r.cast = (detail.credits?.cast || []).slice(0, 5).map(a => a.name);
+    if (!isTv) {
+      const dir = (detail.credits?.crew || []).find(c => c.job === 'Director');
+      r.director = dir ? dir.name : r.director;
+      r.runtime = detail.runtime || r.runtime;
+    } else {
+      const creators = detail.created_by || [];
+      r.director = creators.length ? creators[0].name : r.director;
+      r.episodes_total = detail.number_of_episodes || r.episodes_total;
+    }
+
+    progBar.style.width = '55%';
+
+    // TV-sarja jaksoittain: päivitä jaksojen NIMET, säilytä pisteet
+    if (isTv && isJaksot) {
+      const numSeasons = detail.number_of_seasons || 0;
+      const existingSeasons = r.seasons || [];
+      subEl.textContent = `Haetaan ${numSeasons} kauden jaksonimet...`;
+
+      for (let s = 1; s <= numSeasons; s++) {
+        progBar.style.width = (55 + (s / numSeasons) * 40) + '%';
+        subEl.textContent = `Päivitetään kausi ${s}/${numSeasons}...`;
+        try {
+          const sUrl = `https://api.themoviedb.org/3/tv/${tmdbId}/season/${s}?language=${lang}`;
+          const sRes = await fetch(sUrl, { headers: { Authorization: `Bearer ${token}` } });
+          const sData = await sRes.json();
+
+          // Etsi vastaava olemassa oleva kausi
+          const existingSeason = existingSeasons[s - 1];
+          if (existingSeason) {
+            // Päivitä kauden nimi
+            existingSeason.name = sData.name || existingSeason.name;
+            // Päivitä jaksojen nimet — EI korvaa pisteitä
+            const tmdbEps = sData.episodes || [];
+            const existingEps = existingSeason.episodes || [];
+            tmdbEps.forEach((tmdbEp, ei) => {
+              if (existingEps[ei]) {
+                // Päivitä vain nimi jos se on tyhjä tai puuttuu
+                if (!existingEps[ei].name) {
+                  existingEps[ei].name = tmdbEp.name || '';
+                }
+                // Lisää jaksonumero jos puuttuu
+                if (!existingEps[ei].episode) {
+                  existingEps[ei].episode = tmdbEp.episode_number;
+                }
+              }
+            });
+          } else {
+            // Kausi puuttuu kokonaan — lisää se tyhjin pistein
+            const episodes = (sData.episodes || []).map(ep => ({
+              episode: ep.episode_number,
+              name: ep.name || '',
+              note: '',
+              score: null
+            }));
+            existingSeasons.push({ name: sData.name || `Kausi ${s}`, episodes });
+          }
+        } catch(e) { /* jatka */ }
+      }
+      r.seasons = existingSeasons;
+    }
+
+    progBar.style.width = '100%';
+    subEl.textContent = '✅ Tiedot päivitetty!';
+    await window.fbSave();
+    renderCards();
+    setTimeout(() => overlay.classList.remove('open'), 1000);
+
+  } catch(e) {
+    overlay.classList.remove('open');
+    alert('Virhe TMDB-haussa. Tarkista internetyhteys.');
+    console.error(e);
+  }
 };
 
 window.deleteReview = async function(id){
@@ -1898,6 +2129,209 @@ window.logoTap = function(){
 window.closeEasterEgg = function(){
   document.getElementById('easterEggOverlay').classList.remove('open');
 };
+
+
+// ── TMDB HAKU ──
+let tmdbTimer = null;
+
+window.onTmdbInput = function(val) {
+  clearTimeout(tmdbTimer);
+  const results = document.getElementById('tmdbResults');
+  if (!val || val.length < 2) { results.style.display = 'none'; return; }
+  tmdbTimer = setTimeout(() => searchTmdb(val), 400);
+};
+
+async function searchTmdb(query) {
+  const token = window.tmdbToken;
+  if (!token) { return; }
+  const spinner = document.getElementById('tmdbSpinner');
+  const results = document.getElementById('tmdbResults');
+  spinner.style.display = 'block';
+  results.style.display = 'none';
+
+  // Valitaan haku kategorian mukaan
+  const cat = document.getElementById('formCat')?.value || '';
+  const isTv = cat === 'TV-sarjat';
+  const searchType = isTv ? 'tv' : 'multi';
+
+  try {
+    const url = `https://api.themoviedb.org/3/search/${searchType}?query=${encodeURIComponent(query)}&language=fi-FI&page=1`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } });
+    const data = await res.json();
+    spinner.style.display = 'none';
+    const items = (data.results || []).slice(0, 6).filter(i => i.media_type !== 'person');
+    if (!items.length) { results.style.display = 'none'; return; }
+    results.innerHTML = items.map(item => {
+      const title = item.title || item.name || '';
+      const year = (item.release_date || item.first_air_date || '').slice(0, 4);
+      const type = item.media_type === 'tv' || isTv ? 'TV' : 'Elokuva';
+      const poster = item.poster_path ? `https://image.tmdb.org/t/p/w92${item.poster_path}` : '';
+      const imgEl = poster ? `<img class="tmdb-poster" src="${poster}" alt="">` : `<div class="tmdb-poster" style="display:flex;align-items:center;justify-content:center;font-size:20px;">🎬</div>`;
+      const genres = (item.genre_ids || []).slice(0, 2).map(id => tmdbGenreMap[id]).filter(Boolean).join(', ');
+      return `<div class="tmdb-item" onclick="fillFromTmdb(${JSON.stringify(JSON.stringify(item)).slice(1,-1)})">
+        ${imgEl}
+        <div class="tmdb-item-info">
+          <div class="tmdb-item-title">${title}</div>
+          <div class="tmdb-item-meta">${year ? year + ' · ' : ''}${type}${genres ? ' · ' + genres : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+    results.style.display = 'block';
+  } catch(e) {
+    spinner.style.display = 'none';
+  }
+}
+
+const tmdbGenreMap = {
+  28:'Toiminta',12:'Seikkailu',16:'Animaatio',35:'Komedia',80:'Rikostarina',
+  99:'Dokumentti',18:'Draama',10751:'Perhe',14:'Fantasia',36:'Historia',
+  27:'Kauhu',10402:'Musiikki',9648:'Mysteeri',10749:'Romantiikka',878:'Sci-fi',
+  10770:'TV-elokuva',53:'Trilleri',10752:'Sota',37:'Western',
+  10759:'Toiminta',10762:'Lastenohjelma',10763:'Uutiset',10764:'Reality',
+  10765:'Sci-fi & Fantasia',10766:'Saippuasarja',10767:'Talkshow',10768:'Sota & Politiikka'
+};
+
+window.fillFromTmdb = async function(itemJson) {
+  const item = JSON.parse(itemJson);
+  const token = window.tmdbToken;
+  const isTv = item.media_type === 'tv' || document.getElementById('formCat')?.value === 'TV-sarjat';
+  const tmdbId = item.id;
+
+  // Näytä latausikkuna
+  const overlay = document.getElementById('tmdbLoadingOverlay');
+  const subEl = document.getElementById('tmdbLoadingSub');
+  const progBar = document.getElementById('tmdbProgressBar');
+  overlay.classList.add('open');
+  subEl.textContent = 'Haetaan tietoja...';
+  progBar.style.width = '10%';
+
+  // Piilota tulokset
+  document.getElementById('tmdbResults').style.display = 'none';
+  document.getElementById('tmdbSearchInput').value = '';
+
+  try {
+    const lang = 'fi-FI';
+    // Hae täydet tiedot
+    const detailUrl = `https://api.themoviedb.org/3/${isTv?'tv':'movie'}/${tmdbId}?language=${lang}&append_to_response=credits`;
+    const detailRes = await fetch(detailUrl, { headers: { Authorization: `Bearer ${token}` } });
+    const detail = await detailRes.json();
+    progBar.style.width = '30%';
+
+    const title = (detail.title || detail.name || '').toUpperCase();
+    const year = (detail.release_date || detail.first_air_date || '').slice(0, 4);
+    const overview = detail.overview || '';
+    const genreIds = (detail.genres || []).map(g => g.id);
+    const poster = detail.poster_path || null;
+    const tmdb_score = detail.vote_average ? Math.round(detail.vote_average * 10) / 10 : null;
+    const country = (detail.production_countries || detail.origin_country || []);
+    const countryStr = Array.isArray(country) ? (country[0]?.iso_3166_1 || country[0] || '') : '';
+
+    // Näyttelijät
+    const cast = (detail.credits?.cast || []).slice(0, 5).map(a => a.name);
+
+    // Ohjaaja (elokuvat) tai luoja (TV)
+    let director = null;
+    if (!isTv) {
+      const dir = (detail.credits?.crew || []).find(c => c.job === 'Director');
+      director = dir ? dir.name : null;
+    } else {
+      const creators = detail.created_by || [];
+      director = creators.length ? creators[0].name : null;
+    }
+
+    // Kesto / jaksomäärä
+    const runtime = detail.runtime || null;
+    const episodes_total = detail.number_of_episodes || null;
+
+    // Täytä lomake
+    const nameEl = document.getElementById('formName');
+    if (nameEl) nameEl.value = year ? `${title}\n${year}` : title;
+
+    const noteEl = document.getElementById('formNote');
+    if (noteEl && overview && !noteEl.value) noteEl.value = overview;
+
+    // Genret
+    setTimeout(() => {
+      document.querySelectorAll('.genre-chip').forEach(chip => {
+        const chipGenre = chip.textContent.trim();
+        const match = (detail.genres || []).some(g => {
+          const mapped = tmdbGenreMap[g.id];
+          return mapped === chipGenre;
+        });
+        if (match) chip.classList.add('genre-chip-active');
+      });
+    }, 100);
+
+    progBar.style.width = '50%';
+
+    // Tallenna pending TMDB-data
+    window._tmdbPending = { poster, director, runtime, episodes_total, country: countryStr, cast, tmdb_score, tmdb_id: tmdbId };
+
+    // Jos TV-sarja — hae kaudet ja jaksot
+    const tvType = document.querySelector('.tv-type-opt.selected')?.dataset?.type;
+    if (isTv && tvType === 'jaksot') {
+      const numSeasons = detail.number_of_seasons || 0;
+      subEl.textContent = `Haetaan ${numSeasons} kautta...`;
+      const seasons = [];
+      for (let s = 1; s <= numSeasons; s++) {
+        subEl.textContent = `Haetaan kausi ${s}/${numSeasons}...`;
+        progBar.style.width = (50 + (s / numSeasons) * 45) + '%';
+        try {
+          const sUrl = `https://api.themoviedb.org/3/tv/${tmdbId}/season/${s}?language=${lang}`;
+          const sRes = await fetch(sUrl, { headers: { Authorization: `Bearer ${token}` } });
+          const sData = await sRes.json();
+          const episodes = (sData.episodes || []).map(ep => ({
+            episode: ep.episode_number,
+            name: ep.name || '',
+            note: ep.overview || '',
+            score: null
+          }));
+          seasons.push({ name: sData.name || `Kausi ${s}`, episodes });
+        } catch(e) {
+          seasons.push({ name: `Kausi ${s}`, episodes: [] });
+        }
+      }
+      window._tmdbPending.seasons = seasons;
+      subEl.textContent = `✅ ${seasons.length} kautta, ${seasons.reduce((a,s)=>a+s.episodes.length,0)} jaksoa haettu!`;
+    }
+
+    progBar.style.width = '100%';
+    setTimeout(() => overlay.classList.remove('open'), 800);
+
+    // Näytä vahvistus
+    const badge = document.createElement('div');
+    badge.style.cssText = 'background:rgba(74,222,128,0.15);border:1px solid #4ade80;border-radius:8px;padding:8px 12px;font-size:13px;color:#4ade80;font-weight:600;margin-bottom:10px;';
+    const infoparts = [];
+    if (director) infoparts.push(`🎬 ${director}`);
+    if (runtime) infoparts.push(`⏱️ ${runtime} min`);
+    if (episodes_total) infoparts.push(`📺 ${episodes_total} jaksoa`);
+    if (cast.length) infoparts.push(`🎭 ${cast.slice(0,2).join(', ')}`);
+    badge.innerHTML = `✅ <strong>${detail.title || detail.name}</strong>${infoparts.length ? '<br><span style="font-weight:400;font-size:12px;">' + infoparts.join(' · ') + '</span>' : ''}`;
+    const tmdbSection = document.getElementById('tmdbSearchSection');
+    tmdbSection.after(badge);
+    setTimeout(() => badge.remove(), 5000);
+
+  } catch(e) {
+    overlay.classList.remove('open');
+    console.error('TMDB error:', e);
+  }
+};
+
+// Piilota TMDB-tulokset kun klikataan muualle
+document.addEventListener('click', e => {
+  if (!e.target.closest('#tmdbSearchSection')) {
+    const r = document.getElementById('tmdbResults');
+    if (r) r.style.display = 'none';
+  }
+});
+
+// Näytä TMDB-haku vain elokuva/TV-kategorioissa
+window.onTmdbCatChange = function(cat) {
+  const section = document.getElementById('tmdbSearchSection');
+  if (!section) return;
+  section.style.display = (cat === 'Elokuvat' || cat === 'TV-sarjat') ? 'block' : 'none';
+};
+
 
 window.closeModal = function(id){
   const el = document.getElementById(id);
