@@ -38,17 +38,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .header-logo span{color:var(--text);}
 #saveStatus{position:fixed;top:0;left:0;right:0;padding:6px;text-align:center;font-size:12px;font-weight:700;z-index:9999;opacity:0;transition:opacity 0.4s;pointer-events:none;}
 
-/* PIN */
-#pinScreen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:18px;}
-.pin-logo{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:4px;color:var(--accent);}
-.pin-sub{font-size:15px;color:var(--muted);}
-.pin-dots{display:flex;gap:14px;margin:8px 0;}
-.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,0.3);background:transparent;transition:all 0.15s;}
-.pin-dot.filled{background:var(--accent);border-color:var(--accent);}
-.pin-pad{display:grid;grid-template-columns:repeat(3,76px);gap:10px;}
-.pin-key{height:76px;width:76px;border-radius:16px;background:var(--card);border:1px solid var(--border);color:var(--text);font-size:26px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
-.pin-key:active{background:var(--accent);color:var(--bg);}
-.pin-error{color:var(--accent2);font-weight:600;font-size:14px;min-height:20px;}
+/* LOGIN */
+#loginScreen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:0;padding:24px;}
+.login-logo{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:4px;color:var(--accent);margin-bottom:6px;}
+.login-sub{font-size:15px;color:var(--muted);margin-bottom:32px;}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 24px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:14px;}
+.login-field{display:flex;flex-direction:column;gap:6px;}
+.login-field label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.login-field input{padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;}
+.login-field input:focus{border-color:var(--accent);}
+.login-btn{padding:16px;background:var(--accent);color:var(--bg);border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:4px;transition:filter 0.15s;}
+.login-btn:active{filter:brightness(0.88);}
+.login-error{color:var(--accent2);font-weight:600;font-size:14px;min-height:18px;text-align:center;}
 
 /* MAIN */
 .main{padding:70px 14px 100px;}
@@ -366,21 +367,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div id="saveStatus"></div>
 
-<!-- PIN -->
-<div id="pinScreen">
-  <div class="pin-logo">★ ARVOSTELUT</div>
-  <div class="pin-sub">Syötä PIN-koodi</div>
-  <div class="pin-dots" id="pinDots">
-    <div class="pin-dot"></div><div class="pin-dot"></div>
-    <div class="pin-dot"></div><div class="pin-dot"></div>
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-logo">★ ARVOSTELUT</div>
+  <div class="login-sub">Kirjaudu sisään jatkaaksesi</div>
+  <div class="login-card">
+    <div class="login-field">
+      <label>Sähköposti</label>
+      <input type="email" id="loginEmail" placeholder="sinä@email.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Salasana</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Kirjaudu sisään</button>
   </div>
-  <div class="pin-pad">
-    <button class="pin-key" data-v="1">1</button><button class="pin-key" data-v="2">2</button><button class="pin-key" data-v="3">3</button>
-    <button class="pin-key" data-v="4">4</button><button class="pin-key" data-v="5">5</button><button class="pin-key" data-v="6">6</button>
-    <button class="pin-key" data-v="7">7</button><button class="pin-key" data-v="8">8</button><button class="pin-key" data-v="9">9</button>
-    <button class="pin-key" data-v="back">←</button><button class="pin-key" data-v="0">0</button><button class="pin-key" data-v="clear">✕</button>
-  </div>
-  <div class="pin-error" id="pinError"></div>
 </div>
 
 <!-- EASTER EGG -->
@@ -668,12 +670,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <button class="add-cat-btn" onclick="addGenre()">+</button>
       </div>
     </div>
+    <div class="form-group" style="margin-top:24px;border-top:1px solid var(--border);padding-top:20px;">
+      <button class="btn-secondary" style="width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="doSignOut()">🚪 Kirjaudu ulos</button>
+    </div>
   </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA_VUBuT2lcDtrtMEUZV-U8CNy0Rv1XSNI",
@@ -686,12 +692,11 @@ const firebaseConfig = {
 
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
+const auth = getAuth(fbApp);
 const DATA_DOC = doc(db, "arvostelut", "data");
-const PIN_DOC  = doc(db, "arvostelut", "pin");
-const PIN_SESSION = "arvostelut_pin_ok";
 let isSaving = false;
 
-// TMDB token — aseta tähän oma tokenisi TMDB:stä
+// TMDB token
 window.tmdbToken = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyYjhkODg4ZjdkMGZkNmRlNzE4MjIxNTM2NWYzZTlmMSIsIm5iZiI6MTc3NDkwNDg1Ny42MjIwMDAyLCJzdWIiOiI2OWNhZTYxOWIwMGYyNWRlZmJjZTNjY2YiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.EGIEIkcAl8J5FloGkTmahs_L3PQ6WTIuRsV3KLg4t2g";
 
 function showStatus(msg, color){
@@ -733,34 +738,59 @@ async function fbLoad(){
   });
 }
 
-// PIN
-let pinBuffer = '';
-function renderPinDots(){ document.querySelectorAll('.pin-dot').forEach((d,i)=>d.classList.toggle('filled', i<pinBuffer.length)); }
-async function checkPin(){
-  const err = document.getElementById('pinError');
-  try{
-    const snap = await getDoc(PIN_DOC);
-    if(!snap.exists()){ err.textContent='PIN-asetuksia ei löydy'; pinBuffer=''; renderPinDots(); return; }
-    if(pinBuffer === snap.data().code){
-      sessionStorage.setItem(PIN_SESSION,'1');
-      document.getElementById('pinScreen').style.display='none';
-      fbLoad();
+// KIRJAUTUMINEN
+window.doLogin = async function(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const err = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  err.textContent = '';
+  if(!email || !password){ err.textContent = 'Täytä sähköposti ja salasana.'; return; }
+  btn.textContent = 'Kirjaudutaan...';
+  btn.disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    // onAuthStateChanged hoitaa loput
+  } catch(e) {
+    btn.textContent = 'Kirjaudu sisään';
+    btn.disabled = false;
+    if(e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found'){
+      err.textContent = 'Väärä sähköposti tai salasana.';
+    } else if(e.code === 'auth/too-many-requests'){
+      err.textContent = 'Liian monta yritystä. Yritä myöhemmin.';
     } else {
-      err.textContent='Väärä PIN-koodi';
-      pinBuffer=''; setTimeout(()=>renderPinDots(),300);
+      err.textContent = 'Kirjautumisvirhe. Tarkista yhteys.';
     }
-  } catch(e){ err.textContent='Yhteysvirhe'; pinBuffer=''; renderPinDots(); }
-}
-function handlePin(v){
-  const err=document.getElementById('pinError'); err.textContent='';
-  if(v==='clear'){ pinBuffer=''; renderPinDots(); return; }
-  if(v==='back'){ pinBuffer=pinBuffer.slice(0,-1); renderPinDots(); return; }
-  if(pinBuffer.length>=4) return;
-  pinBuffer+=v; renderPinDots();
-  if(pinBuffer.length===4) checkPin();
-}
-document.querySelectorAll('.pin-key').forEach(b=>b.addEventListener('click',()=>handlePin(b.dataset.v)));
-if(sessionStorage.getItem(PIN_SESSION)){ document.getElementById('pinScreen').style.display='none'; fbLoad(); }
+  }
+};
+
+// Enter-näppäin kirjautumisessa
+document.getElementById('loginPassword').addEventListener('keydown', e => {
+  if(e.key === 'Enter') window.doLogin();
+});
+document.getElementById('loginEmail').addEventListener('keydown', e => {
+  if(e.key === 'Enter') document.getElementById('loginPassword').focus();
+});
+
+// ULOSKIRJAUTUMINEN
+window.doSignOut = async function(){
+  if(!confirm('Kirjaudutaanko ulos?')) return;
+  await signOut(auth);
+};
+
+// AUTENTIKOINTITILAN SEURANTA
+onAuthStateChanged(auth, user => {
+  if(user){
+    // Kirjautunut — piilota login, lataa data
+    document.getElementById('loginScreen').style.display = 'none';
+    fbLoad();
+  } else {
+    // Ei kirjautunut — näytä login
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginBtn').textContent = 'Kirjaudu sisään';
+    document.getElementById('loginBtn').disabled = false;
+  }
+});
 </script>
 
 <script>
