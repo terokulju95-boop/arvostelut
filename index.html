@@ -145,6 +145,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .season-avg.score-mid{color:#e8b84b;}
 .season-avg.score-low{color:#ff6b6b;}
 .best-worst-box{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:7px;}
+.btn-seasons-toggle{margin-top:10px;width:100%;padding:9px 14px;background:rgba(96,165,250,0.08);color:var(--blue);border:1px solid rgba(96,165,250,0.25);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:7px;transition:background 0.15s;}
+.btn-seasons-toggle:active{background:rgba(96,165,250,0.18);}
+.btn-seasons-toggle .toggle-arrow{transition:transform 0.25s;display:inline-block;}
+.btn-seasons-toggle.open .toggle-arrow{transform:rotate(90deg);}
 .best-worst-row{display:flex;align-items:center;gap:8px;}
 .best-worst-icon{font-size:15px;flex-shrink:0;}
 .best-worst-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;flex-shrink:0;width:52px;}
@@ -1116,30 +1120,39 @@ window.renderCards = function(){
           </div>`;
         }
 
-        partsHtml = `<div class="tv-parts">
-          ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
-          ${bestWorstHtml}
-          ${seasonHtml}
-          <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>
-        </div>`;
+        const seasonCount = (r.seasons||[]).length;
+        partsHtml = `
+          <button class="btn-seasons-toggle" id="seasons-btn-${r.id}" onclick="toggleSeasonsPanel(${r.id}, ${seasonCount})">
+            <span class="toggle-arrow">▶</span> Kaudet <span style="color:var(--muted);font-weight:400;">(${seasonCount} kautta)</span>
+          </button>
+          <div class="tv-parts" id="seasons-panel-${r.id}" style="display:none;">
+            ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
+            ${bestWorstHtml}
+            ${seasonHtml}
+            <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>
+          </div>`;
       } else {
         // Kausittain (ei muutosta rakenteeseen)
         const parts = r.parts||[];
-        partsHtml = `<div class="tv-parts">
-          ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
-          ${parts.map((p,i)=>`
-            <div class="tv-part">
-              <div class="tv-part-info">
-                <span class="tv-part-name">${p.name||''}</span>
-                ${p.note?`<span class="tv-part-note">${p.note.replace(/\n/g,'<br>')}</span>`:''}
+        partsHtml = `
+          <button class="btn-seasons-toggle" id="seasons-btn-${r.id}" onclick="toggleSeasonsPanel(${r.id}, ${parts.length})">
+            <span class="toggle-arrow">▶</span> Kaudet <span style="color:var(--muted);font-weight:400;">(${parts.length} kautta)</span>
+          </button>
+          <div class="tv-parts" id="seasons-panel-${r.id}" style="display:none;">
+            ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
+            ${parts.map((p,i)=>`
+              <div class="tv-part">
+                <div class="tv-part-info">
+                  <span class="tv-part-name">${p.name||''}</span>
+                  ${p.note?`<span class="tv-part-note">${p.note.replace(/\n/g,'<br>')}</span>`:''}
+                </div>
+                <span class="tv-part-score ${scoreClass(p.score)}">${p.score}</span>
+                <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editPart(${r.id},${i})">✏️</button>
+                <button class="btn-sm btn-del" style="padding:4px 8px;font-size:12px;" onclick="deletePart(${r.id},${i})">✕</button>
               </div>
-              <span class="tv-part-score ${scoreClass(p.score)}">${p.score}</span>
-              <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editPart(${r.id},${i})">✏️</button>
-              <button class="btn-sm btn-del" style="padding:4px 8px;font-size:12px;" onclick="deletePart(${r.id},${i})">✕</button>
-            </div>
-          `).join('')}
-          <button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää kausi</button>
-        </div>`;
+            `).join('')}
+            <button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää kausi</button>
+          </div>`;
       }
     }
 
@@ -1181,6 +1194,17 @@ window.renderCards = function(){
       </div>
     </div>`;
   }).join('');
+};
+
+window.toggleSeasonsPanel = function(id, count){
+  const panel = document.getElementById('seasons-panel-'+id);
+  const btn = document.getElementById('seasons-btn-'+id);
+  if(!panel || !btn) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  btn.classList.toggle('open', !isOpen);
+  const label = isOpen ? 'Kaudet' : 'Piilota kaudet';
+  btn.innerHTML = `<span class="toggle-arrow">▶</span> ${label} <span style="color:var(--muted);font-weight:400;">(${count} kautta)</span>`;
 };
 
 window.toggleNote = function(id){
