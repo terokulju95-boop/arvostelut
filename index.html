@@ -1122,11 +1122,11 @@ window.renderCards = function(){
 
         const seasonCount = (r.seasons||[]).length;
         partsHtml = `
+          ${avg!==null?`<div class="tv-avg" style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">${buildRing(avg)}</div>`:''}
           <button class="btn-seasons-toggle" id="seasons-btn-${r.id}" onclick="toggleSeasonsPanel(${r.id}, ${seasonCount})">
             <span class="toggle-arrow">▶</span> Kaudet <span style="color:var(--muted);font-weight:400;">(${seasonCount} kautta)</span>
           </button>
-          <div class="tv-parts" id="seasons-panel-${r.id}" style="display:none;">
-            ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
+          <div id="seasons-panel-${r.id}" style="display:none;border-top:1px solid var(--border);padding-top:10px;margin-top:2px;">
             ${bestWorstHtml}
             ${seasonHtml}
             <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>
@@ -1135,11 +1135,11 @@ window.renderCards = function(){
         // Kausittain (ei muutosta rakenteeseen)
         const parts = r.parts||[];
         partsHtml = `
+          ${avg!==null?`<div class="tv-avg" style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">${buildRing(avg)}</div>`:''}
           <button class="btn-seasons-toggle" id="seasons-btn-${r.id}" onclick="toggleSeasonsPanel(${r.id}, ${parts.length})">
             <span class="toggle-arrow">▶</span> Kaudet <span style="color:var(--muted);font-weight:400;">(${parts.length} kautta)</span>
           </button>
-          <div class="tv-parts" id="seasons-panel-${r.id}" style="display:none;">
-            ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
+          <div id="seasons-panel-${r.id}" style="display:none;border-top:1px solid var(--border);padding-top:10px;margin-top:2px;">
             ${parts.map((p,i)=>`
               <div class="tv-part">
                 <div class="tv-part-info">
