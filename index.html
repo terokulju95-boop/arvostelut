@@ -1531,6 +1531,7 @@ window.updateTmdbData = async function(id) {
             // Päivitä jaksojen nimet — EI korvaa pisteitä
             const tmdbEps = fiEps;
             const existingEps = existingSeason.episodes || [];
+            const needsTranslation = [];
             tmdbEps.forEach((tmdbEp, ei) => {
               if (existingEps[ei]) {
                 const newName = resolvedName(tmdbEp);
@@ -1539,6 +1540,9 @@ window.updateTmdbData = async function(id) {
                 // Päivitä nimi jos se on tyhjä tai geneerinen
                 if (!oldName || oldIsGeneric) {
                   existingEps[ei].name = newName;
+                  if (hasGenericNames && enEpMap[tmdbEp.episode_number]?.name) {
+                    needsTranslation.push(ei);
+                  }
                 }
                 // Lisää jaksonumero jos puuttuu
                 if (!existingEps[ei].episode) {
@@ -1546,6 +1550,13 @@ window.updateTmdbData = async function(id) {
                 }
               }
             });
+            // Käännä englanninkieliset nimet suomeksi
+            if (needsTranslation.length > 0) {
+              subEl.textContent = `✨ Käännetään kausi ${s} suomeksi...`;
+              const rawNames = existingEps.map(e => e.name || '');
+              const translated = await translateEpisodeNamesBatch(rawNames);
+              needsTranslation.forEach(ei => { if (translated[ei]) existingEps[ei].name = translated[ei]; });
+            }
           } else {
             // Kausi puuttuu kokonaan — lisää se tyhjin pistein
             const episodes = fiEps.map(ep => ({
@@ -1554,6 +1565,13 @@ window.updateTmdbData = async function(id) {
               note: '',
               score: null
             }));
+            // Käännä jos englanninkieliset nimet
+            if (hasGenericNames && Object.keys(enEpMap).length > 0) {
+              subEl.textContent = `✨ Käännetään kausi ${s} suomeksi...`;
+              const rawNames = episodes.map(e => e.name);
+              const translated = await translateEpisodeNamesBatch(rawNames);
+              translated.forEach((name, i) => { if (episodes[i]) episodes[i].name = name; });
+            }
             existingSeasons.push({ name: sData.name || `Kausi ${s}`, episodes });
           }
         } catch(e) { /* jatka */ }
@@ -2057,6 +2075,37 @@ window.openReadModal = function(id){
   document.getElementById('readModal').classList.add('open');
 };
 
+// ── JAKSONIMIEN KÄÄNTÄMINEN SUOMEKSI (Claude API) ──
+async function translateEpisodeNamesBatch(names) {
+  // Suodata pois jo suomenkieliset tai tyhjät
+  const toTranslate = names.map((n, i) => ({ i, n })).filter(x => x.n && x.n.trim());
+  if (!toTranslate.length) return names;
+  try {
+    const prompt = `Käännä seuraavat TV-sarjan jaksojen nimet englanniksi suomeksi. Palauta VAIN JSON-taulukko käännetyistä nimistä samassa järjestyksessä. Älä lisää selityksiä tai muuta tekstiä. Jos nimi on jo suomeksi tai se on erisnimi jota ei kannata kääntää, palauta se sellaisenaan.\n\nNimet:\n${toTranslate.map(x => `${x.i}: ${x.n}`).join('\n')}`;
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = (data.content || []).map(c => c.text || '').join('').trim();
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    if (!Array.isArray(parsed)) return names;
+    const result = [...names];
+    toTranslate.forEach((x, idx) => {
+      if (parsed[idx]) result[x.i] = parsed[idx];
+    });
+    return result;
+  } catch (e) {
+    return names; // Fallback: englanninkieliset nimet
+  }
+}
+
 // ── AI ARVOSTELU ──
 let aiGeneratedText = '';
 window.generateAIReview = function(){
@@ -2411,6 +2460,15 @@ window.fillFromTmdb = async function(idx) {
               score: null
             };
           });
+
+          // Käännä englanninkieliset nimet suomeksi Claudella jos tarpeen
+          if (hasGenericNames && enEps.length > 0) {
+            subEl.textContent = `✨ Käännetään kausi ${s} suomeksi...`;
+            const rawNames = episodes.map(e => e.name);
+            const translated = await translateEpisodeNamesBatch(rawNames);
+            translated.forEach((name, i) => { if (episodes[i]) episodes[i].name = name; });
+          }
+
           seasons.push({ name: sData.name || `Kausi ${s}`, episodes });
         } catch(e) {
           seasons.push({ name: `Kausi ${s}`, episodes: [] });
