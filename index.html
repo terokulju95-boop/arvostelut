@@ -145,10 +145,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .season-avg.score-mid{color:#e8b84b;}
 .season-avg.score-low{color:#ff6b6b;}
 .best-worst-box{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:7px;}
-.btn-seasons-toggle{margin-top:10px;width:100%;padding:9px 14px;background:rgba(96,165,250,0.08);color:var(--blue);border:1px solid rgba(96,165,250,0.25);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:7px;transition:background 0.15s;}
-.btn-seasons-toggle:active{background:rgba(96,165,250,0.18);}
-.btn-seasons-toggle .toggle-arrow{transition:transform 0.25s;display:inline-block;}
-.btn-seasons-toggle.open .toggle-arrow{transform:rotate(90deg);}
 .best-worst-row{display:flex;align-items:center;gap:8px;}
 .best-worst-icon{font-size:15px;flex-shrink:0;}
 .best-worst-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;flex-shrink:0;width:52px;}
@@ -582,13 +578,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <!-- Kausi-valinta (vain jaksottain) -->
     <div id="partSeasonSelectRow" style="display:none;" class="form-group">
       <label>Kausi *</label>
-      <select id="partSeasonSelect" style="width:100%;padding:13px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;-webkit-appearance:none;"></select>
+      <select id="partSeasonSelect" onchange="autoFillEpisodeName()" style="width:100%;padding:13px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;-webkit-appearance:none;"></select>
     </div>
     <!-- Jakso numero -->
     <div id="partEpisodeRow" style="display:none;" class="form-group">
       <label>Jakso nro</label>
       <input type="number" id="partEpisode" min="1" placeholder="esim. 1"
         style="width:100%;padding:13px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;"
+        oninput="autoFillEpisodeName()"
         onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
     </div>
     <div class="form-group">
@@ -1085,7 +1082,7 @@ window.renderCards = function(){
                       <span class="tv-part-name">${ep.episode?`<span style="color:var(--accent);font-weight:700;font-size:12px;">J${ep.episode} </span>`:''}${ep.name||''}</span>
                       ${ep.note?`<span class="tv-part-note">${ep.note.replace(/\n/g,'<br>')}</span>`:''}
                     </div>
-                    <span class="tv-part-score ${scoreClass(ep.score)}">${ep.score}</span>
+                    <span class="tv-part-score ${ep.score != null ? scoreClass(ep.score) : ''}" style="${ep.score == null ? 'color:var(--muted);font-size:14px;' : ''}">${ep.score != null ? ep.score : '–'}</span>
                     <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editEpisode(${r.id},${si},${ei})">✏️</button>
                     <button class="btn-sm btn-del" style="padding:4px 8px;font-size:12px;" onclick="deleteEpisode(${r.id},${si},${ei})">✕</button>
                   </div>
@@ -1120,39 +1117,30 @@ window.renderCards = function(){
           </div>`;
         }
 
-        const seasonCount = (r.seasons||[]).length;
-        partsHtml = `
-          ${avg!==null?`<div class="tv-avg" style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">${buildRing(avg)}</div>`:''}
-          <button class="btn-seasons-toggle" id="seasons-btn-${r.id}" onclick="toggleSeasonsPanel(${r.id}, ${seasonCount})">
-            <span class="toggle-arrow">▶</span> Kaudet <span style="color:var(--muted);font-weight:400;">(${seasonCount} kautta)</span>
-          </button>
-          <div id="seasons-panel-${r.id}" style="display:none;border-top:1px solid var(--border);padding-top:10px;margin-top:2px;">
-            ${bestWorstHtml}
-            ${seasonHtml}
-            <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>
-          </div>`;
+        partsHtml = `<div class="tv-parts">
+          ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
+          ${bestWorstHtml}
+          ${seasonHtml}
+          <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>
+        </div>`;
       } else {
         // Kausittain (ei muutosta rakenteeseen)
         const parts = r.parts||[];
-        partsHtml = `
-          ${avg!==null?`<div class="tv-avg" style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">${buildRing(avg)}</div>`:''}
-          <button class="btn-seasons-toggle" id="seasons-btn-${r.id}" onclick="toggleSeasonsPanel(${r.id}, ${parts.length})">
-            <span class="toggle-arrow">▶</span> Kaudet <span style="color:var(--muted);font-weight:400;">(${parts.length} kautta)</span>
-          </button>
-          <div id="seasons-panel-${r.id}" style="display:none;border-top:1px solid var(--border);padding-top:10px;margin-top:2px;">
-            ${parts.map((p,i)=>`
-              <div class="tv-part">
-                <div class="tv-part-info">
-                  <span class="tv-part-name">${p.name||''}</span>
-                  ${p.note?`<span class="tv-part-note">${p.note.replace(/\n/g,'<br>')}</span>`:''}
-                </div>
-                <span class="tv-part-score ${scoreClass(p.score)}">${p.score}</span>
-                <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editPart(${r.id},${i})">✏️</button>
-                <button class="btn-sm btn-del" style="padding:4px 8px;font-size:12px;" onclick="deletePart(${r.id},${i})">✕</button>
+        partsHtml = `<div class="tv-parts">
+          ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
+          ${parts.map((p,i)=>`
+            <div class="tv-part">
+              <div class="tv-part-info">
+                <span class="tv-part-name">${p.name||''}</span>
+                ${p.note?`<span class="tv-part-note">${p.note.replace(/\n/g,'<br>')}</span>`:''}
               </div>
-            `).join('')}
-            <button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää kausi</button>
-          </div>`;
+              <span class="tv-part-score ${scoreClass(p.score)}">${p.score}</span>
+              <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editPart(${r.id},${i})">✏️</button>
+              <button class="btn-sm btn-del" style="padding:4px 8px;font-size:12px;" onclick="deletePart(${r.id},${i})">✕</button>
+            </div>
+          `).join('')}
+          <button class="btn-add-part" onclick="openAddPart(${r.id})">+ Lisää kausi</button>
+        </div>`;
       }
     }
 
@@ -1194,17 +1182,6 @@ window.renderCards = function(){
       </div>
     </div>`;
   }).join('');
-};
-
-window.toggleSeasonsPanel = function(id, count){
-  const panel = document.getElementById('seasons-panel-'+id);
-  const btn = document.getElementById('seasons-btn-'+id);
-  if(!panel || !btn) return;
-  const isOpen = panel.style.display !== 'none';
-  panel.style.display = isOpen ? 'none' : 'block';
-  btn.classList.toggle('open', !isOpen);
-  const label = isOpen ? 'Kaudet' : 'Piilota kaudet';
-  btn.innerHTML = `<span class="toggle-arrow">▶</span> ${label} <span style="color:var(--muted);font-weight:400;">(${count} kautta)</span>`;
 };
 
 window.toggleNote = function(id){
@@ -1658,7 +1635,37 @@ window.openAddPart = function(reviewId, seasonIdx){
   selectedPartScore=null;
   const psi=document.getElementById('partScoreInput'); if(psi) psi.value='';
   buildScorePicker('partScorePicker','partScore');
+  // Auto-täytä jakson nimi TMDB-datasta
+  if(isJaksot) autoFillEpisodeName(true);
   document.getElementById('partModal').classList.add('open');
+};
+
+// Auto-täytä jakson nimi TMDB-datasta jaksonumeron tai kauden vaihtuessa
+window.autoFillEpisodeName = function(initial) {
+  const r = appData.reviews.find(x => x.id === editingPartReviewId);
+  if (!r || !r.seasons) return;
+  const epEl = document.getElementById('partEpisode');
+  const siEl = document.getElementById('partSeasonSelect');
+  if (!epEl || !siEl) return;
+  const epNum = +epEl.value;
+  const si = +siEl.value;
+  if (!epNum || isNaN(si)) return;
+  const season = r.seasons[si];
+  if (!season) return;
+  const ep = (season.episodes || []).find(e => e.episode === epNum);
+  if (!ep || !ep.name) return;
+  // Täytä vain jos nimi on tyhjä (ei ylikirjoita käyttäjän syötettä), tai initial-kutsussa
+  const nameEl = document.getElementById('partName');
+  const noteEl = document.getElementById('partNote');
+  if (nameEl && (initial || !nameEl.value)) {
+    nameEl.value = ep.name;
+    // Lisää placeholder joka kertoo mistä nimi tuli
+    nameEl.style.borderColor = 'var(--accent)';
+    setTimeout(() => { if(nameEl) nameEl.style.borderColor = 'var(--border)'; }, 1200);
+  }
+  if (noteEl && initial && !noteEl.value && ep.note) {
+    noteEl.value = ep.note;
+  }
 };
 
 window.editEpisode = function(reviewId, si, ei){
@@ -1726,8 +1733,16 @@ window.savePart = async function(){
       note: document.getElementById('partNote').value
     };
     if(!r.seasons[si].episodes) r.seasons[si].episodes=[];
-    if(editingPartId!==null) r.seasons[si].episodes[editingPartId]=epData;
-    else r.seasons[si].episodes.push(epData);
+    if(editingPartId!==null) {
+      r.seasons[si].episodes[editingPartId]=epData;
+    } else {
+      // Tarkista onko sama jaksonumero jo olemassa (esim. TMDB:stä haettu, pistemäärä null)
+      const existIdx = epData.episode != null
+        ? r.seasons[si].episodes.findIndex(e => e.episode === epData.episode)
+        : -1;
+      if(existIdx >= 0) r.seasons[si].episodes[existIdx] = epData;
+      else r.seasons[si].episodes.push(epData);
+    }
   } else {
     const name = document.getElementById('partName').value.trim();
     if(!name){ alert('Anna nimi!'); return; }
