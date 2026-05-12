@@ -1503,19 +1503,42 @@ window.updateTmdbData = async function(id) {
           const sRes = await fetch(sUrl, { headers: { Authorization: `Bearer ${token}` } });
           const sData = await sRes.json();
 
+          // Tarkista geneerisiä nimiä, hae englanti fallbackina
+          const fiEps = sData.episodes || [];
+          const hasGenericNames = fiEps.length > 0 && fiEps.every(ep =>
+            !ep.name || ep.name.trim() === `Jakso ${ep.episode_number}` || ep.name.trim() === `Episode ${ep.episode_number}`
+          );
+          let enEpMap = {};
+          if (hasGenericNames) {
+            try {
+              const enUrl = `https://api.themoviedb.org/3/tv/${tmdbId}/season/${s}?language=en-US`;
+              const enRes = await fetch(enUrl, { headers: { Authorization: `Bearer ${token}` } });
+              const enData = await enRes.json();
+              (enData.episodes || []).forEach(ep => { enEpMap[ep.episode_number] = ep; });
+            } catch(e2) {}
+          }
+          const resolvedName = (ep) => {
+            const fi = ep.name ? ep.name.trim() : '';
+            const isGeneric = !fi || fi === `Jakso ${ep.episode_number}` || fi === `Episode ${ep.episode_number}`;
+            return isGeneric && enEpMap[ep.episode_number]?.name ? enEpMap[ep.episode_number].name : fi;
+          };
+
           // Etsi vastaava olemassa oleva kausi
           const existingSeason = existingSeasons[s - 1];
           if (existingSeason) {
             // Päivitä kauden nimi
             existingSeason.name = sData.name || existingSeason.name;
             // Päivitä jaksojen nimet — EI korvaa pisteitä
-            const tmdbEps = sData.episodes || [];
+            const tmdbEps = fiEps;
             const existingEps = existingSeason.episodes || [];
             tmdbEps.forEach((tmdbEp, ei) => {
               if (existingEps[ei]) {
-                // Päivitä vain nimi jos se on tyhjä tai puuttuu
-                if (!existingEps[ei].name) {
-                  existingEps[ei].name = tmdbEp.name || '';
+                const newName = resolvedName(tmdbEp);
+                const oldName = existingEps[ei].name ? existingEps[ei].name.trim() : '';
+                const oldIsGeneric = !oldName || oldName === `Jakso ${tmdbEp.episode_number}` || oldName === `Episode ${tmdbEp.episode_number}`;
+                // Päivitä nimi jos se on tyhjä tai geneerinen
+                if (!oldName || oldIsGeneric) {
+                  existingEps[ei].name = newName;
                 }
                 // Lisää jaksonumero jos puuttuu
                 if (!existingEps[ei].episode) {
@@ -1525,9 +1548,9 @@ window.updateTmdbData = async function(id) {
             });
           } else {
             // Kausi puuttuu kokonaan — lisää se tyhjin pistein
-            const episodes = (sData.episodes || []).map(ep => ({
+            const episodes = fiEps.map(ep => ({
               episode: ep.episode_number,
-              name: ep.name || '',
+              name: resolvedName(ep),
               note: '',
               score: null
             }));
@@ -2360,12 +2383,34 @@ window.fillFromTmdb = async function(idx) {
           const sUrl = `https://api.themoviedb.org/3/tv/${tmdbId}/season/${s}?language=${lang}`;
           const sRes = await fetch(sUrl, { headers: { Authorization: `Bearer ${token}` } });
           const sData = await sRes.json();
-          const episodes = (sData.episodes || []).map(ep => ({
-            episode: ep.episode_number,
-            name: ep.name || '',
-            note: ep.overview || '',
-            score: null
-          }));
+
+          // Tarkista onko nimet geneerisiä (Jakso 1, Jakso 2...) — jos on, hae englanninkieliset
+          const fiEps = sData.episodes || [];
+          const hasGenericNames = fiEps.length > 0 && fiEps.every(ep =>
+            !ep.name || ep.name.trim() === `Jakso ${ep.episode_number}` || ep.name.trim() === `Episode ${ep.episode_number}`
+          );
+          let enEps = [];
+          if (hasGenericNames) {
+            try {
+              const enUrl = `https://api.themoviedb.org/3/tv/${tmdbId}/season/${s}?language=en-US`;
+              const enRes = await fetch(enUrl, { headers: { Authorization: `Bearer ${token}` } });
+              const enData = await enRes.json();
+              enEps = enData.episodes || [];
+            } catch(e2) {}
+          }
+
+          const episodes = fiEps.map((ep, i) => {
+            const enEp = enEps[i];
+            const fiName = ep.name ? ep.name.trim() : '';
+            const isGeneric = !fiName || fiName === `Jakso ${ep.episode_number}` || fiName === `Episode ${ep.episode_number}`;
+            const name = isGeneric && enEp && enEp.name ? enEp.name : fiName;
+            return {
+              episode: ep.episode_number,
+              name,
+              note: ep.overview || (enEp && !ep.overview ? enEp.overview : '') || '',
+              score: null
+            };
+          });
           seasons.push({ name: sData.name || `Kausi ${s}`, episodes });
         } catch(e) {
           seasons.push({ name: `Kausi ${s}`, episodes: [] });
