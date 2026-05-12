@@ -2075,35 +2075,36 @@ window.openReadModal = function(id){
   document.getElementById('readModal').classList.add('open');
 };
 
-// ── JAKSONIMIEN KÄÄNTÄMINEN SUOMEKSI (Claude API) ──
+// ── JAKSONIMIEN KÄÄNTÄMINEN SUOMEKSI (MyMemory API) ──
 async function translateEpisodeNamesBatch(names) {
-  // Suodata pois jo suomenkieliset tai tyhjät
-  const toTranslate = names.map((n, i) => ({ i, n })).filter(x => x.n && x.n.trim());
+  const toTranslate = names.map((n, i) => ({ i, n: (n || '').trim() })).filter(x => x.n);
   if (!toTranslate.length) return names;
-  try {
-    const prompt = `Käännä seuraavat TV-sarjan jaksojen nimet englanniksi suomeksi. Palauta VAIN JSON-taulukko käännetyistä nimistä samassa järjestyksessä. Älä lisää selityksiä tai muuta tekstiä. Jos nimi on jo suomeksi tai se on erisnimi jota ei kannata kääntää, palauta se sellaisenaan.\n\nNimet:\n${toTranslate.map(x => `${x.i}: ${x.n}`).join('\n')}`;
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await res.json();
-    const text = (data.content || []).map(c => c.text || '').join('').trim();
-    const clean = text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
-    if (!Array.isArray(parsed)) return names;
-    const result = [...names];
-    toTranslate.forEach((x, idx) => {
-      if (parsed[idx]) result[x.i] = parsed[idx];
-    });
-    return result;
-  } catch (e) {
-    return names; // Fallback: englanninkieliset nimet
+
+  // MyMemory tukee max ~500 merkkiä per kutsu — pilko eriin
+  const BATCH_SIZE = 10;
+  const result = [...names];
+
+  for (let b = 0; b < toTranslate.length; b += BATCH_SIZE) {
+    const batch = toTranslate.slice(b, b + BATCH_SIZE);
+    // Yhdistä nimien välimerkeillä jotka ovat helppo splitata
+    const joined = batch.map(x => x.n).join(' ||| ');
+    try {
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(joined)}&langpair=en|fi`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.responseStatus === 200 && data.responseData?.translatedText) {
+        const parts = data.responseData.translatedText.split(' ||| ');
+        batch.forEach((x, idx) => {
+          const translated = parts[idx] ? parts[idx].trim() : '';
+          // Käytä käännöstä vain jos se ei ole tyhjä eikä identtinen englanniksi
+          if (translated && translated.toLowerCase() !== x.n.toLowerCase()) {
+            result[x.i] = translated;
+          }
+        });
+      }
+    } catch (e) { /* fallback: pidä englanninkieliset */ }
   }
+  return result;
 }
 
 // ── AI ARVOSTELU ──
