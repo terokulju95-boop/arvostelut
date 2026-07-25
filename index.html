@@ -244,6 +244,42 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .top-rank.gold { color: #e8b84b; }
 .top-rank.silver { color: #aaa; }
 .top-rank.bronze { color: #cd7f32; }
+
+/* BUDJETTI */
+.budget-hero{background:linear-gradient(135deg,var(--card),var(--bg3));border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;position:relative;overflow:hidden;}
+.budget-hero-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;}
+.budget-hero-value{font-family:'Bebas Neue',sans-serif;font-size:44px;color:var(--accent);line-height:1;}
+.budget-hero-sub{font-size:13px;color:var(--muted);margin-top:6px;}
+.budget-edit-price{position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.08);border:none;color:var(--text);font-size:16px;padding:8px 10px;border-radius:8px;cursor:pointer;}
+.budget-stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+.budget-stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;}
+.budget-stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px;}
+.budget-stat-value{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--text);}
+.budget-stat-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.budget-section-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent);margin:20px 0 10px;display:flex;align-items:center;gap:8px;}
+.budget-actions-row{display:flex;gap:8px;margin-bottom:16px;}
+.budget-period-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;position:relative;overflow:hidden;}
+.budget-period-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--green);border-radius:4px 0 0 4px;}
+.budget-period-card.closed::before{background:var(--muted);}
+.budget-period-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.budget-period-dates{font-size:14px;font-weight:700;}
+.budget-period-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;background:rgba(74,222,128,0.15);color:var(--green);}
+.budget-period-card.closed .budget-period-badge{background:rgba(255,255,255,0.08);color:var(--muted);}
+.budget-period-icons{display:flex;gap:6px;}
+.budget-icon-btn{background:rgba(255,255,255,0.06);border:none;color:var(--muted);font-size:14px;padding:6px 8px;border-radius:7px;cursor:pointer;}
+.budget-period-meta{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0;}
+.budget-period-meta-item{font-size:13px;color:var(--muted);}
+.budget-period-meta-item b{color:var(--text);}
+.budget-visit-list{margin-top:10px;border-top:1px solid var(--border);padding-top:10px;}
+.budget-visit{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.budget-visit:last-child{border-bottom:none;}
+.budget-visit-name{flex:1;font-size:14px;}
+.budget-visit-extra{font-size:12px;color:var(--muted);}
+.budget-visit-icons{display:flex;gap:4px;}
+.budget-visit-icons button{background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:4px;}
+.btn-add-visit{margin-top:10px;padding:10px 14px;background:rgba(232,184,75,0.1);color:var(--accent);border:1px solid rgba(232,184,75,0.3);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;}
+.btn-add-visit:active{background:rgba(232,184,75,0.2);}
+.budget-empty-hint{font-size:13px;color:var(--muted);text-align:center;padding:6px 0 4px;}
 .top-name { flex: 1; font-weight: 600; font-size: 15px; }
 .top-score { font-family: "Bebas Neue",sans-serif; font-size: 26px; }
 
@@ -405,6 +441,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <button class="view-tab active" id="viewTabReviews" onclick="setView('reviews')">⭐ Arvostelut</button>
     <button class="view-tab" id="viewTabQueue" onclick="setView('queue')">📋 Jono</button>
     <button class="view-tab" id="viewTabTop" onclick="setView('top')">🏆 Top-lista</button>
+    <button class="view-tab" id="viewTabBudget" onclick="setView('budget')">💰 Budjetti</button>
   </div>
 
   <!-- KATEGORIATABS -->
@@ -677,6 +714,72 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   </div>
 </div>
 
+<!-- BUDJETTI: KUUKAUSIHINNAN MUOKKAUS -->
+<div class="modal-overlay" id="budgetPriceModal" onclick="closeModalIfOutside(event,'budgetPriceModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">💳 Kuukausitilauksen hinta</div>
+    <div class="form-group">
+      <label>Hinta / kuukausi (€)</label>
+      <input type="number" id="budgetPriceInput" step="0.01" min="0" placeholder="esim. 26.90">
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin:-6px 0 14px;">Tämä hinta koskee vain uusia, tästä eteenpäin alkavia kuukausia. Jo alkaneet/päättyneet kuukaudet säilyttävät oman hintansa.</div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('budgetPriceModal')">Peruuta</button>
+      <button class="btn-primary" onclick="saveBudgetPrice()">Tallenna</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUDJETTI: KUUKAUDEN ALOITUS / UUSIMINEN / MUOKKAUS -->
+<div class="modal-overlay" id="budgetPeriodModal" onclick="closeModalIfOutside(event,'budgetPeriodModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="budgetPeriodModalTitle">Uusi kuukausi</div>
+    <div id="budgetPeriodHint" style="font-size:13px;color:var(--muted);margin:-6px 0 14px;"></div>
+    <div class="form-group">
+      <label id="budgetPeriodStartLabel">Aloituspäivä</label>
+      <input type="date" id="budgetPeriodStart">
+    </div>
+    <div class="form-group" id="budgetPeriodEndGroup" style="display:none;">
+      <label>Päättymispäivä</label>
+      <input type="date" id="budgetPeriodEnd">
+    </div>
+    <div class="form-group">
+      <label>Hinta tälle kuukaudelle (€)</label>
+      <input type="number" id="budgetPeriodPrice" step="0.01" min="0">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('budgetPeriodModal')">Peruuta</button>
+      <button class="btn-primary" onclick="saveBudgetPeriod()">Tallenna</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUDJETTI: ELOKUVAKÄYNNIN LISÄYS -->
+<div class="modal-overlay" id="budgetVisitModal" onclick="closeModalIfOutside(event,'budgetVisitModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="budgetVisitModalTitle">🎬 Lisää elokuvakäynti</div>
+    <div class="form-group">
+      <label>Elokuvan nimi *</label>
+      <input type="text" id="budgetVisitName" placeholder="esim. Oppenheimer">
+    </div>
+    <div class="form-group">
+      <label>Ostot (limu, popcorn, jne.) €</label>
+      <input type="number" id="budgetVisitExtra" step="0.01" min="0" placeholder="0.00">
+    </div>
+    <div class="form-group">
+      <label>Päivämäärä</label>
+      <input type="date" id="budgetVisitDate">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('budgetVisitModal')">Peruuta</button>
+      <button class="btn-primary" onclick="saveBudgetVisit()">Tallenna</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
@@ -801,7 +904,7 @@ const DEFAULT_GENRES = ['Toiminta','Komedia','Draama','Kauhu','Sci-fi','Trilleri
 let GENRES = [...DEFAULT_GENRES];
 const GENRE_CATS = ['Elokuvat','TV-sarjat'];
 
-let appData = { categories: [...DEFAULT_CATS], genres: [...DEFAULT_GENRES], reviews: [], queue: [] };
+let appData = { categories: [...DEFAULT_CATS], genres: [...DEFAULT_GENRES], reviews: [], queue: [], budget: { monthlyPrice: 26.90, periods: [] } };
 let activeCat = null;
 let sortMode = 'uusin';
 let activeGenreFilter = null;
@@ -821,6 +924,9 @@ function initApp(){
   if(!activeCat && appData.categories.length) activeCat = appData.categories[0];
   if(!appData.queue) appData.queue = [];
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
+  if(!appData.budget) appData.budget = { monthlyPrice: 26.90, periods: [] };
+  if(appData.budget.monthlyPrice == null) appData.budget.monthlyPrice = 26.90;
+  if(!appData.budget.periods) appData.budget.periods = [];
   GENRES = [...appData.genres];
   renderCatTabs();
   renderGenreFilters();
@@ -834,12 +940,13 @@ function renderAll(){
   if(currentView==='reviews') renderCards();
   else if(currentView==='queue') renderQueue();
   else if(currentView==='top') renderTop();
+  else if(currentView==='budget') renderBudget();
 }
 
 // ── NÄKYMÄ ──
 window.setView = function(view){
   currentView = view;
-  ['reviews','queue','top'].forEach(v=>{
+  ['reviews','queue','top','budget'].forEach(v=>{
     const el = document.getElementById('viewTab'+v.charAt(0).toUpperCase()+v.slice(1));
     if(el) el.classList.toggle('active', v===view);
   });
@@ -853,6 +960,7 @@ window.setView = function(view){
 
 window.fabClick = function(){
   if(currentView==='queue') window.openQueueModal();
+  else if(currentView==='budget') window.budgetFabClick();
   else window.openAddModal();
 };
 
@@ -1905,6 +2013,341 @@ window.renderTop = function(){
     </div>`;
   });
   grid.innerHTML = html || `<div class="empty-state"><div class="empty-icon">🏆</div><div class="empty-title">Ei arvosteluja vielä</div></div>`;
+};
+
+// ── BUDJETTI ──
+let editingPeriodId = null;
+let editingVisitPeriodId = null;
+let editingVisitIdx = null;
+
+function todayStr(){
+  return new Date().toISOString().slice(0,10);
+}
+
+function fmtEur(n){
+  return (Math.round(n*100)/100).toFixed(2).replace('.', ',') + ' €';
+}
+
+function fmtDateFi(d){
+  if(!d) return '';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('fi-FI');
+}
+
+function getOpenPeriod(){
+  const periods = appData.budget.periods;
+  return periods.find(p => !p.endDate) || null;
+}
+
+function periodExtras(p){
+  return (p.visits||[]).reduce((s,v)=>s + (Number(v.extra)||0), 0);
+}
+
+function periodCost(p){
+  return (Number(p.price)||0) + periodExtras(p);
+}
+
+function periodMovieCount(p){
+  return (p.visits||[]).length;
+}
+
+function periodCostPerMovie(p){
+  const c = periodMovieCount(p);
+  return c > 0 ? periodCost(p) / c : null;
+}
+
+function sumSince(monthsAgo){
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - monthsAgo);
+  let total = 0, movies = 0;
+  appData.budget.periods.forEach(p => {
+    if(new Date(p.startDate) >= cutoff){
+      total += periodCost(p);
+      movies += periodMovieCount(p);
+    }
+  });
+  return { total, movies };
+}
+
+window.budgetFabClick = function(){
+  const open = getOpenPeriod();
+  if(!open){
+    window.openBudgetPeriodModal('new');
+  } else {
+    window.openBudgetVisitModal(open.id);
+  }
+};
+
+window.renderBudget = function(){
+  const grid = document.getElementById('cardsGrid');
+  if(!appData.budget) appData.budget = { monthlyPrice: 26.90, periods: [] };
+  const periods = [...appData.budget.periods].sort((a,b)=> new Date(b.startDate) - new Date(a.startDate));
+  const open = getOpenPeriod();
+
+  const s3 = sumSince(3), s6 = sumSince(6), s12 = sumSince(12);
+  const all = appData.budget.periods.reduce((acc,p)=>{
+    acc.total += periodCost(p); acc.movies += periodMovieCount(p); return acc;
+  }, { total:0, movies:0 });
+
+  let html = `
+    <div class="budget-hero">
+      <button class="budget-edit-price" onclick="openBudgetPriceModal()" title="Muokkaa kuukausihintaa">✏️</button>
+      <div class="budget-hero-label">Kuukausitilaus</div>
+      <div class="budget-hero-value">${fmtEur(appData.budget.monthlyPrice)}</div>
+      <div class="budget-hero-sub">${open ? `Nykyinen kuukausi alkoi ${fmtDateFi(open.startDate)} · ${periodMovieCount(open)} elokuvaa` : 'Ei käynnissä olevaa kuukautta'}</div>
+    </div>
+  `;
+
+  if(open){
+    const cpm = periodCostPerMovie(open);
+    html += `
+      <div class="budget-stats-grid">
+        <div class="budget-stat-card">
+          <div class="budget-stat-label">Kuukauden hinta / elokuva</div>
+          <div class="budget-stat-value">${cpm!==null ? fmtEur(cpm) : '–'}</div>
+          <div class="budget-stat-sub">${periodMovieCount(open)} elokuvaa katsottu</div>
+        </div>
+        <div class="budget-stat-card">
+          <div class="budget-stat-label">Kuukauden kulut yht.</div>
+          <div class="budget-stat-value">${fmtEur(periodCost(open))}</div>
+          <div class="budget-stat-sub">${periodExtras(open)>0 ? fmtEur(periodExtras(open))+' ostoksia' : 'Ei ostoksia'}</div>
+        </div>
+      </div>
+      <div class="budget-actions-row">
+        <button class="btn-add-visit" style="margin-top:0;" onclick="openBudgetVisitModal('${open.id}')">🎬 Lisää elokuvakäynti</button>
+      </div>
+      <div class="budget-actions-row">
+        <button class="btn-add-visit" style="margin-top:0;border-color:rgba(96,165,250,0.3);color:var(--blue);background:rgba(96,165,250,0.1);" onclick="openBudgetPeriodModal('renew')">🔁 Uusi kuukausi laskutettu</button>
+      </div>
+    `;
+  } else {
+    html += `
+      <div class="budget-actions-row">
+        <button class="btn-add-visit" style="margin-top:0;" onclick="openBudgetPeriodModal('new')">▶️ Aloita ensimmäinen kuukausi</button>
+      </div>
+    `;
+  }
+
+  html += `
+    <div class="budget-section-title">📊 Tilastot</div>
+    <div class="budget-stats-grid">
+      <div class="budget-stat-card">
+        <div class="budget-stat-label">Viim. 3 kk</div>
+        <div class="budget-stat-value">${fmtEur(s3.total)}</div>
+        <div class="budget-stat-sub">${s3.movies>0 ? fmtEur(s3.total/s3.movies)+' / elokuva' : `${s3.movies} elokuvaa`}</div>
+      </div>
+      <div class="budget-stat-card">
+        <div class="budget-stat-label">Viim. 6 kk</div>
+        <div class="budget-stat-value">${fmtEur(s6.total)}</div>
+        <div class="budget-stat-sub">${s6.movies>0 ? fmtEur(s6.total/s6.movies)+' / elokuva' : `${s6.movies} elokuvaa`}</div>
+      </div>
+      <div class="budget-stat-card">
+        <div class="budget-stat-label">Viim. 12 kk</div>
+        <div class="budget-stat-value">${fmtEur(s12.total)}</div>
+        <div class="budget-stat-sub">${s12.movies>0 ? fmtEur(s12.total/s12.movies)+' / elokuva' : `${s12.movies} elokuvaa`}</div>
+      </div>
+      <div class="budget-stat-card">
+        <div class="budget-stat-label">Kaikki yhteensä</div>
+        <div class="budget-stat-value">${fmtEur(all.total)}</div>
+        <div class="budget-stat-sub">${all.movies>0 ? fmtEur(all.total/all.movies)+' / elokuva' : `${all.movies} elokuvaa`}</div>
+      </div>
+    </div>
+  `;
+
+  html += `<div class="budget-section-title">🗓️ Kuukausihistoria</div>`;
+  if(!periods.length){
+    html += `<div class="empty-state"><div class="empty-icon">💰</div><div class="empty-title">Ei vielä yhtään kuukautta</div></div>`;
+  } else {
+    html += periods.map(p => {
+      const cpm = periodCostPerMovie(p);
+      const visits = [...(p.visits||[])].sort((a,b)=> new Date(b.date||0) - new Date(a.date||0));
+      return `
+        <div class="budget-period-card ${p.endDate ? 'closed' : ''}">
+          <div class="budget-period-top">
+            <div>
+              <div class="budget-period-dates">${fmtDateFi(p.startDate)} – ${p.endDate ? fmtDateFi(p.endDate) : 'nyt'}</div>
+              <span class="budget-period-badge">${p.endDate ? 'Päättynyt' : 'Käynnissä'}</span>
+            </div>
+            <div class="budget-period-icons">
+              <button class="budget-icon-btn" onclick="openBudgetPeriodModal('edit','${p.id}')" title="Muokkaa">✏️</button>
+              <button class="budget-icon-btn" onclick="deleteBudgetPeriod('${p.id}')" title="Poista">🗑️</button>
+            </div>
+          </div>
+          <div class="budget-period-meta">
+            <div class="budget-period-meta-item">Tilaus: <b>${fmtEur(p.price)}</b></div>
+            <div class="budget-period-meta-item">Ostot: <b>${fmtEur(periodExtras(p))}</b></div>
+            <div class="budget-period-meta-item">Yhteensä: <b>${fmtEur(periodCost(p))}</b></div>
+            <div class="budget-period-meta-item">€ / elokuva: <b>${cpm!==null ? fmtEur(cpm) : '–'}</b></div>
+          </div>
+          <div class="budget-visit-list">
+            ${visits.length ? visits.map(v => {
+              const realIdx = (p.visits||[]).indexOf(v);
+              return `
+              <div class="budget-visit">
+                <div class="budget-visit-name">🎬 ${v.name}${v.date ? ' <span class="budget-visit-extra">· '+fmtDateFi(v.date)+'</span>' : ''}</div>
+                <div class="budget-visit-extra">${v.extra ? fmtEur(v.extra) : ''}</div>
+                <div class="budget-visit-icons">
+                  <button onclick="openBudgetVisitModal('${p.id}', ${realIdx})" title="Muokkaa">✏️</button>
+                  <button onclick="deleteBudgetVisit('${p.id}', ${realIdx})" title="Poista">🗑️</button>
+                </div>
+              </div>`;
+            }).join('') : `<div class="budget-empty-hint">Ei vielä elokuvakäyntejä tällä kuukaudella</div>`}
+            ${!p.endDate ? `<button class="btn-add-visit" onclick="openBudgetVisitModal('${p.id}')">🎬 Lisää elokuvakäynti</button>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  grid.innerHTML = html;
+};
+
+// Kuukausihinnan muokkaus
+window.openBudgetPriceModal = function(){
+  document.getElementById('budgetPriceInput').value = appData.budget.monthlyPrice;
+  document.getElementById('budgetPriceModal').classList.add('open');
+};
+
+window.saveBudgetPrice = async function(){
+  const val = parseFloat(document.getElementById('budgetPriceInput').value);
+  if(isNaN(val) || val < 0){ alert('Anna kelvollinen hinta!'); return; }
+  appData.budget.monthlyPrice = val;
+  closeModal('budgetPriceModal');
+  await window.fbSave();
+  renderBudget();
+};
+
+// Kuukauden aloitus / uusiminen / muokkaus
+window.openBudgetPeriodModal = function(mode, periodId){
+  editingPeriodId = null;
+  const title = document.getElementById('budgetPeriodModalTitle');
+  const hint = document.getElementById('budgetPeriodHint');
+  const startLabel = document.getElementById('budgetPeriodStartLabel');
+  const endGroup = document.getElementById('budgetPeriodEndGroup');
+  const startInput = document.getElementById('budgetPeriodStart');
+  const endInput = document.getElementById('budgetPeriodEnd');
+  const priceInput = document.getElementById('budgetPeriodPrice');
+
+  window._budgetPeriodMode = mode;
+
+  if(mode === 'new'){
+    title.textContent = '▶️ Aloita ensimmäinen kuukausi';
+    hint.textContent = 'Merkitse päivä, jolloin kuukausitilaus alkoi.';
+    startLabel.textContent = 'Aloituspäivä';
+    endGroup.style.display = 'none';
+    startInput.value = todayStr();
+    priceInput.value = appData.budget.monthlyPrice;
+  } else if(mode === 'renew'){
+    title.textContent = '🔁 Uusi kuukausi laskutettu';
+    hint.textContent = 'Tämä päättää nykyisen kuukauden ja aloittaa uuden samasta päivästä.';
+    startLabel.textContent = 'Uuden kuukauden alkupäivä';
+    endGroup.style.display = 'none';
+    startInput.value = todayStr();
+    priceInput.value = appData.budget.monthlyPrice;
+  } else if(mode === 'edit'){
+    const p = appData.budget.periods.find(x=>x.id === periodId);
+    if(!p) return;
+    editingPeriodId = periodId;
+    title.textContent = '✏️ Muokkaa kuukautta';
+    hint.textContent = '';
+    startLabel.textContent = 'Aloituspäivä';
+    endGroup.style.display = p.endDate ? 'block' : 'none';
+    startInput.value = p.startDate;
+    endInput.value = p.endDate || '';
+    priceInput.value = p.price;
+  }
+
+  document.getElementById('budgetPeriodModal').classList.add('open');
+};
+
+window.saveBudgetPeriod = async function(){
+  const mode = window._budgetPeriodMode;
+  const start = document.getElementById('budgetPeriodStart').value;
+  const end = document.getElementById('budgetPeriodEnd').value;
+  const price = parseFloat(document.getElementById('budgetPeriodPrice').value);
+  if(!start){ alert('Anna päivämäärä!'); return; }
+  if(isNaN(price) || price < 0){ alert('Anna kelvollinen hinta!'); return; }
+
+  if(mode === 'new'){
+    if(appData.budget.periods.some(p=>!p.endDate)){ alert('Käynnissä oleva kuukausi on jo olemassa.'); return; }
+    appData.budget.periods.push({ id: String(Date.now()), startDate: start, endDate: null, price, visits: [] });
+  } else if(mode === 'renew'){
+    const open = getOpenPeriod();
+    if(open) open.endDate = start;
+    appData.budget.periods.push({ id: String(Date.now()), startDate: start, endDate: null, price, visits: [] });
+  } else if(mode === 'edit' && editingPeriodId){
+    const p = appData.budget.periods.find(x=>x.id === editingPeriodId);
+    if(p){
+      p.startDate = start;
+      p.price = price;
+      if(p.endDate) p.endDate = end || p.endDate;
+    }
+  }
+
+  closeModal('budgetPeriodModal');
+  await window.fbSave();
+  renderBudget();
+};
+
+window.deleteBudgetPeriod = async function(periodId){
+  if(!confirm('Poistetaanko tämä kuukausi kokonaan, käynteineen?')) return;
+  appData.budget.periods = appData.budget.periods.filter(p=>p.id !== periodId);
+  await window.fbSave();
+  renderBudget();
+};
+
+// Elokuvakäynnin lisäys / muokkaus / poisto
+window.openBudgetVisitModal = function(periodId, visitIdx){
+  editingVisitPeriodId = periodId;
+  editingVisitIdx = (visitIdx !== undefined) ? visitIdx : null;
+  const title = document.getElementById('budgetVisitModalTitle');
+  const nameEl = document.getElementById('budgetVisitName');
+  const extraEl = document.getElementById('budgetVisitExtra');
+  const dateEl = document.getElementById('budgetVisitDate');
+
+  if(editingVisitIdx !== null){
+    const p = appData.budget.periods.find(x=>x.id === periodId);
+    const v = p && p.visits[editingVisitIdx];
+    title.textContent = '✏️ Muokkaa käyntiä';
+    nameEl.value = v ? v.name : '';
+    extraEl.value = v && v.extra ? v.extra : '';
+    dateEl.value = v && v.date ? v.date : todayStr();
+  } else {
+    title.textContent = '🎬 Lisää elokuvakäynti';
+    nameEl.value = '';
+    extraEl.value = '';
+    dateEl.value = todayStr();
+  }
+
+  document.getElementById('budgetVisitModal').classList.add('open');
+};
+
+window.saveBudgetVisit = async function(){
+  const name = document.getElementById('budgetVisitName').value.trim();
+  const extra = parseFloat(document.getElementById('budgetVisitExtra').value) || 0;
+  const date = document.getElementById('budgetVisitDate').value || todayStr();
+  if(!name){ alert('Anna elokuvan nimi!'); return; }
+
+  const p = appData.budget.periods.find(x=>x.id === editingVisitPeriodId);
+  if(!p){ closeModal('budgetVisitModal'); return; }
+  if(!p.visits) p.visits = [];
+
+  const visitData = { name, extra, date };
+  if(editingVisitIdx !== null) p.visits[editingVisitIdx] = visitData;
+  else p.visits.push(visitData);
+
+  closeModal('budgetVisitModal');
+  await window.fbSave();
+  renderBudget();
+};
+
+window.deleteBudgetVisit = async function(periodId, visitIdx){
+  if(!confirm('Poistetaanko käynti?')) return;
+  const p = appData.budget.periods.find(x=>x.id === periodId);
+  if(!p) return;
+  p.visits.splice(visitIdx, 1);
+  await window.fbSave();
+  renderBudget();
 };
 
 // ── ASETUKSET ──
