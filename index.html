@@ -280,6 +280,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .btn-add-visit{margin-top:10px;padding:10px 14px;background:rgba(232,184,75,0.1);color:var(--accent);border:1px solid rgba(232,184,75,0.3);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;}
 .btn-add-visit:active{background:rgba(232,184,75,0.2);}
 .budget-empty-hint{font-size:13px;color:var(--muted);text-align:center;padding:6px 0 4px;}
+.budget-stat-card.clickable{cursor:pointer;transition:border-color 0.15s,transform 0.1s;}
+.budget-stat-card.clickable:active{transform:scale(0.98);}
+.budget-stat-card.expanded{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+.budget-detail-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:18px;}
+.budget-detail-title{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:0.5px;color:var(--accent);margin-bottom:8px;}
+.budget-detail-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:14px;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.04);}
+.budget-detail-row:last-child{border-bottom:none;}
+.budget-detail-row b{color:var(--text);font-weight:700;}
+.budget-range-toggle{background:transparent;border:1px dashed var(--border);color:var(--muted);width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:14px;font-family:'DM Sans',sans-serif;}
+.budget-range-toggle:active{background:rgba(255,255,255,0.04);}
+.budget-range-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:18px;}
+.budget-range-row{display:flex;gap:8px;}
+.budget-range-row .form-group{flex:1;margin-bottom:12px;}
 .top-name { flex: 1; font-weight: 600; font-size: 15px; }
 .top-score { font-family: "Bebas Neue",sans-serif; font-size: 26px; }
 
@@ -745,7 +758,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <label>Päättymispäivä</label>
       <input type="date" id="budgetPeriodEnd">
     </div>
-    <div class="form-group">
+    <div class="form-group" id="budgetPeriodPriceGroup">
       <label>Hinta tälle kuukaudelle (€)</label>
       <input type="number" id="budgetPeriodPrice" step="0.01" min="0">
     </div>
@@ -2019,6 +2032,11 @@ window.renderTop = function(){
 let editingPeriodId = null;
 let editingVisitPeriodId = null;
 let editingVisitIdx = null;
+let expandedBudgetStat = null;
+let budgetRangeOpen = false;
+let budgetRangeStart = null;
+let budgetRangeEnd = null;
+let budgetRangeCalculated = false;
 
 function todayStr(){
   return new Date().toISOString().slice(0,10);
@@ -2056,17 +2074,60 @@ function periodCostPerMovie(p){
   return c > 0 ? periodCost(p) / c : null;
 }
 
-function sumSince(monthsAgo){
+function statsForMonths(monthsAgo){
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsAgo);
-  let total = 0, movies = 0;
+  let subscriptionTotal = 0, extrasTotal = 0, movies = 0, periodsCount = 0;
   appData.budget.periods.forEach(p => {
     if(new Date(p.startDate) >= cutoff){
-      total += periodCost(p);
+      subscriptionTotal += Number(p.price) || 0;
+      extrasTotal += periodExtras(p);
       movies += periodMovieCount(p);
+      periodsCount++;
     }
   });
-  return { total, movies };
+  return { subscriptionTotal, extrasTotal, movies, periodsCount, total: subscriptionTotal + extrasTotal };
+}
+
+function statsAll(){
+  let subscriptionTotal = 0, extrasTotal = 0, movies = 0;
+  appData.budget.periods.forEach(p => {
+    subscriptionTotal += Number(p.price) || 0;
+    extrasTotal += periodExtras(p);
+    movies += periodMovieCount(p);
+  });
+  return { subscriptionTotal, extrasTotal, movies, periodsCount: appData.budget.periods.length, total: subscriptionTotal + extrasTotal };
+}
+
+// Kaikki todelliset laskutusrajat (kuukauden alku- ja loppupäivät), joista voi valita kulujakson.
+function getBudgetBoundaryDates(){
+  const set = new Set();
+  (appData.budget.periods || []).forEach(p => {
+    if(p.startDate) set.add(p.startDate);
+    if(p.endDate) set.add(p.endDate);
+  });
+  return Array.from(set).sort();
+}
+
+// Kulujakso rajataan aina todellisiin laskutusrajoihin, joten laskenta on täsmällinen
+// (ei arvio) — mukaan lasketaan vain kokonaiset kuukaudet, jotka mahtuvat valitulle välille.
+// endSelection on joko jonkin päättyneen kuukauden loppupäivä, tai merkkijono 'today',
+// joka sisällyttää mukaan myös parhaillaan käynnissä olevan (vielä avoimen) kuukauden.
+function computeBoundaryRangeStats(startDate, endSelection){
+  let subscriptionTotal = 0, extrasTotal = 0, movies = 0, periodsCount = 0;
+  appData.budget.periods.forEach(p => {
+    if(p.startDate < startDate) return;
+    if(p.endDate){
+      if(endSelection !== 'today' && p.endDate > endSelection) return;
+    } else {
+      if(endSelection !== 'today') return;
+    }
+    subscriptionTotal += Number(p.price) || 0;
+    extrasTotal += periodExtras(p);
+    movies += periodMovieCount(p);
+    periodsCount++;
+  });
+  return { subscriptionTotal, extrasTotal, movies, periodsCount, total: subscriptionTotal + extrasTotal };
 }
 
 window.budgetFabClick = function(){
@@ -2078,23 +2139,50 @@ window.budgetFabClick = function(){
   }
 };
 
+window.toggleBudgetStatDetail = function(key){
+  expandedBudgetStat = (expandedBudgetStat === key) ? null : key;
+  renderBudget();
+};
+
+window.toggleBudgetRangePanel = function(){
+  budgetRangeOpen = !budgetRangeOpen;
+  if(!budgetRangeOpen) budgetRangeCalculated = false;
+  renderBudget();
+};
+
+window.calcBudgetRange = function(){
+  const s = document.getElementById('budgetRangeStartInput').value;
+  const e = document.getElementById('budgetRangeEndInput').value;
+  if(!s || !e){ alert('Valitse molemmat päivämäärät!'); return; }
+  const eForCompare = e === 'today' ? todayStr() : e;
+  if(new Date(s) > new Date(eForCompare)){ alert('Alkupäivä ei voi olla loppupäivää myöhemmin!'); return; }
+  budgetRangeStart = s;
+  budgetRangeEnd = e;
+  budgetRangeCalculated = true;
+  renderBudget();
+};
+
 window.renderBudget = function(){
   const grid = document.getElementById('cardsGrid');
   if(!appData.budget) appData.budget = { monthlyPrice: 26.90, periods: [] };
   const periods = [...appData.budget.periods].sort((a,b)=> new Date(b.startDate) - new Date(a.startDate));
   const open = getOpenPeriod();
 
-  const s3 = sumSince(3), s6 = sumSince(6), s12 = sumSince(12);
-  const all = appData.budget.periods.reduce((acc,p)=>{
-    acc.total += periodCost(p); acc.movies += periodMovieCount(p); return acc;
-  }, { total:0, movies:0 });
+  const s3 = statsForMonths(3), s6 = statsForMonths(6), s12 = statsForMonths(12);
+  const all = statsAll();
+  const statMap = {
+    '3': { label: 'Viimeiset 3 kuukautta', data: s3 },
+    '6': { label: 'Viimeiset 6 kuukautta', data: s6 },
+    '12': { label: 'Viimeiset 12 kuukautta', data: s12 },
+    'all': { label: 'Kaikki yhteensä', data: all }
+  };
 
   let html = `
     <div class="budget-hero">
       <button class="budget-edit-price" onclick="openBudgetPriceModal()" title="Muokkaa kuukausihintaa">✏️</button>
       <div class="budget-hero-label">Kuukausitilaus</div>
       <div class="budget-hero-value">${fmtEur(appData.budget.monthlyPrice)}</div>
-      <div class="budget-hero-sub">${open ? `Nykyinen kuukausi alkoi ${fmtDateFi(open.startDate)} · ${periodMovieCount(open)} elokuvaa` : 'Ei käynnissä olevaa kuukautta'}</div>
+      <div class="budget-hero-sub">${open ? `Nykyinen kuukausi alkoi ${fmtDateFi(open.startDate)} · ${periodMovieCount(open)} elokuvaa` : (appData.budget.periods.length ? 'Tilaus ei ole tällä hetkellä käytössä' : 'Ei vielä aloitettu')}</div>
     </div>
   `;
 
@@ -2119,11 +2207,17 @@ window.renderBudget = function(){
       <div class="budget-actions-row">
         <button class="btn-add-visit" style="margin-top:0;border-color:rgba(96,165,250,0.3);color:var(--blue);background:rgba(96,165,250,0.1);" onclick="openBudgetPeriodModal('renew')">🔁 Uusi kuukausi laskutettu</button>
       </div>
+      <div class="budget-actions-row">
+        <button class="btn-add-visit" style="margin-top:0;border-color:rgba(255,107,107,0.3);color:var(--accent2);background:rgba(255,107,107,0.08);" onclick="openBudgetPeriodModal('pause')">⏸️ Lopeta tilaus</button>
+      </div>
     `;
   } else {
+    const hasHistory = appData.budget.periods.length > 0;
+    const lastClosed = hasHistory ? [...appData.budget.periods].sort((a,b)=> new Date(b.endDate||b.startDate) - new Date(a.endDate||a.startDate))[0] : null;
     html += `
+      ${hasHistory ? `<div class="budget-empty-hint" style="margin-bottom:10px;">⏸️ Tilaus ei ole käytössä${lastClosed && lastClosed.endDate ? ' (päättyi '+fmtDateFi(lastClosed.endDate)+')' : ''}</div>` : ''}
       <div class="budget-actions-row">
-        <button class="btn-add-visit" style="margin-top:0;" onclick="openBudgetPeriodModal('new')">▶️ Aloita ensimmäinen kuukausi</button>
+        <button class="btn-add-visit" style="margin-top:0;" onclick="openBudgetPeriodModal('new')">▶️ ${hasHistory ? 'Aloita tilaus uudelleen' : 'Aloita ensimmäinen kuukausi'}</button>
       </div>
     `;
   }
@@ -2131,28 +2225,89 @@ window.renderBudget = function(){
   html += `
     <div class="budget-section-title">📊 Tilastot</div>
     <div class="budget-stats-grid">
-      <div class="budget-stat-card">
-        <div class="budget-stat-label">Viim. 3 kk</div>
-        <div class="budget-stat-value">${fmtEur(s3.total)}</div>
-        <div class="budget-stat-sub">${s3.movies>0 ? fmtEur(s3.total/s3.movies)+' / elokuva' : `${s3.movies} elokuvaa`}</div>
-      </div>
-      <div class="budget-stat-card">
-        <div class="budget-stat-label">Viim. 6 kk</div>
-        <div class="budget-stat-value">${fmtEur(s6.total)}</div>
-        <div class="budget-stat-sub">${s6.movies>0 ? fmtEur(s6.total/s6.movies)+' / elokuva' : `${s6.movies} elokuvaa`}</div>
-      </div>
-      <div class="budget-stat-card">
-        <div class="budget-stat-label">Viim. 12 kk</div>
-        <div class="budget-stat-value">${fmtEur(s12.total)}</div>
-        <div class="budget-stat-sub">${s12.movies>0 ? fmtEur(s12.total/s12.movies)+' / elokuva' : `${s12.movies} elokuvaa`}</div>
-      </div>
-      <div class="budget-stat-card">
-        <div class="budget-stat-label">Kaikki yhteensä</div>
-        <div class="budget-stat-value">${fmtEur(all.total)}</div>
-        <div class="budget-stat-sub">${all.movies>0 ? fmtEur(all.total/all.movies)+' / elokuva' : `${all.movies} elokuvaa`}</div>
-      </div>
+      ${Object.keys(statMap).map(key => {
+        const s = statMap[key];
+        const shortLabel = key==='all' ? 'Kaikki yhteensä' : `Viim. ${key} kk`;
+        return `
+        <div class="budget-stat-card clickable ${expandedBudgetStat===key ? 'expanded' : ''}" onclick="toggleBudgetStatDetail('${key}')">
+          <div class="budget-stat-label">${shortLabel}</div>
+          <div class="budget-stat-value">${fmtEur(s.data.total)}</div>
+          <div class="budget-stat-sub">${s.data.movies>0 ? fmtEur(s.data.total/s.data.movies)+' / elokuva' : `${s.data.movies} elokuvaa`}</div>
+        </div>`;
+      }).join('')}
     </div>
   `;
+
+  if(expandedBudgetStat && statMap[expandedBudgetStat]){
+    const s = statMap[expandedBudgetStat];
+    const d = s.data;
+    html += `
+      <div class="budget-detail-panel">
+        <div class="budget-detail-title">${s.label}</div>
+        <div class="budget-detail-row"><span>Elokuvia katsottu</span><b>${d.movies} kpl</b></div>
+        <div class="budget-detail-row"><span>Kuukausia jaksolla</span><b>${d.periodsCount} kpl</b></div>
+        <div class="budget-detail-row"><span>Tilausmaksut yhteensä</span><b>${fmtEur(d.subscriptionTotal)}</b></div>
+        <div class="budget-detail-row"><span>Ostot yhteensä</span><b>${fmtEur(d.extrasTotal)}</b></div>
+        <div class="budget-detail-row"><span>Yhteensä</span><b>${fmtEur(d.total)}</b></div>
+        <div class="budget-detail-row"><span>€ / elokuva</span><b>${d.movies>0 ? fmtEur(d.total/d.movies) : '–'}</b></div>
+      </div>
+    `;
+  }
+
+  html += `<button class="budget-range-toggle" onclick="toggleBudgetRangePanel()">📅 ${budgetRangeOpen ? 'Piilota kulujaksot' : 'Tarkastele kulujaksoa (alku–loppu)'}</button>`;
+
+  if(budgetRangeOpen){
+    const boundaryDates = getBudgetBoundaryDates();
+    if(!boundaryDates.length){
+      html += `<div class="budget-range-panel"><div class="budget-empty-hint">Aloita ensin ainakin yksi kuukausi, jotta voit valita kulujakson.</div></div>`;
+    } else {
+      const today = todayStr();
+      const startOptions = boundaryDates.map(d =>
+        `<option value="${d}" ${budgetRangeStart===d?'selected':''}>${fmtDateFi(d)}</option>`
+      ).join('');
+      let endOptions = boundaryDates.map(d =>
+        `<option value="${d}" ${budgetRangeEnd===d?'selected':''}>${fmtDateFi(d)}</option>`
+      ).join('');
+      if(getOpenPeriod()){
+        endOptions += `<option value="today" ${budgetRangeEnd==='today'?'selected':''}>Tänään (${fmtDateFi(today)}) – kesken oleva kuukausi mukaan</option>`;
+      }
+      html += `
+        <div class="budget-range-panel">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.4;">Valitse päivät sen mukaan, milloin joku laskutuskuukausi on alkanut tai päättynyt. Näin laskenta on aina täsmällinen, ei arvio.</div>
+          <div class="budget-range-row">
+            <div class="form-group">
+              <label>Alkaen</label>
+              <select id="budgetRangeStartInput">${startOptions}</select>
+            </div>
+            <div class="form-group">
+              <label>Päättyen</label>
+              <select id="budgetRangeEndInput">${endOptions}</select>
+            </div>
+          </div>
+          <button class="btn-add-visit" style="margin-top:0;" onclick="calcBudgetRange()">Näytä tiedot</button>
+      `;
+      if(budgetRangeCalculated && budgetRangeStart && budgetRangeEnd){
+        const r = computeBoundaryRangeStats(budgetRangeStart, budgetRangeEnd);
+        const endLabel = budgetRangeEnd === 'today' ? `tänään (${fmtDateFi(today)})` : fmtDateFi(budgetRangeEnd);
+        if(r.periodsCount === 0){
+          html += `<div class="budget-detail-panel" style="margin-top:14px;margin-bottom:0;"><div class="budget-empty-hint">Ei tilauskuukausia tällä välillä.</div></div>`;
+        } else {
+          html += `
+            <div class="budget-detail-panel" style="margin-top:14px;margin-bottom:0;">
+              <div class="budget-detail-title">${fmtDateFi(budgetRangeStart)} – ${endLabel}</div>
+              <div class="budget-detail-row"><span>Elokuvia katsottu</span><b>${r.movies} kpl</b></div>
+              <div class="budget-detail-row"><span>Kuukausia jaksolla</span><b>${r.periodsCount} kpl</b></div>
+              <div class="budget-detail-row"><span>Tilausmaksut yhteensä</span><b>${fmtEur(r.subscriptionTotal)}</b></div>
+              <div class="budget-detail-row"><span>Ostot yhteensä</span><b>${fmtEur(r.extrasTotal)}</b></div>
+              <div class="budget-detail-row"><span>Yhteensä</span><b>${fmtEur(r.total)}</b></div>
+              <div class="budget-detail-row"><span>€ / elokuva</span><b>${r.movies>0 ? fmtEur(r.total/r.movies) : '–'}</b></div>
+            </div>
+          `;
+        }
+      }
+      html += `</div>`;
+    }
+  }
 
   html += `<div class="budget-section-title">🗓️ Kuukausihistoria</div>`;
   if(!periods.length){
@@ -2174,6 +2329,7 @@ window.renderBudget = function(){
             </div>
           </div>
           <div class="budget-period-meta">
+            <div class="budget-period-meta-item">Elokuvia: <b>${periodMovieCount(p)}</b></div>
             <div class="budget-period-meta-item">Tilaus: <b>${fmtEur(p.price)}</b></div>
             <div class="budget-period-meta-item">Ostot: <b>${fmtEur(periodExtras(p))}</b></div>
             <div class="budget-period-meta-item">Yhteensä: <b>${fmtEur(periodCost(p))}</b></div>
@@ -2227,11 +2383,14 @@ window.openBudgetPeriodModal = function(mode, periodId){
   const startInput = document.getElementById('budgetPeriodStart');
   const endInput = document.getElementById('budgetPeriodEnd');
   const priceInput = document.getElementById('budgetPeriodPrice');
+  const priceGroup = document.getElementById('budgetPeriodPriceGroup');
 
   window._budgetPeriodMode = mode;
+  priceGroup.style.display = 'block';
 
   if(mode === 'new'){
-    title.textContent = '▶️ Aloita ensimmäinen kuukausi';
+    const hasHistory = appData.budget.periods.length > 0;
+    title.textContent = hasHistory ? '▶️ Aloita tilaus uudelleen' : '▶️ Aloita ensimmäinen kuukausi';
     hint.textContent = 'Merkitse päivä, jolloin kuukausitilaus alkoi.';
     startLabel.textContent = 'Aloituspäivä';
     endGroup.style.display = 'none';
@@ -2244,6 +2403,13 @@ window.openBudgetPeriodModal = function(mode, periodId){
     endGroup.style.display = 'none';
     startInput.value = todayStr();
     priceInput.value = appData.budget.monthlyPrice;
+  } else if(mode === 'pause'){
+    title.textContent = '⏸️ Lopeta tilaus';
+    hint.textContent = 'Tämä päättää nykyisen kuukauden eikä aloita uutta. Tilastot pysyvät tarkkoina, koska tilauskatkoa ei lasketa mukaan. Voit aloittaa tilauksen uudelleen myöhemmin.';
+    startLabel.textContent = 'Päivä jolloin tilaus päättyi';
+    endGroup.style.display = 'none';
+    startInput.value = todayStr();
+    priceGroup.style.display = 'none';
   } else if(mode === 'edit'){
     const p = appData.budget.periods.find(x=>x.id === periodId);
     if(!p) return;
@@ -2266,7 +2432,7 @@ window.saveBudgetPeriod = async function(){
   const end = document.getElementById('budgetPeriodEnd').value;
   const price = parseFloat(document.getElementById('budgetPeriodPrice').value);
   if(!start){ alert('Anna päivämäärä!'); return; }
-  if(isNaN(price) || price < 0){ alert('Anna kelvollinen hinta!'); return; }
+  if(mode !== 'pause' && (isNaN(price) || price < 0)){ alert('Anna kelvollinen hinta!'); return; }
 
   if(mode === 'new'){
     if(appData.budget.periods.some(p=>!p.endDate)){ alert('Käynnissä oleva kuukausi on jo olemassa.'); return; }
@@ -2275,6 +2441,9 @@ window.saveBudgetPeriod = async function(){
     const open = getOpenPeriod();
     if(open) open.endDate = start;
     appData.budget.periods.push({ id: String(Date.now()), startDate: start, endDate: null, price, visits: [] });
+  } else if(mode === 'pause'){
+    const open = getOpenPeriod();
+    if(open) open.endDate = start;
   } else if(mode === 'edit' && editingPeriodId){
     const p = appData.budget.periods.find(x=>x.id === editingPeriodId);
     if(p){
