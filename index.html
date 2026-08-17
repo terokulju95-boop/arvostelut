@@ -221,7 +221,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   40% { transform:scale(0.92); }
   70% { transform:scale(1.06); }
 }
-.btn-primary:active, .btn-sm:active, .btn-to-review:active, .cat-tab:active, .score-opt:active {
+.btn-primary:active, .btn-sm:active, .cat-tab:active, .score-opt:active {
   animation: btnBounce 0.25s ease;
 }
 .score-opt {
@@ -231,10 +231,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   transform: scale(1.12);
 }
 
-/* JONO */
-.queue-card::before { background: #a78bfa !important; }
-.btn-to-review { background: rgba(232,184,75,0.15); color: var(--accent); border: 1px solid rgba(232,184,75,0.4); border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: "DM Sans",sans-serif; flex: 1; }
-.btn-to-review:active { background: rgba(232,184,75,0.3); }
 
 /* TOP-LISTA */
 .top-section { margin-bottom: 24px; }
@@ -244,6 +240,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .top-rank.gold { color: #e8b84b; }
 .top-rank.silver { color: #aaa; }
 .top-rank.bronze { color: #cd7f32; }
+.top-hero-card{position:relative;border-radius:18px;overflow:hidden;margin-bottom:10px;min-height:220px;display:flex;flex-direction:column;justify-content:flex-end;background-size:cover;background-position:center top;border:1px solid var(--border);isolation:isolate;}
+.top-hero-card.no-poster{background:linear-gradient(135deg,var(--card),var(--bg3));}
+.top-hero-card::before{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,10,15,0) 0%,rgba(10,10,15,0.35) 45%,rgba(10,10,15,0.96) 100%);z-index:1;}
+.top-hero-card.no-poster::after{content:attr(data-icon);position:absolute;right:-8px;bottom:-20px;font-size:110px;opacity:0.10;z-index:0;pointer-events:none;line-height:1;}
+.top-hero-crown{position:absolute;top:12px;left:12px;font-family:'Bebas Neue',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;color:#0a0a0f;background:var(--accent);padding:5px 11px;border-radius:20px;z-index:2;box-shadow:0 2px 10px rgba(232,184,75,0.35);}
+.top-hero-content{position:relative;z-index:2;padding:16px;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;}
+.top-hero-name{font-size:21px;font-weight:800;line-height:1.25;}
+.top-hero-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.top-hero-score{font-family:'Bebas Neue',sans-serif;font-size:48px;line-height:1;flex-shrink:0;}
+.top-hero-score.score-high{color:#4ade80;}
+.top-hero-score.score-mid{color:#e8b84b;}
+.top-hero-score.score-low{color:#ff6b6b;}
 
 /* BUDJETTI */
 .budget-hero{background:linear-gradient(135deg,var(--card),var(--bg3));border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;position:relative;overflow:hidden;}
@@ -452,7 +460,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   <!-- NÄKYMÄTABIT -->
   <div class="view-tabs">
     <button class="view-tab active" id="viewTabReviews" onclick="setView('reviews')">⭐ Arvostelut</button>
-    <button class="view-tab" id="viewTabQueue" onclick="setView('queue')">📋 Jono</button>
     <button class="view-tab" id="viewTabTop" onclick="setView('top')">🏆 Top-lista</button>
     <button class="view-tab" id="viewTabBudget" onclick="setView('budget')">💰 Budjetti</button>
   </div>
@@ -917,7 +924,7 @@ const DEFAULT_GENRES = ['Toiminta','Komedia','Draama','Kauhu','Sci-fi','Trilleri
 let GENRES = [...DEFAULT_GENRES];
 const GENRE_CATS = ['Elokuvat','TV-sarjat'];
 
-let appData = { categories: [...DEFAULT_CATS], genres: [...DEFAULT_GENRES], reviews: [], queue: [], budget: { monthlyPrice: 26.90, periods: [] } };
+let appData = { categories: [...DEFAULT_CATS], genres: [...DEFAULT_GENRES], reviews: [], budget: { monthlyPrice: 26.90, periods: [] } };
 let activeCat = null;
 let sortMode = 'uusin';
 let activeGenreFilter = null;
@@ -935,7 +942,6 @@ let selectedPartScore = null;
 
 function initApp(){
   if(!activeCat && appData.categories.length) activeCat = appData.categories[0];
-  if(!appData.queue) appData.queue = [];
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   if(!appData.budget) appData.budget = { monthlyPrice: 26.90, periods: [] };
   if(appData.budget.monthlyPrice == null) appData.budget.monthlyPrice = 26.90;
@@ -951,7 +957,6 @@ function renderAll(){
   renderCatTabs();
   renderYearFilters();
   if(currentView==='reviews') renderCards();
-  else if(currentView==='queue') renderQueue();
   else if(currentView==='top') renderTop();
   else if(currentView==='budget') renderBudget();
 }
@@ -959,11 +964,11 @@ function renderAll(){
 // ── NÄKYMÄ ──
 window.setView = function(view){
   currentView = view;
-  ['reviews','queue','top','budget'].forEach(v=>{
+  ['reviews','top','budget'].forEach(v=>{
     const el = document.getElementById('viewTab'+v.charAt(0).toUpperCase()+v.slice(1));
     if(el) el.classList.toggle('active', v===view);
   });
-  const showCats = view==='reviews'||view==='queue';
+  const showCats = view==='reviews';
   document.getElementById('catTabs').style.display = showCats?'':'none';
   const tb = document.querySelector('.toolbar');
   if(tb) tb.style.display = view==='reviews'?'':'none';
@@ -972,8 +977,7 @@ window.setView = function(view){
 };
 
 window.fabClick = function(){
-  if(currentView==='queue') window.openQueueModal();
-  else if(currentView==='budget') window.budgetFabClick();
+  if(currentView==='budget') window.budgetFabClick();
   else window.openAddModal();
 };
 
@@ -1319,7 +1323,6 @@ window.openAddModal = function(){
   selectedScore = null;
   selectedTvType = 'kokonaisuus';
   selectedMark = null;
-  window._queueMode = false;
   window._tmdbPending = null;
   document.getElementById('tmdbSearchInput').value = '';
   document.getElementById('tmdbResults').style.display = 'none';
@@ -1344,7 +1347,6 @@ window.editReview = function(id){
   selectedScore = r.score!=null ? r.score : null;
   selectedTvType = r.tvType||'kokonaisuus';
   selectedMark = r.mark||null;
-  window._queueMode = false;
   document.getElementById('modalTitle').textContent = 'Muokkaa arvostelua';
   document.getElementById('formName').value = r.name;
   document.getElementById('formNote').value = r.note||'';
@@ -1368,9 +1370,7 @@ window.onCatChange = function(preselectedGenre){
   const cat = document.getElementById('formCat').value;
   const isTv = cat==='TV-sarjat';
   const hasGenre = GENRE_CATS.includes(cat);
-  if(!window._queueMode){
-    document.getElementById('tvTypeSection').style.display = isTv?'block':'none';
-  }
+  document.getElementById('tvTypeSection').style.display = isTv?'block':'none';
   document.getElementById('genreSection').style.display = hasGenre?'block':'none';
   setTimeout(window.updateScorePrediction, 50);
   // Näytä TMDB-haku vain elokuville ja TV-sarjoille
@@ -1470,20 +1470,6 @@ window.saveReview = async function(){
   const name = document.getElementById('formName').value.trim();
   if(!name){ alert('Anna nimi!'); return; }
   const cat = document.getElementById('formCat').value;
-
-  if(window._queueMode){
-    window._queueMode = false;
-    if(!appData.queue) appData.queue=[];
-    appData.queue.push({
-      id: Date.now(), name, category: cat,
-      genre: GENRE_CATS.includes(cat)?getSelectedGenres():[],
-      note: document.getElementById('formNote').value
-    });
-    closeModal('addModal');
-    await window.fbSave();
-    renderQueue();
-    return;
-  }
 
   const isTv = cat==='TV-sarjat';
   const needsScore = !isTv || selectedTvType==='kokonaisuus';
@@ -1926,82 +1912,15 @@ window.deletePart = async function(reviewId, partIdx){
   renderCards();
 };
 
-// ── JONO ──
-window.openQueueModal = function(){
-  selectedMark = null;
-  window._queueMode = true;
-  document.getElementById('modalTitle').textContent = '📋 Lisää jonoon';
-  document.getElementById('formName').value='';
-  document.getElementById('formNote').value='';
-  document.getElementById('scoreSection').style.display='none';
-  document.getElementById('tvTypeSection').style.display='none';
-  populateFormCat();
-  document.getElementById('addModal').classList.add('open');
-};
-
-window.renderQueue = function(){
-  const grid = document.getElementById('cardsGrid');
-  if(!appData.queue) appData.queue=[];
-  let items = [...appData.queue];
-  if(activeCat) items = items.filter(q=>q.category===activeCat);
-  const searchEl = document.getElementById('searchInput');
-  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
-  if(q) items = items.filter(i=>i.name.toLowerCase().includes(q));
-  if(!items.length){
-    grid.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Jono on tyhjä</div></div>`;
-    return;
-  }
-  grid.innerHTML = items.map((item,idx)=>`
-    <div class="review-card queue-card">
-      <div class="card-top"><div class="card-title">${item.name}</div></div>
-      <div class="card-meta">
-        <span class="meta-chip">${item.category}</span>
-        ${item.genre?`<span class="meta-chip">${item.genre}</span>`:''}
-      </div>
-      ${item.note?`<div class="card-note">${item.note}</div>`:''}
-      <div class="card-date">📅 Lisätty ${new Date(item.id).toLocaleDateString('fi-FI')}</div>
-      <div class="card-actions">
-        <button class="btn-to-review" onclick="queueToReview(${idx})">⭐ Arvostele</button>
-        <button class="btn-sm btn-del" onclick="deleteQueue(${idx})">🗑️ Poista</button>
-      </div>
-    </div>
-  `).join('');
-};
-
-window.queueToReview = function(idx){
-  if(!appData.queue) return;
-  const item = appData.queue[idx]; if(!item) return;
-  appData.queue.splice(idx,1);
-  window.fbSave();
-  setView('reviews');
-  setTimeout(()=>{
-    window.openAddModal();
-    document.getElementById('formName').value = item.name;
-    const catSel = document.getElementById('formCat');
-    catSel.value = item.category;
-    window.onCatChange(item.genre);
-    if(item.genre){
-      // Support both array and string
-      const genres = Array.isArray(item.genre) ? item.genre : (item.genre ? [item.genre] : []);
-      setTimeout(()=>{
-        document.querySelectorAll('#genreChips .genre-chip').forEach(chip=>{
-          if(genres.includes(chip.textContent.trim())) chip.classList.add('genre-chip-active');
-        });
-      }, 50);
-    }
-    document.getElementById('formNote').value = item.note||'';
-  }, 400);
-};
-
-window.deleteQueue = async function(idx){
-  if(!confirm('Poistetaanko jonosta?')) return;
-  if(!appData.queue) return;
-  appData.queue.splice(idx,1);
-  await window.fbSave();
-  renderQueue();
-};
-
 // ── TOP-LISTA ──
+function topHeroIcon(cat){
+  if(cat==='Elokuvat') return '🎬';
+  if(cat==='TV-sarjat') return '📺';
+  if(cat==='Ruuat') return '🍽️';
+  if(cat==='Juomat') return '🥤';
+  return '⭐';
+}
+
 window.renderTop = function(){
   const grid = document.getElementById('cardsGrid');
   const medals = ['gold','silver','bronze'];
@@ -2014,11 +1933,31 @@ window.renderTop = function(){
       .sort((a,b)=>b.finalScore-a.finalScore)
       .slice(0,5);
     if(!reviews.length) return;
+
+    const top = reviews[0];
+    const rest = reviews.slice(1);
+    const hasPoster = !!top.poster;
+    const heroStyle = hasPoster ? `style="background-image:url('https://image.tmdb.org/t/p/w500${top.poster}')"` : '';
+    const heroAttrs = hasPoster ? '' : `data-icon="${topHeroIcon(cat)}"`;
+
     html += `<div class="top-section">
       <div class="top-section-title">🏆 ${cat}</div>
-      ${reviews.map((r,i)=>`
+      <div class="top-hero-card ${hasPoster?'':'no-poster'}" ${heroStyle} ${heroAttrs} ondblclick="openReadModal(${top.id})">
+        <span class="top-hero-crown">👑 #1</span>
+        <div class="top-hero-content">
+          <div>
+            <div class="top-hero-name">${top.name.replace(/\n/g,' · ')}${top.mark==='heart'?' ❤️':top.mark==='skull'?' 💀':''}</div>
+            <div class="top-hero-meta">
+              <span class="meta-chip">${top.category}</span>
+              ${(Array.isArray(top.genre)?top.genre:(top.genre?[top.genre]:[])).slice(0,2).map(g=>`<span class="meta-chip">${g}</span>`).join('')}
+            </div>
+          </div>
+          <span class="top-hero-score ${scoreClass(top.finalScore)}">${top.finalScore}</span>
+        </div>
+      </div>
+      ${rest.map((r,i)=>`
         <div class="top-item">
-          <span class="top-rank ${medals[i]||''}">${i+1}</span>
+          <span class="top-rank ${medals[i+1]||''}">${i+2}</span>
           <span class="top-name">${r.name.replace(/\n/g,' · ')}${r.mark==='heart'?' ❤️':r.mark==='skull'?' 💀':''}</span>
           <span class="top-score ${scoreClass(r.finalScore)}">${r.finalScore}</span>
         </div>
@@ -2604,10 +2543,8 @@ window.showNameSuggestions = function(val){
   const list = document.getElementById('acList');
   if(!list) return;
   if(!val||val.length<1){ list.style.display='none'; return; }
-  const all = [...new Set([
-    ...appData.reviews.map(r=>r.name),
-    ...(appData.queue||[]).map(q=>q.name)
-  ])].filter(n=>n.toUpperCase().startsWith(val.toUpperCase())&&n.toUpperCase()!==val.toUpperCase()).slice(0,5);
+  const all = [...new Set(appData.reviews.map(r=>r.name))]
+    .filter(n=>n.toUpperCase().startsWith(val.toUpperCase())&&n.toUpperCase()!==val.toUpperCase()).slice(0,5);
   if(!all.length){ list.style.display='none'; return; }
   list.innerHTML = all.map(n=>`
     <div class="autocomplete-item" onmousedown="selectAcItem('${n.replace(/'/g,"\'")}')" ontouchstart="selectAcItem('${n.replace(/'/g,"\'")}')">
