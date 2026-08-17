@@ -133,6 +133,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .btn-add-part:active{background:rgba(96,165,250,0.2);}
 .btn-add-season{margin-top:8px;padding:8px 14px;background:rgba(232,184,75,0.1);color:var(--accent);border:1px solid rgba(232,184,75,0.3);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;}
 .btn-add-season:active{background:rgba(232,184,75,0.2);}
+
+/* VERTAILEVA PISTEYTYS */
+.compare-tune-btn{margin-top:10px;width:100%;padding:10px 14px;background:rgba(96,165,250,0.1);color:var(--blue);border:1px solid rgba(96,165,250,0.3);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:none;}
+.compare-tune-btn:active{background:rgba(96,165,250,0.2);}
+.compare-round-label{font-size:12px;color:var(--muted);margin:-4px 0 14px;}
+.compare-duel{display:flex;align-items:stretch;gap:10px;}
+.compare-card{flex:1;background:var(--bg3);border:1.5px solid var(--border);border-radius:14px;padding:14px 10px;text-align:center;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:150px;}
+.compare-card:active{border-color:var(--accent);background:rgba(232,184,75,0.1);transform:scale(0.97);}
+.compare-card img{width:60px;height:90px;object-fit:cover;border-radius:8px;}
+.compare-card-icon{font-size:34px;opacity:0.5;}
+.compare-card-name{font-size:14px;font-weight:700;line-height:1.25;}
+.compare-card-score{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--muted);}
+.compare-vs{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--muted);flex-shrink:0;align-self:center;}
+.compare-result-box{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.35);border-radius:12px;padding:18px;text-align:center;}
+.compare-result-score{font-family:'Bebas Neue',sans-serif;font-size:42px;color:#4ade80;line-height:1;}
 .season-group{margin-bottom:10px;border:1px solid rgba(255,255,255,0.07);border-radius:10px;overflow:hidden;}
 .season-header{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);cursor:pointer;user-select:none;}
 .season-header:active{background:rgba(255,255,255,0.08);}
@@ -587,6 +602,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
           <div id="scorePreview" style="font-size:14px;color:var(--muted);"></div>
         </div>
+        <button type="button" class="compare-tune-btn" id="compareTuneBtn" onclick="openCompareTune()">⚖️ Vertaile & tarkenna piste</button>
       </div>
     </div>
 
@@ -731,9 +747,26 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <button class="add-cat-btn" onclick="addGenre()">+</button>
       </div>
     </div>
+    <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+      <label>TMDB-tunnus</label>
+      <div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
+    </div>
     <div class="form-group" style="margin-top:24px;border-top:1px solid var(--border);padding-top:20px;">
       <button class="btn-secondary" style="width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="doSignOut()">🚪 Kirjaudu ulos</button>
     </div>
+  </div>
+</div>
+
+<!-- VERTAILEVA PISTEYTYS -->
+<div class="modal-overlay" id="compareModal" onclick="closeModalIfOutside(event,'compareModal')">
+  <div class="modal-sheet" style="max-width:420px;">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="compareModalTitle">⚖️ Kumpi oli parempi?</div>
+    <div class="compare-round-label" id="compareModalSub"></div>
+    <div class="compare-duel" id="compareDuelArea"></div>
+    <div id="compareResultArea" style="display:none;"></div>
+    <button type="button" class="btn-secondary" id="compareTieBtn" style="width:100%;margin-top:12px;" onclick="compareChoose('tie')">🤝 Suunnilleen sama</button>
+    <button type="button" class="btn-secondary" id="compareSkipBtn" style="width:100%;margin-top:8px;background:transparent;border:none;color:var(--muted);" onclick="compareSkip()">Ohita</button>
   </div>
 </div>
 
@@ -826,11 +859,51 @@ let isSaving = false;
 // TMDB token
 window.tmdbToken = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyYjhkODg4ZjdkMGZkNmRlNzE4MjIxNTM2NWYzZTlmMSIsIm5iZiI6MTc3NDkwNDg1Ny42MjIwMDAyLCJzdWIiOiI2OWNhZTYxOWIwMGYyNWRlZmJjZTNjY2YiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.EGIEIkcAl8J5FloGkTmahs_L3PQ6WTIuRsV3KLg4t2g";
 
-function showStatus(msg, color){
+function showStatus(msg, color, duration){
   const el = document.getElementById('saveStatus');
   el.textContent=msg; el.style.background=color; el.style.color='white'; el.style.opacity='1';
-  setTimeout(()=>el.style.opacity='0', 2200);
+  setTimeout(()=>el.style.opacity='0', duration || 2200);
 }
+window.showStatus = showStatus;
+
+// ── TMDB-TUNNUKSEN TARKISTUS ──
+// Huom: TMDB:n v4-lukutunnuksissa (JWT) ei ole kiinteää "exp"-vanhenemispäivää,
+// joten emme voi näyttää todellista vanhenemispäivää — sen sijaan tarkistetaan
+// tunnuksen TOIMIVUUS oikealla testihaulla joka kerta kun sovellus käynnistetään,
+// ja näytetään "myönnetty"-päivä (JWT:n nbf-kentästä) tiedoksi asetuksissa.
+function decodeJwtPayload(token){
+  try{
+    const parts = token.split('.');
+    if(parts.length < 2) return null;
+    let payload = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+    while(payload.length % 4) payload += '=';
+    return JSON.parse(atob(payload));
+  } catch(e){ return null; }
+}
+const tmdbPayload = decodeJwtPayload(window.tmdbToken);
+window.tmdbTokenIssuedAt = (tmdbPayload && tmdbPayload.nbf) ? new Date(tmdbPayload.nbf * 1000).toISOString() : null;
+window._tmdbTokenStatus = { ok: null, checkedAt: null, message: '' };
+
+async function checkTmdbTokenStartup(){
+  try{
+    const res = await fetch('https://api.themoviedb.org/3/authentication', {
+      headers: { Authorization: `Bearer ${window.tmdbToken}` }
+    });
+    const data = await res.json().catch(()=>({}));
+    if(res.ok && data.success){
+      window._tmdbTokenStatus = { ok:true, checkedAt: new Date().toISOString(), message:'Toimii normaalisti' };
+    } else {
+      window._tmdbTokenStatus = { ok:false, checkedAt: new Date().toISOString(), message: data.status_message || `Virhe (HTTP ${res.status})` };
+      window.showStatus('⚠️ TMDB-tunnus ei toimi — katso Asetukset', '#dc2626', 6000);
+    }
+  } catch(e){
+    window._tmdbTokenStatus = { ok:false, checkedAt: new Date().toISOString(), message: 'Verkkovirhe tunnuksen tarkistuksessa' };
+  }
+  if(document.getElementById('settingsModal')?.classList.contains('open') && window.refreshTmdbStatusInSettings){
+    window.refreshTmdbStatusInSettings();
+  }
+}
+checkTmdbTokenStartup();
 
 window.fbSave = async function(){
   if(isSaving) return;
@@ -954,6 +1027,7 @@ function initApp(){
   renderGenreFilters();
   renderYearFilters();
   renderAll();
+  window.maybeShowDailyDuel();
 }
 
 function renderAll(){
@@ -1377,6 +1451,7 @@ window.onCatChange = function(preselectedGenre){
   document.getElementById('tvTypeSection').style.display = isTv?'block':'none';
   document.getElementById('genreSection').style.display = hasGenre?'block':'none';
   setTimeout(window.updateScorePrediction, 50);
+  setTimeout(window.updateCompareButtonVisibility, 50);
   // Näytä TMDB-haku vain elokuville ja TV-sarjoille
   if(window.onTmdbCatChange) window.onTmdbCatChange(cat);
   if(hasGenre){
@@ -1406,12 +1481,14 @@ window.selectTvType = function(el){
   el.classList.add('selected');
   selectedTvType = el.dataset.type;
   document.getElementById('scoreSection').style.display = selectedTvType==='kokonaisuus'?'block':'none';
+  window.updateCompareButtonVisibility();
 };
 
 function selectTvTypeByValue(val){
   document.querySelectorAll('.tv-type-opt').forEach(e=>e.classList.toggle('selected', e.dataset.type===val));
   selectedTvType = val;
   document.getElementById('scoreSection').style.display = val==='kokonaisuus'?'block':'none';
+  window.updateCompareButtonVisibility();
 }
 
 function buildScorePicker(pickerId, varName){
@@ -1459,6 +1536,195 @@ window.updateScorePrediction = function(){
     <span>Annat <strong>${genreLabel}</strong>-teoksille yleensä <strong style="${cls}">${avg}p</strong> (${usePool.length} arvostelua)</span>
   </div>`;
 };
+
+// ── VERTAILEVA PISTEYTYS ──
+let compareState = null;
+
+function getScoredReviewsByCategory(cat, excludeId){
+  return appData.reviews
+    .filter(r => r.category === cat && r.id !== excludeId)
+    .map(r => ({...r, finalScore: getReviewScore(r)}))
+    .filter(r => r.finalScore != null);
+}
+
+window.updateCompareButtonVisibility = function(){
+  const btn = document.getElementById('compareTuneBtn');
+  if(!btn) return;
+  const cat = document.getElementById('formCat')?.value;
+  const isTv = cat === 'TV-sarjat';
+  const eligibleCat = cat === 'Elokuvat' || (isTv && selectedTvType === 'kokonaisuus');
+  if(!eligibleCat){ btn.style.display = 'none'; return; }
+  const candidates = getScoredReviewsByCategory(cat, editingId);
+  btn.style.display = candidates.length >= 2 ? 'block' : 'none';
+};
+
+window.openCompareTune = function(){
+  const cat = document.getElementById('formCat')?.value;
+  if(!cat) return;
+  const name = document.getElementById('formName').value.trim();
+  if(!name){ alert('Anna ensin nimi!'); return; }
+  const candidates = getScoredReviewsByCategory(cat, editingId).sort((a,b)=>a.finalScore-b.finalScore);
+  if(candidates.length < 2){
+    alert('Tarvitset vähintään kaksi aiempaa arvioitua ' + (cat==='TV-sarjat'?'sarjaa':'elokuvaa') + ' vertailua varten.');
+    return;
+  }
+  const poster = window._tmdbPending?.poster || (editingId ? appData.reviews.find(r=>r.id===editingId)?.poster : null) || null;
+
+  compareState = {
+    mode: 'tune',
+    category: cat,
+    candidates,
+    loIdx: -1,
+    hiIdx: candidates.length,
+    round: 0,
+    tieScore: null,
+    newTitle: { name, poster, category: cat }
+  };
+  compareState.maxRounds = Math.min(4, Math.max(2, Math.ceil(Math.log2(candidates.length + 1))));
+  showNextCompareRound();
+};
+
+function showNextCompareRound(){
+  const st = compareState;
+  if(!st) return;
+  if(st.mode === 'tune'){
+    if(st.tieScore !== null || st.round >= st.maxRounds || st.hiIdx - st.loIdx <= 1){
+      finishCompareTuning();
+      return;
+    }
+    const rangeSize = st.hiIdx - st.loIdx - 1;
+    const wildcard = rangeSize > 2 && st.round > 0 && Math.random() < 0.3;
+    const probeIdx = wildcard
+      ? st.loIdx + 1 + Math.floor(Math.random() * rangeSize)
+      : Math.floor((st.loIdx + st.hiIdx) / 2);
+    st.currentProbeIdx = probeIdx;
+    renderCompareDuel(st.newTitle, st.candidates[probeIdx], st.round + 1, st.maxRounds);
+  } else if(st.mode === 'daily'){
+    renderCompareDuel(st.itemA, st.itemB, null, null);
+  }
+}
+
+function compareCardIcon(cat){ return cat === 'TV-sarjat' ? '📺' : '🎬'; }
+
+function compareCardHtml(item, side){
+  const posterHtml = item.poster
+    ? `<img src="https://image.tmdb.org/t/p/w200${item.poster}" alt="">`
+    : `<div class="compare-card-icon">${compareCardIcon(item.category || compareState?.category)}</div>`;
+  const scoreHtml = item.finalScore != null ? `<span class="compare-card-score">${item.finalScore}p</span>` : '<span class="compare-card-score">?</span>';
+  return `<div class="compare-card" onclick="compareChoose('${side}')">
+    ${posterHtml}
+    <div class="compare-card-name">${(item.name||'').replace(/\n/g,' · ')}</div>
+    ${scoreHtml}
+  </div>`;
+}
+
+function renderCompareDuel(left, right, roundNum, maxRounds){
+  const isDaily = compareState?.mode === 'daily';
+  document.getElementById('compareModalTitle').textContent = isDaily ? '⚖️ Päivän vertailu' : '⚖️ Kumpi oli parempi?';
+  document.getElementById('compareModalSub').textContent = isDaily
+    ? 'Nopea tarkistus omalle pisteytyksellesi'
+    : `Kysymys ${roundNum}/${maxRounds} — auttaa löytämään oikean pisteen`;
+  document.getElementById('compareDuelArea').innerHTML = `${compareCardHtml(left,'a')}<div class="compare-vs">VS</div>${compareCardHtml(right,'b')}`;
+  document.getElementById('compareDuelArea').style.display = 'flex';
+  document.getElementById('compareResultArea').style.display = 'none';
+  document.getElementById('compareTieBtn').style.display = 'block';
+  document.getElementById('compareSkipBtn').textContent = 'Ohita';
+  document.getElementById('compareModal').classList.add('open');
+}
+
+window.compareChoose = function(side){
+  const st = compareState;
+  if(!st) return;
+  if(st.mode === 'tune'){
+    const idx = st.currentProbeIdx;
+    if(side === 'a') st.loIdx = idx;
+    else if(side === 'b') st.hiIdx = idx;
+    else if(side === 'tie') st.tieScore = st.candidates[idx].finalScore;
+    st.round++;
+    closeModal('compareModal');
+    setTimeout(showNextCompareRound, 250);
+  } else if(st.mode === 'daily'){
+    closeModal('compareModal');
+    setTimeout(()=>finishDailyDuel(side), 250);
+  }
+};
+
+window.compareSkip = function(){
+  closeModal('compareModal');
+  compareState = null;
+};
+
+function finishCompareTuning(){
+  const st = compareState;
+  if(!st) return;
+  let suggested;
+  if(st.tieScore !== null){
+    suggested = st.tieScore;
+  } else {
+    const lower = st.loIdx >= 0 ? st.candidates[st.loIdx].finalScore : null;
+    const upper = st.hiIdx < st.candidates.length ? st.candidates[st.hiIdx].finalScore : null;
+    if(lower != null && upper != null) suggested = Math.round((lower+upper)/2);
+    else if(lower != null) suggested = Math.min(100, lower + 5);
+    else if(upper != null) suggested = Math.max(0, upper - 5);
+    else suggested = 50;
+  }
+  compareState = null;
+
+  const inp = document.getElementById('scoreInput');
+  if(inp){ inp.value = suggested; selectedScore = suggested; window.updateScorePreview(); }
+
+  document.getElementById('compareModalTitle').textContent = '⚖️ Ehdotettu piste';
+  document.getElementById('compareModalSub').textContent = 'Piste täytettiin lomakkeeseen — voit vielä muokata sitä.';
+  document.getElementById('compareDuelArea').style.display = 'none';
+  const resultArea = document.getElementById('compareResultArea');
+  resultArea.style.display = 'block';
+  resultArea.innerHTML = `<div class="compare-result-box">
+    <div class="compare-result-score">${suggested}</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:4px;">pistettä ehdotettu vertailun perusteella</div>
+  </div>`;
+  document.getElementById('compareTieBtn').style.display = 'none';
+  document.getElementById('compareSkipBtn').textContent = 'Sulje';
+  document.getElementById('compareModal').classList.add('open');
+}
+
+// ── PÄIVÄN VERTAILU (kalibroinnin tarkistus sovelluksen avautuessa) ──
+function pickDailyDuelPair(){
+  const eligibleCats = ['Elokuvat','TV-sarjat'].filter(cat => getScoredReviewsByCategory(cat).length >= 2);
+  if(!eligibleCats.length) return null;
+  const cat = eligibleCats[Math.floor(Math.random()*eligibleCats.length)];
+  const pool = getScoredReviewsByCategory(cat);
+  let a, b, tries = 0;
+  do{
+    a = pool[Math.floor(Math.random()*pool.length)];
+    b = pool[Math.floor(Math.random()*pool.length)];
+    tries++;
+  } while((a.id === b.id || a.finalScore === b.finalScore) && tries < 20);
+  if(a.id === b.id) return null;
+  return { a, b, category: cat };
+}
+
+window.maybeShowDailyDuel = function(){
+  const pair = pickDailyDuelPair();
+  if(!pair) return;
+  compareState = { mode:'daily', itemA: pair.a, itemB: pair.b, category: pair.category };
+  setTimeout(showNextCompareRound, 700);
+};
+
+function finishDailyDuel(side){
+  const st = compareState;
+  compareState = null;
+  if(!st || side === 'tie') return;
+  const chosen = side === 'a' ? st.itemA : st.itemB;
+  const other = side === 'a' ? st.itemB : st.itemA;
+  if(chosen.finalScore >= other.finalScore) return; // pisteet ja mielipide täsmäävät — ei tarvitse häiritä
+  setTimeout(()=>{
+    const chosenName = chosen.name.split('\n')[0];
+    const otherName = other.name.split('\n')[0];
+    if(confirm(`Valitsit "${chosenName}" (${chosen.finalScore}p) paremmaksi kuin "${otherName}" (${other.finalScore}p) — mutta pisteet ovat päinvastoin. Avataanko "${chosenName}" muokattavaksi?`)){
+      window.editReviewWithFlip(chosen.id);
+    }
+  }, 200);
+}
 
 window.toggleMark = function(mark){
   selectedMark = mark;
@@ -2471,8 +2737,28 @@ window.openSettings = function(){
   GENRES = [...appData.genres];
   renderCatManage();
   renderGenreManage();
+  renderTmdbStatus();
   document.getElementById('settingsModal').classList.add('open');
 };
+
+function renderTmdbStatus(){
+  const box = document.getElementById('tmdbStatusBox');
+  if(!box) return;
+  const st = window._tmdbTokenStatus || {};
+  const issued = window.tmdbTokenIssuedAt ? new Date(window.tmdbTokenIssuedAt).toLocaleDateString('fi-FI') : 'Ei tiedossa';
+  let statusLine;
+  if(st.ok === true) statusLine = `✅ Toimii (${st.message||''})`;
+  else if(st.ok === false) statusLine = `❌ Ongelma: ${st.message||'Tuntematon virhe'}`;
+  else statusLine = '⏳ Tarkistetaan...';
+  const checkedAt = st.checkedAt ? new Date(st.checkedAt).toLocaleString('fi-FI') : '–';
+  box.innerHTML = `
+    <div>${statusLine}</div>
+    <div style="margin-top:6px;">📅 Myönnetty: ${issued}</div>
+    <div>🕓 Viimeksi tarkistettu: ${checkedAt}</div>
+    <div style="margin-top:8px;font-size:11px;opacity:0.8;">TMDB:n lukutunnuksilla ei ole kiinteää vanhenemispäivää — sovellus testaa toimivuuden oikealla API-kutsulla joka kerta kun sovellus käynnistetään.</div>
+  `;
+}
+window.refreshTmdbStatusInSettings = renderTmdbStatus;
 
 function renderCatManage(){
   const el = document.getElementById('catManageList');
