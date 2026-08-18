@@ -148,6 +148,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .compare-vs{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--muted);flex-shrink:0;align-self:center;}
 .compare-result-box{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.35);border-radius:12px;padding:18px;text-align:center;}
 .compare-result-score{font-family:'Bebas Neue',sans-serif;font-size:42px;color:#4ade80;line-height:1;}
+
+/* LAAJENNETTU ARVIOINTI (osa-arviot) */
+.ratings-section{margin-top:14px;}
+.ratings-section-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:2px;}
+.ratings-hint{font-size:12px;color:var(--muted);margin-bottom:12px;}
+.rating-dim-row{margin-bottom:12px;}
+.rating-dim-label{font-size:13px;font-weight:600;margin-bottom:6px;}
+.rating-dim-opts{display:flex;gap:6px;flex-wrap:wrap;}
+.rating-opt{flex:1;min-width:72px;padding:8px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:11.5px;font-weight:600;color:var(--muted);cursor:pointer;text-align:center;font-family:'DM Sans',sans-serif;}
+.rating-opt.active{background:rgba(232,184,75,0.15);border-color:var(--accent);color:var(--accent);}
+.rating-opt:active{transform:scale(0.96);}
+.part-ratings-toggle{margin-top:4px;width:100%;padding:9px 14px;background:transparent;color:var(--blue);border:1px dashed rgba(96,165,250,0.4);border-radius:10px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.part-ratings-toggle:active{background:rgba(96,165,250,0.1);}
 .season-group{margin-bottom:10px;border:1px solid rgba(255,255,255,0.07);border-radius:10px;overflow:hidden;}
 .season-header{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);cursor:pointer;user-select:none;}
 .season-header:active{background:rgba(255,255,255,0.08);}
@@ -604,6 +617,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         </div>
         <button type="button" class="compare-tune-btn" id="compareTuneBtn" onclick="openCompareTune()">⚖️ Vertaile & tarkenna piste</button>
       </div>
+      <div class="form-group ratings-section" id="mainRatingsSection" style="display:none;">
+        <div class="ratings-section-title">📊 Laajennettu arviointi</div>
+        <div class="ratings-hint">Valitse osa-alueet joita haluat arvioida — ehdottaa pistettä automaattisesti, mutta voit aina muokata lukua itse.</div>
+        <div id="mainRatingsGrid"></div>
+      </div>
     </div>
 
     <div class="form-group">
@@ -675,6 +693,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           style="width:110px;font-size:22px;font-weight:700;text-align:center;padding:12px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--accent);font-family:'Bebas Neue',sans-serif;outline:none;"
           oninput="this.value=this.value.replace(/[^0-9]/g,''); if(+this.value>100) this.value=100; selectedPartScore=this.value===''?null:+this.value;"
           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+      <button type="button" class="part-ratings-toggle" id="partRatingsToggleBtn" onclick="togglePartRatings()">📊 Arvostele laajasti (valinnainen)</button>
+      <div id="partRatingsSection" style="display:none;margin-top:12px;">
+        <div id="partRatingsGrid"></div>
       </div>
     </div>
     <div class="form-group">
@@ -1402,6 +1424,9 @@ window.openAddModal = function(){
   selectedTvType = 'kokonaisuus';
   selectedMark = null;
   window._tmdbPending = null;
+  selectedRatings = {};
+  window._ratingsSuggestedScore = null;
+  window._compareSuggestedScore = null;
   document.getElementById('tmdbSearchInput').value = '';
   document.getElementById('tmdbResults').style.display = 'none';
   document.getElementById('modalTitle').textContent = 'Lisää arvostelu';
@@ -1425,6 +1450,9 @@ window.editReview = function(id){
   selectedScore = r.score!=null ? r.score : null;
   selectedTvType = r.tvType||'kokonaisuus';
   selectedMark = r.mark||null;
+  selectedRatings = r.ratings ? {...r.ratings} : {};
+  window._ratingsSuggestedScore = null;
+  window._compareSuggestedScore = null;
   document.getElementById('modalTitle').textContent = 'Muokkaa arvostelua';
   document.getElementById('formName').value = r.name;
   document.getElementById('formNote').value = r.note||'';
@@ -1452,6 +1480,7 @@ window.onCatChange = function(preselectedGenre){
   document.getElementById('genreSection').style.display = hasGenre?'block':'none';
   setTimeout(window.updateScorePrediction, 50);
   setTimeout(window.updateCompareButtonVisibility, 50);
+  setTimeout(window.updateRatingsGridVisibility, 50);
   // Näytä TMDB-haku vain elokuville ja TV-sarjoille
   if(window.onTmdbCatChange) window.onTmdbCatChange(cat);
   if(hasGenre){
@@ -1469,6 +1498,12 @@ window.onCatChange = function(preselectedGenre){
 window.toggleGenreChip = function(el, genre){
   el.classList.toggle('genre-chip-active');
   setTimeout(window.updateScorePrediction, 50);
+  setTimeout(window.updateCompareButtonVisibility, 50);
+  setTimeout(()=>{
+    if(document.getElementById('mainRatingsSection')?.style.display !== 'none'){
+      renderRatingsGrid('mainRatingsGrid', selectedRatings, 'onMainRatingChange');
+    }
+  }, 50);
 };
 
 function getSelectedGenres(){
@@ -1482,6 +1517,7 @@ window.selectTvType = function(el){
   selectedTvType = el.dataset.type;
   document.getElementById('scoreSection').style.display = selectedTvType==='kokonaisuus'?'block':'none';
   window.updateCompareButtonVisibility();
+  window.updateRatingsGridVisibility();
 };
 
 function selectTvTypeByValue(val){
@@ -1489,6 +1525,7 @@ function selectTvTypeByValue(val){
   selectedTvType = val;
   document.getElementById('scoreSection').style.display = val==='kokonaisuus'?'block':'none';
   window.updateCompareButtonVisibility();
+  window.updateRatingsGridVisibility();
 }
 
 function buildScorePicker(pickerId, varName){
@@ -1547,15 +1584,27 @@ function getScoredReviewsByCategory(cat, excludeId){
     .filter(r => r.finalScore != null);
 }
 
+// Palauttaa vertailukelpoiset arvostelut: suositaan samaa genreä (esim. komedia vs. komedia),
+// eikä sekoiteta esim. kauhua dokumenttiin. Jos samaa genreä ei löydy tarpeeksi, käytetään koko kategoriaa.
+function getComparisonCandidates(cat, genres, excludeId){
+  const all = getScoredReviewsByCategory(cat, excludeId);
+  if(!genres || !genres.length) return { list: all, genreFiltered: false };
+  const filtered = all.filter(r=>{
+    const rg = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
+    return genres.some(g=>rg.includes(g));
+  });
+  if(filtered.length >= 2) return { list: filtered, genreFiltered: true };
+  return { list: all, genreFiltered: false };
+}
+
 window.updateCompareButtonVisibility = function(){
   const btn = document.getElementById('compareTuneBtn');
   if(!btn) return;
   const cat = document.getElementById('formCat')?.value;
-  const isTv = cat === 'TV-sarjat';
-  const eligibleCat = cat === 'Elokuvat' || (isTv && selectedTvType === 'kokonaisuus');
-  if(!eligibleCat){ btn.style.display = 'none'; return; }
-  const candidates = getScoredReviewsByCategory(cat, editingId);
-  btn.style.display = candidates.length >= 2 ? 'block' : 'none';
+  if(!ratingsEligible(cat)){ btn.style.display = 'none'; return; }
+  const genres = getSelectedGenres();
+  const { list } = getComparisonCandidates(cat, genres, editingId);
+  btn.style.display = list.length >= 2 ? 'block' : 'none';
 };
 
 window.openCompareTune = function(){
@@ -1563,9 +1612,11 @@ window.openCompareTune = function(){
   if(!cat) return;
   const name = document.getElementById('formName').value.trim();
   if(!name){ alert('Anna ensin nimi!'); return; }
-  const candidates = getScoredReviewsByCategory(cat, editingId).sort((a,b)=>a.finalScore-b.finalScore);
+  const genres = getSelectedGenres();
+  const { list, genreFiltered } = getComparisonCandidates(cat, genres, editingId);
+  const candidates = list.slice().sort((a,b)=>a.finalScore-b.finalScore);
   if(candidates.length < 2){
-    alert('Tarvitset vähintään kaksi aiempaa arvioitua ' + (cat==='TV-sarjat'?'sarjaa':'elokuvaa') + ' vertailua varten.');
+    alert('Tarvitset vähintään kaksi aiempaa arvioitua samantyylistä ' + (cat==='TV-sarjat'?'sarjaa':'elokuvaa') + ' vertailua varten.');
     return;
   }
   const poster = window._tmdbPending?.poster || (editingId ? appData.reviews.find(r=>r.id===editingId)?.poster : null) || null;
@@ -1573,6 +1624,7 @@ window.openCompareTune = function(){
   compareState = {
     mode: 'tune',
     category: cat,
+    genreFiltered,
     candidates,
     loIdx: -1,
     hiIdx: candidates.length,
@@ -1611,19 +1663,26 @@ function compareCardHtml(item, side){
     ? `<img src="https://image.tmdb.org/t/p/w200${item.poster}" alt="">`
     : `<div class="compare-card-icon">${compareCardIcon(item.category || compareState?.category)}</div>`;
   const scoreHtml = item.finalScore != null ? `<span class="compare-card-score">${item.finalScore}p</span>` : '<span class="compare-card-score">?</span>';
+  const tmdbHtml = item.tmdb_score != null ? `<span class="compare-card-score" style="opacity:0.7;">⭐ TMDB ${item.tmdb_score}/10</span>` : '';
   return `<div class="compare-card" onclick="compareChoose('${side}')">
     ${posterHtml}
     <div class="compare-card-name">${(item.name||'').replace(/\n/g,' · ')}</div>
     ${scoreHtml}
+    ${tmdbHtml}
   </div>`;
 }
 
 function renderCompareDuel(left, right, roundNum, maxRounds){
   const isDaily = compareState?.mode === 'daily';
   document.getElementById('compareModalTitle').textContent = isDaily ? '⚖️ Päivän vertailu' : '⚖️ Kumpi oli parempi?';
-  document.getElementById('compareModalSub').textContent = isDaily
-    ? 'Nopea tarkistus omalle pisteytyksellesi'
-    : `Kysymys ${roundNum}/${maxRounds} — auttaa löytämään oikean pisteen`;
+  let sub;
+  if(isDaily){
+    sub = 'Nopea tarkistus omalle pisteytyksellesi';
+  } else {
+    const genreNote = compareState?.genreFiltered ? ' · samat genret' : ' · ei tarpeeksi samaa genreä, koko kategoria';
+    sub = `Kysymys ${roundNum}/${maxRounds}${genreNote}`;
+  }
+  document.getElementById('compareModalSub').textContent = sub;
   document.getElementById('compareDuelArea').innerHTML = `${compareCardHtml(left,'a')}<div class="compare-vs">VS</div>${compareCardHtml(right,'b')}`;
   document.getElementById('compareDuelArea').style.display = 'flex';
   document.getElementById('compareResultArea').style.display = 'none';
@@ -1669,18 +1728,22 @@ function finishCompareTuning(){
     else suggested = 50;
   }
   compareState = null;
+  window._compareSuggestedScore = suggested;
+  applyCombinedSuggestedScore();
 
-  const inp = document.getElementById('scoreInput');
-  if(inp){ inp.value = suggested; selectedScore = suggested; window.updateScorePreview(); }
+  const finalVal = document.getElementById('scoreInput')?.value ?? suggested;
+  const hasRatings = window._ratingsSuggestedScore != null;
 
   document.getElementById('compareModalTitle').textContent = '⚖️ Ehdotettu piste';
-  document.getElementById('compareModalSub').textContent = 'Piste täytettiin lomakkeeseen — voit vielä muokata sitä.';
+  document.getElementById('compareModalSub').textContent = hasRatings
+    ? 'Yhdistetty vertailun ja osa-arvioiden perusteella — voit vielä muokata.'
+    : 'Piste täytettiin lomakkeeseen — voit vielä muokata sitä.';
   document.getElementById('compareDuelArea').style.display = 'none';
   const resultArea = document.getElementById('compareResultArea');
   resultArea.style.display = 'block';
   resultArea.innerHTML = `<div class="compare-result-box">
-    <div class="compare-result-score">${suggested}</div>
-    <div style="font-size:13px;color:var(--muted);margin-top:4px;">pistettä ehdotettu vertailun perusteella</div>
+    <div class="compare-result-score">${finalVal}</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:4px;">${hasRatings ? 'yhdistetty piste (vertailu + osa-arviot)' : 'pistettä ehdotettu vertailun perusteella'}</div>
   </div>`;
   document.getElementById('compareTieBtn').style.display = 'none';
   document.getElementById('compareSkipBtn').textContent = 'Sulje';
@@ -1693,12 +1756,32 @@ function pickDailyDuelPair(){
   if(!eligibleCats.length) return null;
   const cat = eligibleCats[Math.floor(Math.random()*eligibleCats.length)];
   const pool = getScoredReviewsByCategory(cat);
+
+  // Yritä ensin löytää pari, joilla on yhteinen genre (ettei verrata esim. komediaa dokumenttiin)
+  const genreGroups = {};
+  pool.forEach(r=>{
+    const rg = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
+    rg.forEach(g => { (genreGroups[g] = genreGroups[g] || []).push(r); });
+  });
+  const usableGroups = Object.values(genreGroups).filter(g => g.length >= 2);
+
   let a, b, tries = 0;
-  do{
-    a = pool[Math.floor(Math.random()*pool.length)];
-    b = pool[Math.floor(Math.random()*pool.length)];
-    tries++;
-  } while((a.id === b.id || a.finalScore === b.finalScore) && tries < 20);
+  if(usableGroups.length){
+    const group = usableGroups[Math.floor(Math.random()*usableGroups.length)];
+    do{
+      a = group[Math.floor(Math.random()*group.length)];
+      b = group[Math.floor(Math.random()*group.length)];
+      tries++;
+    } while((a.id === b.id || a.finalScore === b.finalScore) && tries < 20);
+  }
+  if(!a || !b || a.id === b.id){
+    tries = 0;
+    do{
+      a = pool[Math.floor(Math.random()*pool.length)];
+      b = pool[Math.floor(Math.random()*pool.length)];
+      tries++;
+    } while((a.id === b.id || a.finalScore === b.finalScore) && tries < 20);
+  }
   if(a.id === b.id) return null;
   return { a, b, category: cat };
 }
@@ -1725,6 +1808,106 @@ function finishDailyDuel(side){
     }
   }, 200);
 }
+
+// ── LAAJENNETTU ARVIOINTI (osa-arviot) ──
+const RATING_LEVELS = [{v:1,label:'Surkea'},{v:2,label:'Kohtalainen'},{v:3,label:'Hyvä'},{v:4,label:'Erinomainen'}];
+const DIMENSION_DEFS = [
+  {id:'kuvaus', label:'🎥 Kuvaus'},
+  {id:'valaistus', label:'💡 Valaistus'},
+  {id:'aanet', label:'🔊 Äänet'},
+  {id:'tarina', label:'📖 Tarina'},
+  {id:'loppuratkaisu', label:'🏁 Loppuratkaisu'},
+  {id:'kerronta', label:'🎬 Kerronta'},
+  {id:'nayttelijat', label:'🎭 Näyttelijät'},
+  {id:'genrelupaus', label:'🎯 Genrelupaus', dynamic:true}
+];
+
+function genreLupausLabel(){
+  const genres = getSelectedGenres();
+  return genres.length ? `🎯 Onnistuiko genressään (${genres.join(', ')})?` : '🎯 Onnistuiko genressään?';
+}
+
+function computeRatingsScore(stateObj){
+  const vals = DIMENSION_DEFS.map(d=>stateObj[d.id]).filter(v=>v!=null);
+  if(!vals.length) return null;
+  const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+  return Math.round((avg-1)/3*100);
+}
+
+function renderRatingsGrid(containerId, stateObj, onChangeFnName){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = DIMENSION_DEFS.map(d=>{
+    const label = d.dynamic ? genreLupausLabel() : d.label;
+    return `<div class="rating-dim-row">
+      <div class="rating-dim-label">${label}</div>
+      <div class="rating-dim-opts">
+        ${RATING_LEVELS.map(l=>`<button type="button" class="rating-opt${stateObj[d.id]===l.v?' active':''}" onclick="${onChangeFnName}('${d.id}',${l.v})">${l.label}</button>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function ratingsEligible(cat){
+  return cat === 'Elokuvat' || (cat === 'TV-sarjat' && selectedTvType === 'kokonaisuus');
+}
+
+window.updateRatingsGridVisibility = function(){
+  const section = document.getElementById('mainRatingsSection');
+  if(!section) return;
+  const cat = document.getElementById('formCat')?.value;
+  if(ratingsEligible(cat)){
+    section.style.display = 'block';
+    renderRatingsGrid('mainRatingsGrid', selectedRatings, 'onMainRatingChange');
+  } else {
+    section.style.display = 'none';
+  }
+};
+
+let selectedRatings = {};
+window._ratingsSuggestedScore = null;
+window._compareSuggestedScore = null;
+
+window.onMainRatingChange = function(dim, val){
+  if(selectedRatings[dim] === val) delete selectedRatings[dim];
+  else selectedRatings[dim] = val;
+  renderRatingsGrid('mainRatingsGrid', selectedRatings, 'onMainRatingChange');
+  window._ratingsSuggestedScore = computeRatingsScore(selectedRatings);
+  applyCombinedSuggestedScore();
+};
+
+function applyCombinedSuggestedScore(){
+  const a = window._ratingsSuggestedScore;
+  const b = window._compareSuggestedScore;
+  let combined = null;
+  if(a!=null && b!=null) combined = Math.round((a+b)/2);
+  else if(a!=null) combined = a;
+  else if(b!=null) combined = b;
+  if(combined == null) return;
+  const inp = document.getElementById('scoreInput');
+  if(inp){ inp.value = combined; selectedScore = combined; window.updateScorePreview(); }
+}
+
+let selectedPartRatings = {};
+let partRatingsEnabled = false;
+
+window.togglePartRatings = function(){
+  partRatingsEnabled = !partRatingsEnabled;
+  document.getElementById('partRatingsSection').style.display = partRatingsEnabled ? 'block' : 'none';
+  document.getElementById('partRatingsToggleBtn').textContent = partRatingsEnabled ? '📊 Piilota laaja arviointi' : '📊 Arvostele laajasti (valinnainen)';
+  if(partRatingsEnabled) renderRatingsGrid('partRatingsGrid', selectedPartRatings, 'onPartRatingChange');
+};
+
+window.onPartRatingChange = function(dim, val){
+  if(selectedPartRatings[dim] === val) delete selectedPartRatings[dim];
+  else selectedPartRatings[dim] = val;
+  renderRatingsGrid('partRatingsGrid', selectedPartRatings, 'onPartRatingChange');
+  const score = computeRatingsScore(selectedPartRatings);
+  if(score != null){
+    const inp = document.getElementById('partScoreInput');
+    if(inp){ inp.value = score; selectedPartScore = score; }
+  }
+};
 
 window.toggleMark = function(mark){
   selectedMark = mark;
@@ -1757,6 +1940,7 @@ window.saveReview = async function(){
       r.date=(document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z';
       r.note=document.getElementById('formNote').value;
       r.plot = window._tmdbPending?.plot || r.plot || null;
+      r.ratings = Object.keys(selectedRatings).length ? {...selectedRatings} : (r.ratings || null);
       // Säilytä TMDB-tiedot jos niitä ei päivitetä
     }
   } else {
@@ -1780,6 +1964,7 @@ window.saveReview = async function(){
       tmdb_score: window._tmdbPending?.tmdb_score || null,
       tmdb_id: window._tmdbPending?.tmdb_id || null,
       plot: window._tmdbPending?.plot || null,
+      ratings: Object.keys(selectedRatings).length ? {...selectedRatings} : null,
     };
     // Jos TV-sarja jaksoittain ja TMDB-kaudet haettu, lisää ne
     if(isTv && selectedTvType==='jaksot' && window._tmdbPending?.seasons) {
@@ -2026,6 +2211,10 @@ window.openAddPart = function(reviewId, seasonIdx){
   editingPartReviewId = reviewId;
   editingSeasonIdx = seasonIdx!=null ? seasonIdx : null;
   selectedPartScore = null;
+  selectedPartRatings = {};
+  partRatingsEnabled = false;
+  document.getElementById('partRatingsSection').style.display = 'none';
+  document.getElementById('partRatingsToggleBtn').textContent = '📊 Arvostele laajasti (valinnainen)';
   const r = appData.reviews.find(x=>x.id===reviewId);
   const isJaksot = r&&r.tvType==='jaksot';
   document.getElementById('partModalTitle').textContent = isJaksot?'Lisää jakso':'Lisää kausi';
@@ -2096,6 +2285,11 @@ window.editEpisode = function(reviewId, si, ei){
   editingSeasonIdx = si;
   editingPartId = ei;
   selectedPartScore = ep.score!=null ? ep.score : null;
+  selectedPartRatings = ep.ratings ? {...ep.ratings} : {};
+  partRatingsEnabled = !!ep.ratings;
+  document.getElementById('partRatingsSection').style.display = partRatingsEnabled ? 'block' : 'none';
+  document.getElementById('partRatingsToggleBtn').textContent = partRatingsEnabled ? '📊 Piilota laaja arviointi' : '📊 Arvostele laajasti (valinnainen)';
+  if(partRatingsEnabled) renderRatingsGrid('partRatingsGrid', selectedPartRatings, 'onPartRatingChange');
   document.getElementById('partModalTitle').textContent = 'Muokkaa jaksoa';
   document.getElementById('partNameLabel').textContent = 'Jakson nimi';
   document.getElementById('partSeasonSelectRow').style.display = 'block';
@@ -2127,6 +2321,11 @@ window.editPart = function(reviewId, partIdx){
   editingPartId = partIdx;
   editingSeasonIdx = null;
   selectedPartScore = p.score!=null ? p.score : null;
+  selectedPartRatings = p.ratings ? {...p.ratings} : {};
+  partRatingsEnabled = !!p.ratings;
+  document.getElementById('partRatingsSection').style.display = partRatingsEnabled ? 'block' : 'none';
+  document.getElementById('partRatingsToggleBtn').textContent = partRatingsEnabled ? '📊 Piilota laaja arviointi' : '📊 Arvostele laajasti (valinnainen)';
+  if(partRatingsEnabled) renderRatingsGrid('partRatingsGrid', selectedPartRatings, 'onPartRatingChange');
   const editPsi=document.getElementById('partScoreInput'); if(editPsi) editPsi.value=selectedPartScore!==null?selectedPartScore:'';
   document.getElementById('partModalTitle').textContent = 'Muokkaa kautta';
   document.getElementById('partNameLabel').textContent = 'Kauden nimi';
@@ -2151,7 +2350,8 @@ window.savePart = async function(){
       name: document.getElementById('partName').value.trim(),
       episode: document.getElementById('partEpisode').value ? +document.getElementById('partEpisode').value : null,
       score: selectedPartScore,
-      note: document.getElementById('partNote').value
+      note: document.getElementById('partNote').value,
+      ratings: partRatingsEnabled && Object.keys(selectedPartRatings).length ? {...selectedPartRatings} : null
     };
     if(!r.seasons[si].episodes) r.seasons[si].episodes=[];
     if(editingPartId!==null) {
@@ -2168,7 +2368,7 @@ window.savePart = async function(){
     const name = document.getElementById('partName').value.trim();
     if(!name){ alert('Anna nimi!'); return; }
     if(!r.parts) r.parts=[];
-    const partData = { name, score:selectedPartScore, note:document.getElementById('partNote').value };
+    const partData = { name, score:selectedPartScore, note:document.getElementById('partNote').value, ratings: partRatingsEnabled && Object.keys(selectedPartRatings).length ? {...selectedPartRatings} : null };
     if(editingPartId!==null) r.parts[editingPartId]=partData;
     else r.parts.push(partData);
   }
