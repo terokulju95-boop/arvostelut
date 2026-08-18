@@ -153,10 +153,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .ratings-section{margin-top:14px;}
 .ratings-section-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:2px;}
 .ratings-hint{font-size:12px;color:var(--muted);margin-bottom:12px;}
-.rating-dim-row{margin-bottom:12px;}
+.rating-group{border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;}
+.rating-group-header{width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg3);border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13.5px;font-weight:700;color:var(--text);}
+.rating-group-count{font-size:11px;font-weight:600;color:var(--muted);}
+.rating-group-body{padding:14px;}
+.rating-dim-row{margin-bottom:14px;}
+.rating-dim-row:last-child{margin-bottom:0;}
 .rating-dim-label{font-size:13px;font-weight:600;margin-bottom:6px;}
-.rating-dim-opts{display:flex;gap:6px;flex-wrap:wrap;}
-.rating-opt{flex:1;min-width:72px;padding:8px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:11.5px;font-weight:600;color:var(--muted);cursor:pointer;text-align:center;font-family:'DM Sans',sans-serif;}
+.rating-dim-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.rating-opt{padding:8px 3px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:10.5px;line-height:1.25;font-weight:600;color:var(--muted);cursor:pointer;text-align:center;font-family:'DM Sans',sans-serif;}
 .rating-opt.active{background:rgba(232,184,75,0.15);border-color:var(--accent);color:var(--accent);}
 .rating-opt:active{transform:scale(0.96);}
 .part-ratings-toggle{margin-top:4px;width:100%;padding:9px 14px;background:transparent;color:var(--blue);border:1px dashed rgba(96,165,250,0.4);border-radius:10px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
@@ -619,7 +624,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </div>
       <div class="form-group ratings-section" id="mainRatingsSection" style="display:none;">
         <div class="ratings-section-title">📊 Laajennettu arviointi</div>
-        <div class="ratings-hint">Valitse osa-alueet joita haluat arvioida — ehdottaa pistettä automaattisesti, mutta voit aina muokata lukua itse.</div>
+        <div class="ratings-hint">Napauta ryhmän otsikkoa avataksesi sen. Ehdottaa pistettä automaattisesti — voit aina muokata lukua itse.</div>
         <div id="mainRatingsGrid"></div>
       </div>
     </div>
@@ -1810,16 +1815,38 @@ function finishDailyDuel(side){
 }
 
 // ── LAAJENNETTU ARVIOINTI (osa-arviot) ──
-const RATING_LEVELS = [{v:1,label:'Surkea'},{v:2,label:'Kohtalainen'},{v:3,label:'Hyvä'},{v:4,label:'Erinomainen'}];
+const RATING_LEVELS = [
+  {v:1,label:'Surkea'},
+  {v:2,label:'Heikko'},
+  {v:3,label:'Kohtalainen'},
+  {v:4,label:'Hyvä'},
+  {v:5,label:'Erittäin hyvä'},
+  {v:6,label:'Erinomainen'}
+];
+
+const RATING_GROUPS = [
+  {id:'tech', label:'🎬 Tekninen toteutus'},
+  {id:'story', label:'📖 Tarina & maailma'},
+  {id:'cast', label:'🎭 Näyttelijät & tunne'}
+];
+
 const DIMENSION_DEFS = [
-  {id:'kuvaus', label:'🎥 Kuvaus'},
-  {id:'valaistus', label:'💡 Valaistus'},
-  {id:'aanet', label:'🔊 Äänet'},
-  {id:'tarina', label:'📖 Tarina'},
-  {id:'loppuratkaisu', label:'🏁 Loppuratkaisu'},
-  {id:'kerronta', label:'🎬 Kerronta'},
-  {id:'nayttelijat', label:'🎭 Näyttelijät'},
-  {id:'genrelupaus', label:'🎯 Genrelupaus', dynamic:true}
+  {id:'kuvaus', label:'🎥 Kuvaus', group:'tech'},
+  {id:'valaistus', label:'💡 Valaistus', group:'tech'},
+  {id:'aanet', label:'🔊 Äänet', group:'tech'},
+  {id:'musiikki', label:'🎵 Musiikki', group:'tech'},
+  {id:'leikkaus', label:'✂️ Leikkaus/tempo', group:'tech'},
+  {id:'puvustus', label:'👗 Puvustus/lavastus', group:'tech'},
+  {id:'tarina', label:'📖 Tarina', group:'story'},
+  {id:'loppuratkaisu', label:'🏁 Loppuratkaisu', group:'story'},
+  {id:'kerronta', label:'🎬 Kerronta', group:'story'},
+  {id:'hahmokehitys', label:'🌱 Hahmokehitys', group:'story'},
+  {id:'dialogi', label:'💬 Dialogi', group:'story'},
+  {id:'omaperaisyys', label:'✨ Omaperäisyys', group:'story'},
+  {id:'maailmanrakennus', label:'🌍 Maailmanrakennus', group:'story'},
+  {id:'genrelupaus', label:'🎯 Genrelupaus', group:'story', dynamic:true},
+  {id:'nayttelijat', label:'🎭 Näyttelijät', group:'cast'},
+  {id:'tunnevaikutus', label:'❤️ Tunnevaikutus', group:'cast'}
 ];
 
 function genreLupausLabel(){
@@ -1831,22 +1858,46 @@ function computeRatingsScore(stateObj){
   const vals = DIMENSION_DEFS.map(d=>stateObj[d.id]).filter(v=>v!=null);
   if(!vals.length) return null;
   const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
-  return Math.round((avg-1)/3*100);
+  const maxLevel = RATING_LEVELS[RATING_LEVELS.length-1].v;
+  return Math.round((avg-1)/(maxLevel-1)*100);
 }
+
+let ratingsGroupOpenState = {};
 
 function renderRatingsGrid(containerId, stateObj, onChangeFnName){
   const el = document.getElementById(containerId);
   if(!el) return;
-  el.innerHTML = DIMENSION_DEFS.map(d=>{
-    const label = d.dynamic ? genreLupausLabel() : d.label;
-    return `<div class="rating-dim-row">
-      <div class="rating-dim-label">${label}</div>
-      <div class="rating-dim-opts">
-        ${RATING_LEVELS.map(l=>`<button type="button" class="rating-opt${stateObj[d.id]===l.v?' active':''}" onclick="${onChangeFnName}('${d.id}',${l.v})">${l.label}</button>`).join('')}
-      </div>
+  el.innerHTML = RATING_GROUPS.map((g, gi)=>{
+    const key = containerId+'|'+g.id;
+    if(!(key in ratingsGroupOpenState)) ratingsGroupOpenState[key] = (gi===0);
+    const isOpen = ratingsGroupOpenState[key];
+    const dims = DIMENSION_DEFS.filter(d=>d.group===g.id);
+    const answered = dims.filter(d=>stateObj[d.id]!=null).length;
+    const rowsHtml = dims.map(d=>{
+      const label = d.dynamic ? genreLupausLabel() : d.label;
+      return `<div class="rating-dim-row">
+        <div class="rating-dim-label">${label}</div>
+        <div class="rating-dim-opts">
+          ${RATING_LEVELS.map(l=>`<button type="button" class="rating-opt${stateObj[d.id]===l.v?' active':''}" onclick="${onChangeFnName}('${d.id}',${l.v})">${l.label}</button>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="rating-group">
+      <button type="button" class="rating-group-header" onclick="toggleRatingGroup('${containerId}','${g.id}','${onChangeFnName}')">
+        <span>${g.label}</span>
+        <span class="rating-group-count">${answered}/${dims.length} ${isOpen?'▲':'▼'}</span>
+      </button>
+      <div class="rating-group-body" style="display:${isOpen?'block':'none'};">${rowsHtml}</div>
     </div>`;
   }).join('');
 }
+
+window.toggleRatingGroup = function(containerId, groupId, onChangeFnName){
+  const key = containerId+'|'+groupId;
+  ratingsGroupOpenState[key] = !ratingsGroupOpenState[key];
+  const stateObj = containerId==='mainRatingsGrid' ? selectedRatings : selectedPartRatings;
+  renderRatingsGrid(containerId, stateObj, onChangeFnName);
+};
 
 function ratingsEligible(cat){
   return cat === 'Elokuvat' || (cat === 'TV-sarjat' && selectedTvType === 'kokonaisuus');
