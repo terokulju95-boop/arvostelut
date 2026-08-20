@@ -373,11 +373,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .tmdb-search-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:18px; pointer-events:none; }
 .tmdb-spinner { position:absolute; right:14px; top:50%; transform:translateY(-50%); width:18px; height:18px; border:2px solid rgba(255,255,255,0.15); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; display:none; }
 @keyframes spin { to { transform:translateY(-50%) rotate(360deg); } }
-.tmdb-results { position:absolute; top:100%; left:0; right:0; background:var(--bg3); border:1px solid var(--accent); border-top:none; border-radius:0 0 12px 12px; z-index:300; max-height:220px; overflow-y:auto; }
+.tmdb-results { position:absolute; top:100%; left:0; right:0; background:var(--bg3); border:1px solid var(--accent); border-top:none; border-radius:0 0 12px 12px; z-index:300; max-height:340px; overflow-y:auto; }
 .tmdb-item { display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.15s; }
 .tmdb-item:last-child { border-bottom:none; }
 .tmdb-item:active { background:rgba(232,184,75,0.1); }
-.tmdb-poster { width:36px; height:54px; border-radius:4px; object-fit:cover; background:var(--bg2); flex-shrink:0; }
+.tmdb-poster { width:54px; height:81px; border-radius:5px; object-fit:cover; background:var(--bg2); flex-shrink:0; }
+.tmdb-item-year { font-family:'Bebas Neue',sans-serif; font-size:16px; color:var(--accent); letter-spacing:0.5px; margin-left:4px; }
+.tmdb-item-rating { font-size:12px; color:var(--muted); margin-top:3px; }
+.tmdb-item-rating strong { color:var(--text); font-weight:600; }
+.card-year { font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; color:var(--muted); letter-spacing:0; }
+.read-year { font-family:'DM Sans',sans-serif; font-size:15px; font-weight:500; color:var(--muted); }
 .tmdb-item-info { flex:1; min-width:0; }
 .tmdb-item-title { font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tmdb-item-meta { font-size:12px; color:var(--muted); margin-top:2px; }
@@ -545,8 +550,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <button class="filter-chip" data-mark="heart" onclick="toggleMarkFilter(this)">❤️ Suosikit</button>
       <button class="filter-chip" data-mark="skull" onclick="toggleMarkFilter(this)">💀 Huonot</button>
     </div>
-    <div class="filter-label" style="margin-top:12px;">Vuosi</div>
+    <div class="filter-label" style="margin-top:12px;">Katseluvuosi</div>
     <div class="filter-row" id="yearFilters"></div>
+    <div class="filter-label" style="margin-top:12px;" id="decadeFilterLabel">Julkaisuvuosikymmen</div>
+    <div class="filter-row" id="decadeFilters"></div>
   </div>
 
   <div class="cards-grid" id="cardsGrid"></div>
@@ -610,15 +617,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     </div>
 
     <div class="form-group">
-      <label>Nimi *</label>
-      <div class="autocomplete-wrap">
-        <textarea id="formName" placeholder="esim. OPPENHEIMER&#10;2002"
-          oninput="this.value=this.value.toUpperCase(); setTimeout(()=>showNameSuggestions(this.value.split('\n')[0]),0)"
-          onkeydown="handleAcKey(event)"
-          autocomplete="off"
-          rows="2"
-          style="resize:none;min-height:64px;line-height:1.5;"></textarea>
-        <div class="autocomplete-list" id="acList" style="display:none;"></div>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">
+          <label>Nimi *</label>
+          <div class="autocomplete-wrap">
+            <input type="text" id="formName" placeholder="esim. OPPENHEIMER"
+              oninput="this.value=this.value.toUpperCase(); setTimeout(()=>showNameSuggestions(this.value),0)"
+              onkeydown="handleAcKey(event)"
+              autocomplete="off">
+            <div class="autocomplete-list" id="acList" style="display:none;"></div>
+          </div>
+        </div>
+        <div style="width:92px;flex-shrink:0;">
+          <label>Vuosi</label>
+          <input type="number" id="formYear" placeholder="2023" min="1870" max="2100"
+            inputmode="numeric" autocomplete="off" style="text-align:center;">
+        </div>
       </div>
     </div>
 
@@ -795,6 +809,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
       <label>TMDB-tunnus</label>
       <div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
+    </div>
+    <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+      <label>Varmuuskopio</label>
+      <div id="backupInfo" style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px;"></div>
+      <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="downloadBackup()">⬇️ Lataa varmuuskopio</button>
+      <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="document.getElementById('restoreFileInput').click()">⬆️ Palauta tiedostosta</button>
+      <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none;" onchange="restoreBackup(this)">
     </div>
     <div class="form-group" style="margin-top:24px;border-top:1px solid var(--border);padding-top:20px;">
       <button class="btn-secondary" style="width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="doSignOut()">🚪 Kirjaudu ulos</button>
@@ -976,10 +997,18 @@ async function fbLoad(){
     const bkp = localStorage.getItem('arvostelut_bkp');
     if(bkp) appData = JSON.parse(bkp);
   }
+  // Siirrä nimeen upotetut vuosiluvut omaan kenttäänsä (ajetaan kerran)
+  try{
+    if(window.migrateYearField && window.migrateYearField()) await window.fbSave();
+  } catch(e){}
   initApp();
   onSnapshot(DATA_DOC, snap => {
     if(!snap.exists() || isSaving) return;
-    try{ appData = JSON.parse(snap.data().json); renderAll(); } catch(e){}
+    try{
+      appData = JSON.parse(snap.data().json);
+      if(window.migrateYearField) window.migrateYearField();
+      renderAll();
+    } catch(e){}
   });
 }
 
@@ -1072,6 +1101,7 @@ let activeGenreFilter = null;
 let activeScoreFilter = null;
 let activeMarkFilter = null;
 let activeYearFilter = null;
+let activeDecadeFilter = null;
 let selectedMark = null;
 let currentView = 'reviews';
 let editingId = null;
@@ -1098,6 +1128,7 @@ function initApp(){
 function renderAll(){
   renderCatTabs();
   renderYearFilters();
+  renderDecadeFilters();
   if(currentView==='reviews') renderCards();
   else if(currentView==='top') renderTop();
   else if(currentView==='budget') renderBudget();
@@ -1138,6 +1169,7 @@ window.setActiveCat = function(cat){
   activeScoreFilter = null;
   activeMarkFilter = null;
   activeYearFilter = null;
+  activeDecadeFilter = null;
   document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));
   renderCatTabs();
   renderCards();
@@ -1172,6 +1204,31 @@ window.toggleMarkFilter = function(btn){
   activeMarkFilter = activeMarkFilter===m ? null : m;
   document.querySelectorAll('#markFilters .filter-chip').forEach(b=>b.classList.remove('active'));
   if(activeMarkFilter) btn.classList.add('active');
+  renderCards();
+};
+
+function renderDecadeFilters(){
+  const el = document.getElementById('decadeFilters');
+  const lbl = document.getElementById('decadeFilterLabel');
+  if(!el) return;
+  const decades = [...new Set(appData.reviews.filter(r=>r.year).map(r=>Math.floor(r.year/10)*10))].sort((a,b)=>b-a);
+  if(!decades.length){
+    el.innerHTML = '';
+    el.style.display = 'none';
+    if(lbl) lbl.style.display = 'none';
+    return;
+  }
+  el.style.display = '';
+  if(lbl) lbl.style.display = '';
+  el.innerHTML = decades.map(d=>`
+    <button class="filter-chip ${d===activeDecadeFilter?'active':''}" onclick="toggleDecadeFilter(this,${d})">${d}-luku</button>
+  `).join('');
+}
+
+window.toggleDecadeFilter = function(btn, dec){
+  activeDecadeFilter = activeDecadeFilter===dec ? null : dec;
+  document.querySelectorAll('#decadeFilters .filter-chip').forEach(b=>b.classList.remove('active'));
+  if(activeDecadeFilter) btn.classList.add('active');
   renderCards();
 };
 
@@ -1247,6 +1304,40 @@ function buildRing(score){
   </div>`;
 }
 
+// ── VUOSI ──
+// Vanhassa datamallissa vuosi oli osa nimeä ("OPPENHEIMER\n2023").
+// Tämä siirtää sen omaan year-kenttäänsä. Ajetaan kerran latauksen yhteydessä.
+window.migrateYearField = function(){
+  let changed = false;
+  (appData.reviews || []).forEach(r => {
+    if(!r.name || r.name.indexOf('\n') === -1) return;
+    const lines = r.name.split('\n').map(x => x.trim()).filter(Boolean);
+    const last = lines[lines.length - 1];
+    if(r.year == null && lines.length >= 2 && /^(18|19|20)\d{2}$/.test(last)){
+      // Viimeinen rivi on vuosiluku → omaan kenttäänsä
+      r.year = parseInt(last, 10);
+      r.name = lines.slice(0, -1).join(' ').trim();
+    } else {
+      // Monirivinen nimi ilman vuotta → yhdistetään yhdeksi riviksi
+      r.name = lines.join(' ').trim();
+    }
+    changed = true;
+  });
+  return changed;
+};
+
+// Nimi ilman rivinvaihtoja (vanha data voi yhä sisältää niitä)
+function plainName(r){
+  return String(r && r.name ? r.name : '').replace(/\s*\n\s*/g, ' ').trim();
+}
+// Nimi + julkaisuvuosi tekstinä, esim. "DUNE (2021)"
+function nameWithYear(r){
+  const n = plainName(r);
+  return (r && r.year) ? `${n} (${r.year})` : n;
+}
+window.plainName = plainName;
+window.nameWithYear = nameWithYear;
+
 // ── PISTEYTYS ──
 function getReviewScore(r){
   if(r.tvType && r.tvType!=='kokonaisuus'){
@@ -1281,7 +1372,10 @@ window.renderCards = function(){
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
   let reviews = [...appData.reviews];
   if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
-  if(q) reviews = reviews.filter(r=>r.name.toLowerCase().includes(q));
+  if(q) reviews = reviews.filter(r=>
+    (r.name||'').toLowerCase().includes(q) ||
+    (r.year ? String(r.year).includes(q) : false)
+  );
   if(activeGenreFilter) reviews = reviews.filter(r=>{
     const genres = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
     return genres.includes(activeGenreFilter);
@@ -1296,6 +1390,7 @@ window.renderCards = function(){
   }
   if(activeMarkFilter) reviews = reviews.filter(r=>r.mark===activeMarkFilter);
   if(activeYearFilter) reviews = reviews.filter(r=>r.date&&new Date(r.date).getFullYear()===activeYearFilter);
+  if(activeDecadeFilter) reviews = reviews.filter(r=>r.year&&Math.floor(r.year/10)*10===activeDecadeFilter);
 
   reviews.sort((a,b)=>{
     if(sortMode==='uusin') return b.id-a.id;
@@ -1424,7 +1519,7 @@ window.renderCards = function(){
     return `<div class="review-card type-${typeClass} ${scoreCardCls} ${favCls}" style="animation-delay:${idx*0.06}s" ondblclick="openReadModal(${r.id})">
       ${posterBg}
       <div class="card-top">
-        <div class="card-title">${escNl(r.name)}</div>
+        <div class="card-title">${escNl(r.name)}${r.year?` <span class="card-year">${r.year}</span>`:''}</div>
         ${score!==null&&!isTvParts ? buildRing(score) : ''}
       </div>
       <div class="card-meta">
@@ -1474,6 +1569,7 @@ window.openAddModal = function(){
   document.getElementById('tmdbResults').style.display = 'none';
   document.getElementById('modalTitle').textContent = 'Lisää arvostelu';
   document.getElementById('formName').value = '';
+  const fy0 = document.getElementById('formYear'); if(fy0) fy0.value = '';
   document.getElementById('formNote').value = '';
   document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
@@ -1498,7 +1594,8 @@ window.editReview = function(id){
   window._ratingsSuggestedScore = null;
   window._compareSuggestedScore = null;
   document.getElementById('modalTitle').textContent = 'Muokkaa arvostelua';
-  document.getElementById('formName').value = r.name;
+  document.getElementById('formName').value = plainName(r);
+  const fy = document.getElementById('formYear'); if(fy) fy.value = r.year || '';
   document.getElementById('formNote').value = r.note||'';
   document.getElementById('formDate').value = r.date ? r.date.split('T')[0] : new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
@@ -1808,7 +1905,7 @@ function compareCardHtml(item, side){
   const tmdbHtml = item.tmdb_score != null ? `<span class="compare-card-score" style="opacity:0.7;">⭐ TMDB ${item.tmdb_score}/10</span>` : '';
   return `<div class="compare-card" onclick="compareChoose('${side}')">
     ${posterHtml}
-    <div class="compare-card-name">${esc((item.name||'').replace(/\n/g,' · '))}</div>
+    <div class="compare-card-name">${esc(nameWithYear(item))}</div>
     ${scoreHtml}
     ${tmdbHtml}
   </div>`;
@@ -2108,7 +2205,21 @@ window.toggleMark = function(mark){
 };
 
 window.saveReview = async function(){
-  const name = document.getElementById('formName').value.trim();
+  let name = document.getElementById('formName').value.trim();
+  const yearEl = document.getElementById('formYear');
+  let yearRaw = yearEl ? String(yearEl.value).trim() : '';
+  // Jos nimeen on liimattu vuosi rivinvaihdolla (vanha tapa), siirrä se vuosikenttään
+  if(name.indexOf('\n') > -1){
+    const parts = name.split('\n').map(x=>x.trim()).filter(Boolean);
+    const last = parts[parts.length-1];
+    if(parts.length >= 2 && /^(18|19|20)\d{2}$/.test(last)){
+      if(!yearRaw) yearRaw = last;
+      name = parts.slice(0,-1).join(' ').trim();
+    } else {
+      name = parts.join(' ').trim();
+    }
+  }
+  const year = /^\d{4}$/.test(yearRaw) ? parseInt(yearRaw,10) : null;
   if(!name){ alert('Anna nimi!'); return; }
   const cat = document.getElementById('formCat').value;
 
@@ -2120,7 +2231,7 @@ window.saveReview = async function(){
   if(editingId){
     const r = appData.reviews.find(x=>x.id===editingId);
     if(r){
-      r.name=name; r.category=cat;
+      r.name=name; r.year=year; r.category=cat;
       r.genre=GENRE_CATS.includes(cat)?getSelectedGenres():[];
       r.tvType=isTv?selectedTvType:'';
       r.score=needsScore?selectedScore:null;
@@ -2135,7 +2246,7 @@ window.saveReview = async function(){
     const newReview = {
       id: Date.now(),
       date: (document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z',
-      name, category:cat,
+      name, year, category:cat,
       genre: GENRE_CATS.includes(cat)?getSelectedGenres():[],
       tvType: isTv?selectedTvType:'',
       score: needsScore?selectedScore:null,
@@ -2178,7 +2289,7 @@ window.updateTmdbData = async function(id) {
   const isJaksot = r.tvType === 'jaksot';
 
   // Hae ensin nimi hakusanana (ensimmäinen rivi)
-  const searchName = r.name.split('\n')[0].trim();
+  const searchName = plainName(r);
   const overlay = document.getElementById('tmdbLoadingOverlay');
   const subEl = document.getElementById('tmdbLoadingSub');
   const progBar = document.getElementById('tmdbProgressBar');
@@ -2224,6 +2335,8 @@ window.updateTmdbData = async function(id) {
     progBar.style.width = '40%';
 
     // Päivitä perustiedot — EI korvaa pisteitä tai muistiinpanoja
+    const relYear = (detail.release_date || detail.first_air_date || '').slice(0,4);
+    if(!r.year && /^(18|19|20)\d{2}$/.test(relYear)) r.year = parseInt(relYear,10);
     r.poster = detail.poster_path || r.poster || null;
     r.tmdb_score = detail.vote_average ? Math.round(detail.vote_average * 10) / 10 : r.tmdb_score;
     r.tmdb_id = tmdbId;
@@ -2607,7 +2720,7 @@ window.renderTop = function(){
         <span class="top-hero-crown">👑 #1</span>
         <div class="top-hero-content">
           <div>
-            <div class="top-hero-name">${esc(top.name.replace(/\n/g,' · '))}${top.mark==='heart'?' ❤️':top.mark==='skull'?' 💀':''}</div>
+            <div class="top-hero-name">${esc(nameWithYear(top))}${top.mark==='heart'?' ❤️':top.mark==='skull'?' 💀':''}</div>
             <div class="top-hero-meta">
               <span class="meta-chip">${esc(top.category)}</span>
               ${(Array.isArray(top.genre)?top.genre:(top.genre?[top.genre]:[])).slice(0,2).map(g=>`<span class="meta-chip">${esc(g)}</span>`).join('')}
@@ -2619,7 +2732,7 @@ window.renderTop = function(){
       ${rest.map((r,i)=>`
         <div class="top-item">
           <span class="top-rank ${medals[i+1]||''}">${i+2}</span>
-          <span class="top-name">${esc(r.name.replace(/\n/g,' · '))}${r.mark==='heart'?' ❤️':r.mark==='skull'?' 💀':''}</span>
+          <span class="top-name">${esc(nameWithYear(r))}${r.mark==='heart'?' ❤️':r.mark==='skull'?' 💀':''}</span>
           <span class="top-score ${scoreClass(r.finalScore)}">${r.finalScore}</span>
         </div>
       `).join('')}
@@ -3119,6 +3232,86 @@ window.deleteBudgetVisit = async function(periodId, visitIdx){
   renderBudget();
 };
 
+// ── VARMUUSKOPIOINTI ──
+function backupStats(){
+  const reviews = (appData.reviews||[]).length;
+  const bytes = new Blob([JSON.stringify(appData)]).size;
+  return { reviews, bytes, kb: Math.round(bytes/1024) };
+}
+
+function renderBackupInfo(){
+  const el = document.getElementById('backupInfo');
+  if(!el) return;
+  const st = backupStats();
+  const pct = Math.round(st.bytes / (1024*1024) * 100);
+  const warn = pct >= 70
+    ? `<br><span style="color:var(--accent2);">⚠️ Firestoren yhden dokumentin raja on 1 Mt — käytössä ${pct} %.</span>`
+    : '';
+  el.innerHTML = `${st.reviews} arvostelua · ${st.kb} kt (${pct} % 1 Mt:n rajasta)${warn}`;
+}
+
+window.downloadBackup = function(){
+  try{
+    const stamp = new Date().toISOString().slice(0,10);
+    const payload = JSON.stringify({
+      _tyyppi: 'arvostelut-varmuuskopio',
+      _paivays: new Date().toISOString(),
+      data: appData
+    }, null, 2);
+    const blob = new Blob([payload], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `arvostelut-varmuuskopio-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    showStatus('✅ Varmuuskopio ladattu','#22c55e');
+  } catch(e){
+    alert('Varmuuskopion luonti epäonnistui: ' + e.message);
+  }
+};
+
+window.restoreBackup = function(input){
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    let parsed;
+    try{
+      parsed = JSON.parse(reader.result);
+    } catch(e){
+      alert('Tiedostoa ei voitu lukea — onko se kelvollinen JSON-varmuuskopio?');
+      return;
+    }
+    // Hyväksytään sekä uusi muoto (_tyyppi + data) että pelkkä appData
+    const incoming = (parsed && parsed.data && parsed.data.reviews) ? parsed.data : parsed;
+    if(!incoming || !Array.isArray(incoming.reviews)){
+      alert('Tiedosto ei näytä Arvostelut-varmuuskopiolta (reviews-taulukko puuttuu).');
+      return;
+    }
+    const nykyiset = (appData.reviews||[]).length;
+    const tulevat = incoming.reviews.length;
+    if(!confirm(`Korvataanko nykyiset tiedot?\n\nNykyisin: ${nykyiset} arvostelua\nTiedostossa: ${tulevat} arvostelua\n\nTämä korvaa kaiken myös pilvessä.`)) return;
+
+    appData = incoming;
+    if(!appData.categories) appData.categories = [...DEFAULT_CATS];
+    if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
+    if(!appData.budget) appData.budget = { monthlyPrice: 26.90, periods: [] };
+    if(window.migrateYearField) window.migrateYearField();
+    GENRES = [...appData.genres];
+    if(!appData.categories.includes(activeCat)) activeCat = appData.categories[0] || null;
+
+    await window.fbSave();
+    renderAll();
+    renderBackupInfo();
+    alert(`Palautettu: ${tulevat} arvostelua.`);
+  };
+  reader.readAsText(file);
+};
+
 // ── ASETUKSET ──
 window.openSettings = function(){
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
@@ -3126,6 +3319,7 @@ window.openSettings = function(){
   renderCatManage();
   renderGenreManage();
   renderTmdbStatus();
+  renderBackupInfo();
   document.getElementById('settingsModal').classList.add('open');
 };
 
@@ -3224,7 +3418,7 @@ window.showNameSuggestions = function(val){
   const list = document.getElementById('acList');
   if(!list) return;
   if(!val||val.length<1){ list.style.display='none'; return; }
-  const all = [...new Set(appData.reviews.map(r=>r.name))]
+  const all = [...new Set(appData.reviews.map(r=>plainName(r)))]
     .filter(n=>n.toUpperCase().startsWith(val.toUpperCase())&&n.toUpperCase()!==val.toUpperCase()).slice(0,5);
   if(!all.length){ list.style.display='none'; return; }
   list.innerHTML = all.map(n=>`
@@ -3237,12 +3431,7 @@ window.showNameSuggestions = function(val){
 
 window.selectAcItem = function(val){
   const inp = document.getElementById('formName');
-  if(inp){
-    // Keep extra lines if any, just replace first line
-    const lines = inp.value.split('\n');
-    lines[0] = val;
-    inp.value = lines.join('\n');
-  }
+  if(inp) inp.value = val;
   const list = document.getElementById('acList');
   if(list) list.style.display='none';
 };
@@ -3285,7 +3474,7 @@ window.openReadModal = function(id){
       ${posterHtml}
       <div style="flex:1;">
         ${score!=null?buildRing(score):''}
-        <div class="read-title">${escNl(r.name)}</div>
+        <div class="read-title">${escNl(r.name)}${r.year?` <span class="read-year">${r.year}</span>`:''}</div>
         <div class="read-sub">${esc(r.category)}${genres.length?' · '+esc(genres.join(', ')):''}</div>
         ${r.mark==='heart'?'<span style="color:#ff6482;font-size:13px;font-weight:700;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span style="color:#aaa;font-size:13px;font-weight:700;">💀 Huono</span>':''}
@@ -3551,14 +3740,15 @@ async function searchTmdb(query) {
       const title = item.title || item.name || '';
       const year = (item.release_date || item.first_air_date || '').slice(0, 4);
       const type = item.media_type === 'tv' || isTv ? 'TV' : 'Elokuva';
-      const poster = item.poster_path ? `https://image.tmdb.org/t/p/w92${item.poster_path}` : '';
-      const imgEl = poster ? `<img class="tmdb-poster" src="${poster}" alt="">` : `<div class="tmdb-poster" style="display:flex;align-items:center;justify-content:center;font-size:20px;">🎬</div>`;
+      const poster = item.poster_path ? `https://image.tmdb.org/t/p/w154${item.poster_path}` : '';
+      const imgEl = poster ? `<img class="tmdb-poster" src="${poster}" alt="" loading="lazy">` : `<div class="tmdb-poster" style="display:flex;align-items:center;justify-content:center;font-size:22px;">🎬</div>`;
       const genres = (item.genre_ids || []).slice(0, 2).map(id => tmdbGenreMap[id]).filter(Boolean).join(', ');
       return `<div class="tmdb-item" onclick="fillFromTmdb(${idx})">
         ${imgEl}
         <div class="tmdb-item-info">
-          <div class="tmdb-item-title">${esc(title)}</div>
-          <div class="tmdb-item-meta">${year ? esc(year) + ' · ' : ''}${type}${genres ? ' · ' + esc(genres) : ''}</div>
+          <div class="tmdb-item-title">${esc(title)}${year ? `<span class="tmdb-item-year">${esc(year)}</span>` : ''}</div>
+          <div class="tmdb-item-meta">${type}${genres ? ' · ' + esc(genres) : ''}</div>
+          <div class="tmdb-item-rating">${item.vote_count ? `⭐ <strong>${Number(item.vote_average).toFixed(1)}</strong>/10 · ${item.vote_count} ääntä` : 'ei vielä arvioita'}</div>
         </div>
       </div>`;
     }).join('');
@@ -3632,7 +3822,9 @@ window.fillFromTmdb = async function(idx) {
 
     // Täytä lomake
     const nameEl = document.getElementById('formName');
-    if (nameEl) nameEl.value = year ? `${title}\n${year}` : title;
+    if (nameEl) nameEl.value = String(title || '').toUpperCase();
+    const yearEl = document.getElementById('formYear');
+    if (yearEl) yearEl.value = year || '';
 
     // Juoni tallennetaan erikseen — EI lomakkeen arvostelukenttään
 
