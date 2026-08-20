@@ -91,6 +91,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 /* FILTER PANEL */
 .filter-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;display:none;}
 .filter-panel.open{display:block;}
+.filter-btn{position:relative;}
+.filter-btn.has-filters::after{content:'';position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--bg);}
 .filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
 .filter-chip{padding:6px 12px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
 .filter-chip.active{background:var(--accent);color:var(--bg);border-color:var(--accent);}
@@ -554,6 +556,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="filter-row" id="yearFilters"></div>
     <div class="filter-label" style="margin-top:12px;" id="decadeFilterLabel">Julkaisuvuosikymmen</div>
     <div class="filter-row" id="decadeFilters"></div>
+    <button class="btn-secondary" id="clearFiltersBtn" style="width:100%;margin-top:14px;padding:11px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;" onclick="clearAllFilters()">✕ Tyhjennä suodattimet</button>
   </div>
 
   <div class="cards-grid" id="cardsGrid"></div>
@@ -1127,8 +1130,10 @@ function initApp(){
 
 function renderAll(){
   renderCatTabs();
+  renderGenreFilters();
   renderYearFilters();
   renderDecadeFilters();
+  if(window.updateFilterBadge) window.updateFilterBadge();
   if(currentView==='reviews') renderCards();
   else if(currentView==='top') renderTop();
   else if(currentView==='budget') renderBudget();
@@ -1145,7 +1150,12 @@ window.setView = function(view){
   document.getElementById('catTabs').style.display = showCats?'':'none';
   const tb = document.querySelector('.toolbar');
   if(tb) tb.style.display = view==='reviews'?'':'none';
-  document.getElementById('filterPanel').style.display = 'none';
+  // Sulje suodatinpaneeli näkymää vaihdettaessa.
+  // HUOM: ei inline-tyyliä — se jäisi voimaan eikä .filter-panel.open enää avaisi paneelia.
+  const fp = document.getElementById('filterPanel');
+  if(fp){ fp.classList.remove('open'); fp.style.display = ''; }
+  const ftb = document.getElementById('filterToggleBtn');
+  if(ftb) ftb.classList.remove('active');
   renderAll();
 };
 
@@ -1173,6 +1183,7 @@ window.setActiveCat = function(cat){
   document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));
   renderCatTabs();
   renderCards();
+  if(window.updateFilterBadge) window.updateFilterBadge();
 };
 
 // ── GENREFILTERIT ──
@@ -1189,6 +1200,7 @@ window.toggleGenreFilter = function(btn, genre){
   document.querySelectorAll('#genreFilters .filter-chip').forEach(b=>b.classList.remove('active'));
   if(activeGenreFilter) btn.classList.add('active');
   renderCards();
+  if(window.updateFilterBadge) window.updateFilterBadge();
 };
 
 window.toggleScoreFilter = function(btn){
@@ -1197,6 +1209,7 @@ window.toggleScoreFilter = function(btn){
   document.querySelectorAll('#scoreFilters .filter-chip').forEach(b=>b.classList.remove('active'));
   if(activeScoreFilter) btn.classList.add('active');
   renderCards();
+  if(window.updateFilterBadge) window.updateFilterBadge();
 };
 
 window.toggleMarkFilter = function(btn){
@@ -1205,6 +1218,7 @@ window.toggleMarkFilter = function(btn){
   document.querySelectorAll('#markFilters .filter-chip').forEach(b=>b.classList.remove('active'));
   if(activeMarkFilter) btn.classList.add('active');
   renderCards();
+  if(window.updateFilterBadge) window.updateFilterBadge();
 };
 
 function renderDecadeFilters(){
@@ -1230,6 +1244,7 @@ window.toggleDecadeFilter = function(btn, dec){
   document.querySelectorAll('#decadeFilters .filter-chip').forEach(b=>b.classList.remove('active'));
   if(activeDecadeFilter) btn.classList.add('active');
   renderCards();
+  if(window.updateFilterBadge) window.updateFilterBadge();
 };
 
 function renderYearFilters(){
@@ -1246,14 +1261,41 @@ window.toggleYearFilter = function(btn, year){
   document.querySelectorAll('#yearFilters .filter-chip').forEach(b=>b.classList.remove('active'));
   if(activeYearFilter) btn.classList.add('active');
   renderCards();
+  if(window.updateFilterBadge) window.updateFilterBadge();
 };
 
 window.toggleFilter = function(){
   const panel = document.getElementById('filterPanel');
   const btn = document.getElementById('filterToggleBtn');
+  if(!panel) return;
+  panel.style.display = '';           // varmistus vanhan inline-tyylin varalta
   const open = !panel.classList.contains('open');
   panel.classList.toggle('open', open);
-  btn.classList.toggle('active', open);
+  if(btn) btn.classList.toggle('active', open);
+  if(open){
+    renderGenreFilters();
+    renderYearFilters();
+    renderDecadeFilters();
+  }
+};
+
+// Näytä ⚡-napissa merkki kun jokin suodatin on käytössä
+window.updateFilterBadge = function(){
+  const btn = document.getElementById('filterToggleBtn');
+  if(!btn) return;
+  const any = !!(activeGenreFilter || activeScoreFilter || activeMarkFilter || activeYearFilter || activeDecadeFilter);
+  btn.classList.toggle('has-filters', any);
+};
+
+window.clearAllFilters = function(){
+  activeGenreFilter = null;
+  activeScoreFilter = null;
+  activeMarkFilter = null;
+  activeYearFilter = null;
+  activeDecadeFilter = null;
+  document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));
+  renderCards();
+  if(window.updateFilterBadge) window.updateFilterBadge();
 };
 
 window.cycleSort = function(){
