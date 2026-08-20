@@ -457,6 +457,29 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 /* AI ARVOSTELU NAPPI */
 .ai-btn { padding:8px 14px; background:rgba(167,139,250,0.12); color:#a78bfa; border:1px solid rgba(167,139,250,0.3); border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; white-space:nowrap; }
 .ai-btn:active { background:rgba(167,139,250,0.22); }
+
+/* MUISTIINPANOJEN MUOTOILU */
+.md-toolbar{display:flex;gap:6px;margin-bottom:6px;}
+.md-btn{padding:7px 12px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;min-width:38px;}
+.md-btn:active{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+.md-btn.md-i{font-style:italic;font-weight:500;}
+.md-hint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4;}
+.card-note strong,.read-value strong,.tv-part-note strong{color:var(--text);font-weight:700;}
+.card-note em,.read-value em,.tv-part-note em{font-style:italic;}
+.md-strike{text-decoration:line-through;opacity:0.6;}
+.md-list{margin:4px 0 4px 0;padding-left:18px;}
+.md-list li{margin:2px 0;}
+
+/* DUPLIKAATTIVAROITUS */
+.dup-box{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:center;margin:10px 0 4px;}
+.dup-poster{width:46px;height:69px;border-radius:5px;object-fit:cover;background:var(--bg2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;}
+.dup-info{flex:1;min-width:0;}
+.dup-name{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.5px;line-height:1.1;}
+.dup-meta{font-size:12px;color:var(--muted);margin-top:4px;}
+.dup-score{font-family:'Bebas Neue',sans-serif;font-size:30px;flex-shrink:0;}
+.dup-score.score-high{color:#4ade80;}
+.dup-score.score-mid{color:#e8b84b;}
+.dup-score.score-low{color:#ff6b6b;}
 .ai-result { margin-top:10px; padding:12px; background:rgba(167,139,250,0.07); border:1px solid rgba(167,139,250,0.2); border-radius:10px; font-size:14px; line-height:1.6; display:none; }
 .ai-result.open { display:block; }
 .ai-result-actions { display:flex; gap:8px; margin-top:10px; }
@@ -682,7 +705,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <button class="ai-btn" onclick="generateAIReview()">✨ AI-arvostelu</button>
         </div>
       </div>
+      <div class="md-toolbar">
+        <button type="button" class="md-btn" onclick="mdWrap('formNote','**','**')" title="Lihavointi">B</button>
+        <button type="button" class="md-btn md-i" onclick="mdWrap('formNote','*','*')" title="Kursiivi">I</button>
+        <button type="button" class="md-btn" onclick="mdWrap('formNote','~~','~~')" title="Yliviivaus">S̶</button>
+        <button type="button" class="md-btn" onclick="mdBullet('formNote')" title="Luettelo">•</button>
+      </div>
       <textarea id="formNote" spellcheck="true" lang="fi" autocapitalize="sentences" placeholder="Kirjoita avainsanoja: hauska, surullinen, hyvät näyttälijät..."></textarea>
+      <div class="md-hint">**lihavointi** · *kursiivi* · ~~yliviivaus~~ · rivin alussa - tekee luettelon</div>
       <div class="ai-result" id="aiResult">
         <div id="aiResultText"></div>
         <div class="ai-result-actions">
@@ -823,6 +853,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="form-group" style="margin-top:24px;border-top:1px solid var(--border);padding-top:20px;">
       <button class="btn-secondary" style="width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="doSignOut()">🚪 Kirjaudu ulos</button>
     </div>
+  </div>
+</div>
+
+<!-- DUPLIKAATTIVAROITUS -->
+<div class="modal-overlay" id="dupModal" onclick="closeModalIfOutside(event,'dupModal')" style="z-index:1100;">
+  <div class="modal-sheet" style="max-width:420px;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔁 Olet arvostellut tämän jo</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.5;">Löysin samannimisen arvostelun samasta kategoriasta.</div>
+    <div id="dupBoxArea"></div>
+    <button type="button" class="btn-primary" style="width:100%;margin-top:14px;padding:14px;border-radius:12px;" onclick="dupChoose('edit')">✏️ Avaa vanha muokattavaksi</button>
+    <button type="button" class="btn-secondary" style="width:100%;margin-top:8px;padding:14px;border-radius:12px;" onclick="dupChoose('new')">➕ Tallenna silti uutena</button>
+    <button type="button" class="btn-secondary" style="width:100%;margin-top:8px;background:transparent;border:none;color:var(--muted);" onclick="dupChoose('cancel')">Peruuta</button>
   </div>
 </div>
 
@@ -1346,6 +1389,64 @@ function buildRing(score){
   </div>`;
 }
 
+// ── MUISTIINPANOJEN MUOTOILU (kevyt markdown) ──
+// Järjestys on tärkeä: esc() ensin, vasta sitten muotoilumerkit,
+// muuten käyttäjän kirjoittama <b> päätyisi oikeaksi HTML:ksi.
+function mdInline(escaped){
+  // Merkkien sisällä on oltava tekstiä ilman reunavälilyöntejä,
+  // jotta esim. "2 * 3 * 4" ei muutu kursiiviksi.
+  return escaped
+    .replace(/\*\*(\S|\S[^*]*?\S)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*\w])\*(\S|\S[^*]*?\S)\*(?!\*)/g, '$1<em>$2</em>')
+    .replace(/~~(\S|\S[^~]*?\S)~~/g, '<span class="md-strike">$1</span>');
+}
+
+function mdText(s){
+  if(s == null || s === '') return '';
+  const lines = esc(s).split('\n');
+  let out = '', inList = false;
+  lines.forEach(line => {
+    const m = line.match(/^\s*[-*•]\s+(.*)$/);
+    if(m){
+      if(!inList){ out += '<ul class="md-list">'; inList = true; }
+      out += '<li>' + mdInline(m[1]) + '</li>';
+    } else {
+      if(inList){ out += '</ul>'; inList = false; }
+      out += mdInline(line) + '<br>';
+    }
+  });
+  if(inList) out += '</ul>';
+  return out.replace(/(<br>)+$/, '');
+}
+window.mdText = mdText;
+
+// Muotoilupainikkeet: ympäröi valinta tai lisää merkit kursorin kohdalle
+window.mdWrap = function(fieldId, before, after){
+  const el = document.getElementById(fieldId);
+  if(!el) return;
+  const start = el.selectionStart || 0;
+  const end = el.selectionEnd || 0;
+  const val = el.value;
+  const sel = val.slice(start, end);
+  el.value = val.slice(0, start) + before + sel + after + val.slice(end);
+  const pos = sel ? start + before.length + sel.length + after.length : start + before.length;
+  el.focus();
+  el.setSelectionRange(pos, pos);
+};
+
+window.mdBullet = function(fieldId){
+  const el = document.getElementById(fieldId);
+  if(!el) return;
+  const start = el.selectionStart || 0;
+  const val = el.value;
+  const lineStart = val.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+  const prefix = (start === lineStart) ? '- ' : '\n- ';
+  el.value = val.slice(0, start) + prefix + val.slice(start);
+  const pos = start + prefix.length;
+  el.focus();
+  el.setSelectionRange(pos, pos);
+};
+
 // ── VUOSI ──
 // Vanhassa datamallissa vuosi oli osa nimeä ("OPPENHEIMER\n2023").
 // Tämä siirtää sen omaan year-kenttäänsä. Ajetaan kerran latauksen yhteydessä.
@@ -1379,6 +1480,63 @@ function nameWithYear(r){
 }
 window.plainName = plainName;
 window.nameWithYear = nameWithYear;
+
+// ── DUPLIKAATTITARKISTUS ──
+function normName(s){
+  let t = String(s == null ? '' : s).toLowerCase()
+    .replace(/[\u2018\u2019'`\u00b4]/g, '');   // ocean's 11 === oceans 11
+  try {
+    t = t.replace(/[^\p{L}\p{N}]+/gu, ' ');
+  } catch(e){
+    // Vanhemmat selaimet ilman unicode-property-tukea
+    t = t.replace(/[^a-z0-9äöåü]+/g, ' ');
+  }
+  return t.trim();
+}
+
+// Palauttaa aiemman arvostelun jos uusi näyttää samalta teokselta.
+// Eri julkaisuvuosi = eri teos (esim. remake), jolloin ei varoiteta.
+function findDuplicateReview(name, year, cat, tmdbId, excludeId){
+  const target = normName(name);
+  if(!target) return null;
+  return (appData.reviews || []).find(r => {
+    if(r.id === excludeId) return false;
+    if(tmdbId && r.tmdb_id && String(r.tmdb_id) === String(tmdbId)) return true;
+    if(r.category !== cat) return false;
+    if(normName(plainName(r)) !== target) return false;
+    if(year && r.year && year !== r.year) return false;
+    return true;
+  }) || null;
+}
+
+let _dupResolve = null;
+
+function askDuplicate(dup){
+  return new Promise(resolve => {
+    _dupResolve = resolve;
+    const score = getReviewScore(dup);
+    const dateStr = dup.date ? new Date(dup.date).toLocaleDateString('fi-FI') : 'ei päivämäärää';
+    const poster = dup.poster
+      ? `<img class="dup-poster" src="https://image.tmdb.org/t/p/w154${dup.poster}" alt="">`
+      : `<div class="dup-poster">${dup.category === 'TV-sarjat' ? '📺' : '🎬'}</div>`;
+    document.getElementById('dupBoxArea').innerHTML = `<div class="dup-box">
+      ${poster}
+      <div class="dup-info">
+        <div class="dup-name">${esc(plainName(dup))}${dup.year ? ` <span style="font-size:14px;color:var(--muted);">${dup.year}</span>` : ''}</div>
+        <div class="dup-meta">📅 ${dateStr}${dup.note ? ' · muistiinpano tallennettu' : ''}</div>
+      </div>
+      ${score != null ? `<div class="dup-score ${scoreClass(score)}">${score}</div>` : ''}
+    </div>`;
+    document.getElementById('dupModal').classList.add('open');
+  });
+}
+
+window.dupChoose = function(choice){
+  closeModal('dupModal');
+  const r = _dupResolve;
+  _dupResolve = null;
+  if(r) r(choice);
+};
 
 // ── PISTEYTYS ──
 function getReviewScore(r){
@@ -1484,7 +1642,7 @@ window.renderCards = function(){
                   <div class="tv-part">
                     <div class="tv-part-info">
                       <span class="tv-part-name">${ep.episode?`<span style="color:var(--accent);font-weight:700;font-size:12px;">J${ep.episode} </span>`:''}${esc(ep.name||'')}</span>
-                      ${ep.note?`<span class="tv-part-note">${escNl(ep.note)}</span>`:''}
+                      ${ep.note?`<span class="tv-part-note">${mdText(ep.note)}</span>`:''}
                     </div>
                     <span class="tv-part-score ${ep.score != null ? scoreClass(ep.score) : ''}" style="${ep.score == null ? 'color:var(--muted);font-size:14px;' : ''}">${ep.score != null ? ep.score : '–'}</span>
                     <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editEpisode(${r.id},${si},${ei})">✏️</button>
@@ -1536,7 +1694,7 @@ window.renderCards = function(){
             <div class="tv-part">
               <div class="tv-part-info">
                 <span class="tv-part-name">${esc(p.name||'')}</span>
-                ${p.note?`<span class="tv-part-note">${escNl(p.note)}</span>`:''}
+                ${p.note?`<span class="tv-part-note">${mdText(p.note)}</span>`:''}
               </div>
               <span class="tv-part-score ${scoreClass(p.score)}">${p.score}</span>
               <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editPart(${r.id},${i})">✏️</button>
@@ -1577,7 +1735,7 @@ window.renderCards = function(){
       ${extraInfo.length ? `<div class="card-extra-info">${extraInfo.map(i=>`<span>${i}</span>`).join('')}</div>` : ''}
       ${tmdbScoreHtml}
       ${r.plot?`<div class="card-plot"><span class="card-plot-label">📖 Juoni</span>${escNl(r.plot)}</div>`:''}
-      ${r.note?`<div class="card-note" id="note-${r.id}">${escNl(r.note)}</div>`:''}
+      ${r.note?`<div class="card-note" id="note-${r.id}">${mdText(r.note)}</div>`:''}
       ${partsHtml}
       ${dateStr?`<div class="card-date">📅 ${dateStr}</div>`:''}
       <div class="card-actions">
@@ -2269,6 +2427,21 @@ window.saveReview = async function(){
   const needsScore = !isTv || selectedTvType==='kokonaisuus';
   if(needsScore){ const inp=document.getElementById('scoreInput'); selectedScore=inp&&inp.value!==''?+inp.value:null; }
   if(needsScore && selectedScore===null){ alert('Anna arvosana (0–100)!'); return; }
+
+  // Varoita jos sama teos on jo arvosteltu (vain uusia lisättäessä)
+  if(!editingId){
+    const dup = findDuplicateReview(name, year, cat, window._tmdbPending?.tmdb_id, null);
+    if(dup){
+      const choice = await askDuplicate(dup);
+      if(choice !== 'new'){
+        if(choice === 'edit'){
+          closeModal('addModal');
+          setTimeout(()=>window.editReview(dup.id), 300);
+        }
+        return;
+      }
+    }
+  }
 
   if(editingId){
     const r = appData.reviews.find(x=>x.id===editingId);
@@ -3529,7 +3702,7 @@ window.openReadModal = function(id){
     </div>`:''}
     ${r.note?`<div class="read-section">
       <div class="read-label">Arvostelu</div>
-      <div class="read-value">${escNl(r.note)}</div>
+      <div class="read-value">${mdText(r.note)}</div>
     </div>`:''}
     ${dateStr?`<div class="read-section">
       <div class="read-label">Päivämäärä</div>
