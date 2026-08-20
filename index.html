@@ -647,7 +647,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <button class="ai-btn" onclick="generateAIReview()">✨ AI-arvostelu</button>
         </div>
       </div>
-      <textarea id="formNote" placeholder="Kirjoita avainsanoja: hauska, surullinen, hyvät näyttälijät..."></textarea>
+      <textarea id="formNote" spellcheck="true" lang="fi" autocapitalize="sentences" placeholder="Kirjoita avainsanoja: hauska, surullinen, hyvät näyttälijät..."></textarea>
       <div class="ai-result" id="aiResult">
         <div id="aiResultText"></div>
         <div class="ai-result-actions">
@@ -709,7 +709,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <label style="margin:0;">Lisätiedot</label>
         <button class="ai-btn" onclick="generateAIReviewPart()">✨ AI-arvostelu</button>
       </div>
-      <textarea id="partNote" placeholder="Kirjoita avainsanoja: hauska, surullinen, hyvät näyttälijät..."></textarea>
+      <textarea id="partNote" spellcheck="true" lang="fi" autocapitalize="sentences" placeholder="Kirjoita avainsanoja: hauska, surullinen, hyvät näyttälijät..."></textarea>
       <div class="ai-result" id="aiResultPart">
         <div id="aiResultPartText"></div>
         <div class="ai-result-actions">
@@ -1027,6 +1027,26 @@ const DEFAULT_GENRES = ['Toiminta','Komedia','Draama','Kauhu','Sci-fi','Trilleri
 let GENRES = [...DEFAULT_GENRES];
 const GENRE_CATS = ['Elokuvat','TV-sarjat'];
 
+// ── TURVALLINEN HTML ──
+// Kaikki käyttäjän syöttämä teksti (nimet, muistiinpanot, kategoriat, genret)
+// pitää ajaa esc():n läpi ennen kuin se laitetaan innerHTML-merkkijonoon.
+// esc()   = tavallinen teksti
+// escNl() = teksti jossa rivinvaihdot muuttuvat <br>-elementeiksi
+// escJs() = teksti joka menee onclick="foo('...')" -attribuutin sisään
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+function escNl(s){ return esc(s).replace(/\n/g,'<br>'); }
+function escJs(s){
+  return esc(String(s == null ? '' : s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
+}
+window.esc = esc; window.escNl = escNl; window.escJs = escJs;
+
 let appData = { categories: [...DEFAULT_CATS], genres: [...DEFAULT_GENRES], reviews: [], budget: { monthlyPrice: 26.90, periods: [] } };
 let activeCat = null;
 let sortMode = 'uusin';
@@ -1090,7 +1110,7 @@ function renderCatTabs(){
   const tabs = document.getElementById('catTabs');
   if(!tabs) return;
   tabs.innerHTML = appData.categories.map(c=>`
-    <button class="cat-tab ${c===activeCat?'active':''}" onclick="setActiveCat('${c}')">${c}</button>
+    <button class="cat-tab ${c===activeCat?'active':''}" onclick="setActiveCat('${escJs(c)}')">${esc(c)}</button>
   `).join('');
 }
 
@@ -1110,7 +1130,7 @@ function renderGenreFilters(){
   const el = document.getElementById('genreFilters');
   if(!el) return;
   el.innerHTML = GENRES.map(g=>`
-    <button class="filter-chip ${g===activeGenreFilter?'active':''}" onclick="toggleGenreFilter(this,'${g}')">${g}</button>
+    <button class="filter-chip ${g===activeGenreFilter?'active':''}" onclick="toggleGenreFilter(this,'${escJs(g)}')">${esc(g)}</button>
   `).join('');
 }
 
@@ -1299,7 +1319,7 @@ window.renderCards = function(){
             return `<div class="season-group">
               <div class="season-header" onclick="toggleSeason('${sKey}')">
                 <span class="season-arrow" id="arr-${sKey}">▶</span>
-                <span class="season-name">${s.name}</span>
+                <span class="season-name">${esc(s.name)}</span>
                 <span class="season-count">${eps.length} jakso${eps.length!==1?'a':''}</span>
                 ${sAvg!==null?`<span class="season-avg ${sCls}">${sAvg}</span>`:''}
                 <button class="season-del" onclick="event.stopPropagation();deleteSeason(${r.id},${si})">✕</button>
@@ -1308,8 +1328,8 @@ window.renderCards = function(){
                 ${eps.map((ep,ei)=>`
                   <div class="tv-part">
                     <div class="tv-part-info">
-                      <span class="tv-part-name">${ep.episode?`<span style="color:var(--accent);font-weight:700;font-size:12px;">J${ep.episode} </span>`:''}${ep.name||''}</span>
-                      ${ep.note?`<span class="tv-part-note">${ep.note.replace(/\n/g,'<br>')}</span>`:''}
+                      <span class="tv-part-name">${ep.episode?`<span style="color:var(--accent);font-weight:700;font-size:12px;">J${ep.episode} </span>`:''}${esc(ep.name||'')}</span>
+                      ${ep.note?`<span class="tv-part-note">${escNl(ep.note)}</span>`:''}
                     </div>
                     <span class="tv-part-score ${ep.score != null ? scoreClass(ep.score) : ''}" style="${ep.score == null ? 'color:var(--muted);font-size:14px;' : ''}">${ep.score != null ? ep.score : '–'}</span>
                     <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editEpisode(${r.id},${si},${ei})">✏️</button>
@@ -1334,13 +1354,13 @@ window.renderCards = function(){
             <div class="best-worst-row">
               <span class="best-worst-icon">🏆</span>
               <span class="best-worst-label">Paras</span>
-              <span class="best-worst-names">${bestEps.map(epLabel).join(', ')}</span>
+              <span class="best-worst-names">${esc(bestEps.map(epLabel).join(', '))}</span>
               <span class="tv-part-score ${scoreClass(maxScore)}" style="font-family:'Bebas Neue',sans-serif;font-size:18px;">${maxScore}</span>
             </div>
             ${minScore!==maxScore?`<div class="best-worst-row">
               <span class="best-worst-icon">💀</span>
               <span class="best-worst-label">Huonoin</span>
-              <span class="best-worst-names">${worstEps.map(epLabel).join(', ')}</span>
+              <span class="best-worst-names">${esc(worstEps.map(epLabel).join(', '))}</span>
               <span class="tv-part-score ${scoreClass(minScore)}" style="font-family:'Bebas Neue',sans-serif;font-size:18px;">${minScore}</span>
             </div>`:''}
           </div>`;
@@ -1360,8 +1380,8 @@ window.renderCards = function(){
           ${parts.map((p,i)=>`
             <div class="tv-part">
               <div class="tv-part-info">
-                <span class="tv-part-name">${p.name||''}</span>
-                ${p.note?`<span class="tv-part-note">${p.note.replace(/\n/g,'<br>')}</span>`:''}
+                <span class="tv-part-name">${esc(p.name||'')}</span>
+                ${p.note?`<span class="tv-part-note">${escNl(p.note)}</span>`:''}
               </div>
               <span class="tv-part-score ${scoreClass(p.score)}">${p.score}</span>
               <button class="btn-sm btn-edit" style="padding:4px 8px;font-size:12px;" onclick="editPart(${r.id},${i})">✏️</button>
@@ -1377,23 +1397,23 @@ window.renderCards = function(){
     const favCls = r.mark==='heart' ? 'is-favorite' : '';
     const posterBg = r.poster ? `<div class="card-poster-bg" style="background-image:url('https://image.tmdb.org/t/p/w200${r.poster}')"></div>` : '';
     const extraInfo = [];
-    if(r.director) extraInfo.push(`🎬 ${r.director}`);
+    if(r.director) extraInfo.push(`🎬 ${esc(r.director)}`);
     if(r.runtime) extraInfo.push(`⏱️ ${r.runtime} min`);
     if(r.episodes_total) extraInfo.push(`📺 ${r.episodes_total} jaksoa`);
-    if(r.country) extraInfo.push(`🌍 ${r.country}`);
-    if(r.cast && r.cast.length) extraInfo.push(`🎭 ${r.cast.slice(0,3).join(', ')}`);
+    if(r.country) extraInfo.push(`🌍 ${esc(r.country)}`);
+    if(r.cast && r.cast.length) extraInfo.push(`🎭 ${esc(r.cast.slice(0,3).join(', '))}`);
     const tmdbScoreHtml = r.tmdb_score ? `<span class="tmdb-score-compare">⭐ TMDB ${r.tmdb_score}</span>` : '';
     return `<div class="review-card type-${typeClass} ${scoreCardCls} ${favCls}" style="animation-delay:${idx*0.06}s" ondblclick="openReadModal(${r.id})">
       ${posterBg}
       <div class="card-top">
-        <div class="card-title">${r.name.replace(/\n/g,'<br>')}</div>
+        <div class="card-title">${escNl(r.name)}</div>
         ${score!==null&&!isTvParts ? buildRing(score) : ''}
       </div>
       <div class="card-meta">
-        <span class="meta-chip">${r.category}</span>
+        <span class="meta-chip">${esc(r.category)}</span>
         ${(()=>{
           const genres = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
-          return genres.map(g=>`<span class="meta-chip">${g}</span>`).join('');
+          return genres.map(g=>`<span class="meta-chip">${esc(g)}</span>`).join('');
         })()}
         ${isTvParts?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
         ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
@@ -1401,8 +1421,8 @@ window.renderCards = function(){
       </div>
       ${extraInfo.length ? `<div class="card-extra-info">${extraInfo.map(i=>`<span>${i}</span>`).join('')}</div>` : ''}
       ${tmdbScoreHtml}
-      ${r.plot?`<div class="card-plot"><span class="card-plot-label">📖 Juoni</span>${r.plot.replace(/\n/g,'<br>')}</div>`:''}
-      ${r.note?`<div class="card-note" id="note-${r.id}">${r.note.replace(/\n/g,'<br>')}</div>`:''}
+      ${r.plot?`<div class="card-plot"><span class="card-plot-label">📖 Juoni</span>${escNl(r.plot)}</div>`:''}
+      ${r.note?`<div class="card-note" id="note-${r.id}">${escNl(r.note)}</div>`:''}
       ${partsHtml}
       ${dateStr?`<div class="card-date">📅 ${dateStr}</div>`:''}
       <div class="card-actions">
@@ -1473,7 +1493,7 @@ window.editReview = function(id){
 
 function populateFormCat(selected){
   const sel = document.getElementById('formCat');
-  sel.innerHTML = appData.categories.map(c=>`<option value="${c}" ${c===(selected||activeCat)?'selected':''}>${c}</option>`).join('');
+  sel.innerHTML = appData.categories.map(c=>`<option value="${esc(c)}" ${c===(selected||activeCat)?'selected':''}>${esc(c)}</option>`).join('');
   window.onCatChange();
 }
 
@@ -1495,7 +1515,7 @@ window.onCatChange = function(preselectedGenre){
     else if(preselectedGenre) preArr = [preselectedGenre];
     const chips = document.getElementById('genreChips');
     chips.innerHTML = GENRES.map(g=>`
-      <button type="button" class="genre-chip${preArr.includes(g)?' genre-chip-active':''}" onclick="toggleGenreChip(this,'${g}')">${g}</button>
+      <button type="button" class="genre-chip${preArr.includes(g)?' genre-chip-active':''}" onclick="toggleGenreChip(this,'${escJs(g)}')">${esc(g)}</button>
     `).join('');
   }
 };
@@ -1671,7 +1691,7 @@ function compareCardHtml(item, side){
   const tmdbHtml = item.tmdb_score != null ? `<span class="compare-card-score" style="opacity:0.7;">⭐ TMDB ${item.tmdb_score}/10</span>` : '';
   return `<div class="compare-card" onclick="compareChoose('${side}')">
     ${posterHtml}
-    <div class="compare-card-name">${(item.name||'').replace(/\n/g,' · ')}</div>
+    <div class="compare-card-name">${esc((item.name||'').replace(/\n/g,' · '))}</div>
     ${scoreHtml}
     ${tmdbHtml}
   </div>`;
@@ -2275,7 +2295,7 @@ window.openAddPart = function(reviewId, seasonIdx){
   if(isJaksot){
     const seasons = r.seasons||[];
     const sel = document.getElementById('partSeasonSelect');
-    sel.innerHTML = seasons.map((s,i)=>`<option value="${i}" ${i===seasonIdx?'selected':''}>${s.name}</option>`).join('');
+    sel.innerHTML = seasons.map((s,i)=>`<option value="${i}" ${i===seasonIdx?'selected':''}>${esc(s.name)}</option>`).join('');
     if(seasonIdx!=null) sel.value = seasonIdx;
     // Auto-täytä seuraava jaksonumero
     const pe = document.getElementById('partEpisode');
@@ -2347,7 +2367,7 @@ window.editEpisode = function(reviewId, si, ei){
   document.getElementById('partEpisodeRow').style.display = 'block';
   const seasons = r.seasons||[];
   const sel = document.getElementById('partSeasonSelect');
-  sel.innerHTML = seasons.map((s,i)=>`<option value="${i}" ${i===si?'selected':''}>${s.name}</option>`).join('');
+  sel.innerHTML = seasons.map((s,i)=>`<option value="${i}" ${i===si?'selected':''}>${esc(s.name)}</option>`).join('');
   document.getElementById('partName').value = ep.name||'';
   document.getElementById('partNote').value = ep.note||'';
   const pe=document.getElementById('partEpisode'); if(pe) pe.value=ep.episode||'';
@@ -2465,15 +2485,15 @@ window.renderTop = function(){
     const heroAttrs = hasPoster ? '' : `data-icon="${topHeroIcon(cat)}"`;
 
     html += `<div class="top-section">
-      <div class="top-section-title">🏆 ${cat}</div>
+      <div class="top-section-title">🏆 ${esc(cat)}</div>
       <div class="top-hero-card ${hasPoster?'':'no-poster'}" ${heroStyle} ${heroAttrs} ondblclick="openReadModal(${top.id})">
         <span class="top-hero-crown">👑 #1</span>
         <div class="top-hero-content">
           <div>
-            <div class="top-hero-name">${top.name.replace(/\n/g,' · ')}${top.mark==='heart'?' ❤️':top.mark==='skull'?' 💀':''}</div>
+            <div class="top-hero-name">${esc(top.name.replace(/\n/g,' · '))}${top.mark==='heart'?' ❤️':top.mark==='skull'?' 💀':''}</div>
             <div class="top-hero-meta">
-              <span class="meta-chip">${top.category}</span>
-              ${(Array.isArray(top.genre)?top.genre:(top.genre?[top.genre]:[])).slice(0,2).map(g=>`<span class="meta-chip">${g}</span>`).join('')}
+              <span class="meta-chip">${esc(top.category)}</span>
+              ${(Array.isArray(top.genre)?top.genre:(top.genre?[top.genre]:[])).slice(0,2).map(g=>`<span class="meta-chip">${esc(g)}</span>`).join('')}
             </div>
           </div>
           <span class="top-hero-score ${scoreClass(top.finalScore)}">${top.finalScore}</span>
@@ -2482,7 +2502,7 @@ window.renderTop = function(){
       ${rest.map((r,i)=>`
         <div class="top-item">
           <span class="top-rank ${medals[i+1]||''}">${i+2}</span>
-          <span class="top-name">${r.name.replace(/\n/g,' · ')}${r.mark==='heart'?' ❤️':r.mark==='skull'?' 💀':''}</span>
+          <span class="top-name">${esc(r.name.replace(/\n/g,' · '))}${r.mark==='heart'?' ❤️':r.mark==='skull'?' 💀':''}</span>
           <span class="top-score ${scoreClass(r.finalScore)}">${r.finalScore}</span>
         </div>
       `).join('')}
@@ -2803,7 +2823,7 @@ window.renderBudget = function(){
               const realIdx = (p.visits||[]).indexOf(v);
               return `
               <div class="budget-visit">
-                <div class="budget-visit-name">🎬 ${v.name}${v.date ? ' <span class="budget-visit-extra">· '+fmtDateFi(v.date)+'</span>' : ''}</div>
+                <div class="budget-visit-name">🎬 ${esc(v.name)}${v.date ? ' <span class="budget-visit-extra">· '+fmtDateFi(v.date)+'</span>' : ''}</div>
                 <div class="budget-visit-extra">${v.extra ? fmtEur(v.extra) : ''}</div>
                 <div class="budget-visit-icons">
                   <button onclick="openBudgetVisitModal('${p.id}', ${realIdx})" title="Muokkaa">✏️</button>
@@ -3016,7 +3036,7 @@ function renderCatManage(){
   if(!el) return;
   el.innerHTML = appData.categories.map((c,i)=>`
     <div class="cat-row">
-      <span class="cat-row-name">${c}</span>
+      <span class="cat-row-name">${esc(c)}</span>
       ${!DEFAULT_CATS.includes(c)?`<button class="cat-del" onclick="deleteCat(${i})">Poista</button>`:'<span style="font-size:12px;color:var(--muted);">vakio</span>'}
     </div>
   `).join('');
@@ -3053,7 +3073,7 @@ function renderGenreManage(){
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   el.innerHTML = appData.genres.map((g,i)=>`
     <div class="cat-row">
-      <span class="cat-row-name">${g}</span>
+      <span class="cat-row-name">${esc(g)}</span>
       ${!DEFAULT_GENRES.includes(g)?`<button class="cat-del" onclick="deleteGenre(${i})">Poista</button>`:'<span style="font-size:12px;color:var(--muted);">vakio</span>'}
     </div>
   `).join('');
@@ -3091,8 +3111,8 @@ window.showNameSuggestions = function(val){
     .filter(n=>n.toUpperCase().startsWith(val.toUpperCase())&&n.toUpperCase()!==val.toUpperCase()).slice(0,5);
   if(!all.length){ list.style.display='none'; return; }
   list.innerHTML = all.map(n=>`
-    <div class="autocomplete-item" onmousedown="selectAcItem('${n.replace(/'/g,"\'")}')" ontouchstart="selectAcItem('${n.replace(/'/g,"\'")}')">
-      📝 <span><mark>${n.slice(0,val.length)}</mark>${n.slice(val.length)}</span>
+    <div class="autocomplete-item" onmousedown="selectAcItem('${escJs(n)}')" ontouchstart="selectAcItem('${escJs(n)}')">
+      📝 <span><mark>${esc(n.slice(0,val.length))}</mark>${esc(n.slice(val.length))}</span>
     </div>
   `).join('');
   list.style.display='block';
@@ -3134,11 +3154,11 @@ window.openReadModal = function(id){
   const cls = score!=null?(score>=70?'high':score>=40?'mid':'low'):'mid';
 
   const extraRows = [];
-  if(r.director) extraRows.push(`<div class="read-section"><div class="read-label">🎬 Ohjaaja</div><div class="read-value">${r.director}</div></div>`);
-  if(r.cast && r.cast.length) extraRows.push(`<div class="read-section"><div class="read-label">🎭 Näyttelijät</div><div class="read-value">${r.cast.join(', ')}</div></div>`);
+  if(r.director) extraRows.push(`<div class="read-section"><div class="read-label">🎬 Ohjaaja</div><div class="read-value">${esc(r.director)}</div></div>`);
+  if(r.cast && r.cast.length) extraRows.push(`<div class="read-section"><div class="read-label">🎭 Näyttelijät</div><div class="read-value">${esc(r.cast.join(', '))}</div></div>`);
   if(r.runtime) extraRows.push(`<div class="read-section"><div class="read-label">⏱️ Kesto</div><div class="read-value">${r.runtime} min</div></div>`);
   if(r.episodes_total) extraRows.push(`<div class="read-section"><div class="read-label">📺 Jaksoja</div><div class="read-value">${r.episodes_total}</div></div>`);
-  if(r.country) extraRows.push(`<div class="read-section"><div class="read-label">🌍 Maa</div><div class="read-value">${r.country}</div></div>`);
+  if(r.country) extraRows.push(`<div class="read-section"><div class="read-label">🌍 Maa</div><div class="read-value">${esc(r.country)}</div></div>`);
   if(r.tmdb_score) extraRows.push(`<div class="read-section"><div class="read-label">⭐ TMDB-arvosana</div><div class="read-value">${r.tmdb_score}/10</div></div>`);
 
   const posterHtml = r.poster ? `<img src="https://image.tmdb.org/t/p/w200${r.poster}" style="width:70px;height:105px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="">` : '';
@@ -3148,8 +3168,8 @@ window.openReadModal = function(id){
       ${posterHtml}
       <div style="flex:1;">
         ${score!=null?buildRing(score):''}
-        <div class="read-title">${r.name.replace(/\n/g,'<br>')}</div>
-        <div class="read-sub">${r.category}${genres.length?' · '+genres.join(', '):''}</div>
+        <div class="read-title">${escNl(r.name)}</div>
+        <div class="read-sub">${esc(r.category)}${genres.length?' · '+esc(genres.join(', ')):''}</div>
         ${r.mark==='heart'?'<span style="color:#ff6482;font-size:13px;font-weight:700;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span style="color:#aaa;font-size:13px;font-weight:700;">💀 Huono</span>':''}
       </div>
@@ -3157,11 +3177,11 @@ window.openReadModal = function(id){
     ${extraRows.join('')}
     ${r.plot?`<div class="read-section">
       <div class="read-label">📖 Juoni</div>
-      <div class="read-value" style="color:var(--muted);font-style:italic;">${r.plot.replace(/\n/g,'<br>')}</div>
+      <div class="read-value" style="color:var(--muted);font-style:italic;">${escNl(r.plot)}</div>
     </div>`:''}
     ${r.note?`<div class="read-section">
       <div class="read-label">Arvostelu</div>
-      <div class="read-value">${r.note.replace(/\n/g,'<br>')}</div>
+      <div class="read-value">${escNl(r.note)}</div>
     </div>`:''}
     ${dateStr?`<div class="read-section">
       <div class="read-label">Päivämäärä</div>
@@ -3420,8 +3440,8 @@ async function searchTmdb(query) {
       return `<div class="tmdb-item" onclick="fillFromTmdb(${idx})">
         ${imgEl}
         <div class="tmdb-item-info">
-          <div class="tmdb-item-title">${title}</div>
-          <div class="tmdb-item-meta">${year ? year + ' · ' : ''}${type}${genres ? ' · ' + genres : ''}</div>
+          <div class="tmdb-item-title">${esc(title)}</div>
+          <div class="tmdb-item-meta">${year ? esc(year) + ' · ' : ''}${type}${genres ? ' · ' + esc(genres) : ''}</div>
         </div>
       </div>`;
     }).join('');
