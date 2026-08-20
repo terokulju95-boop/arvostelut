@@ -1,13 +1,15 @@
 // ── ARVOSTELUT – SERVICE WORKER ──
 // TÄRKEÄÄ: nosta VERSION-numeroa aina kun muutat index.html:ää tai muita tiedostoja.
 // Muuten Android-puhelimen PWA voi tarjoilla vanhaa versiota välimuistista.
-const VERSION = 6;
+const VERSION = 7;
 
 const SHELL_CACHE = `arvostelut-shell-v${VERSION}`;
-const IMG_CACHE   = 'tmdb-img-v1';   // julisteet – eivät muutu, säilytetään pitkään
+const IMG_CACHE   = 'tmdb-img-v1';   // julisteet <img>-tagista (no-cors)
+const IMG_CORS_CACHE = 'tmdb-img-cors-v1'; // julisteet värianalyysia varten (cors) – pidettävä erillään,
+                                           // koska CORS-pyyntö ei voi käyttää läpinäkymätöntä vastausta
 const API_CACHE   = 'tmdb-api-v1';   // TMDB-hakutulokset – vanhenevat 24 h:ssa
 
-const KEEP = [SHELL_CACHE, IMG_CACHE, API_CACHE];
+const KEEP = [SHELL_CACHE, IMG_CACHE, IMG_CORS_CACHE, API_CACHE];
 
 const ASSETS = [
   './',
@@ -43,8 +45,8 @@ self.addEventListener('activate', e => {
 // ── APUFUNKTIOT ──
 
 // Rajoita julistevälimuistin kokoa (Cache API säilyttää lisäysjärjestyksen)
-async function trimImageCache() {
-  const cache = await caches.open(IMG_CACHE);
+async function trimImageCache(cacheName) {
+  const cache = await caches.open(cacheName || IMG_CACHE);
   const keys = await cache.keys();
   if (keys.length <= IMG_MAX) return;
   const remove = keys.slice(0, keys.length - IMG_MAX);
@@ -151,8 +153,9 @@ self.addEventListener('fetch', e => {
 
   // 4. TMDB-julisteet: cache-first, ne eivät muutu koskaan
   if (host === 'image.tmdb.org') {
+    const imgCache = req.mode === 'cors' ? IMG_CORS_CACHE : IMG_CACHE;
     e.respondWith(
-      cacheFirst(req, IMG_CACHE, () => e.waitUntil(trimImageCache()))
+      cacheFirst(req, imgCache, () => e.waitUntil(trimImageCache(imgCache)))
         .catch(() => new Response('', { status: 504 }))
     );
     return;
