@@ -218,6 +218,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .compare-change-new.score-high{color:#4ade80;}
 .compare-change-new.score-mid{color:#e8b84b;}
 .compare-change-new.score-low{color:#ff6b6b;}
+.top-controls{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+.top-len-btn{padding:7px 13px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.top-len-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+.top-genre-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;}
+.top-avg-line{font-size:12px;color:var(--muted);margin:-6px 0 12px;}
+.top-avg-line strong{color:var(--text);}
+.top-empty-note{font-size:13px;color:var(--muted);padding:14px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:12px;}
+.weight-row{display:flex;align-items:center;gap:10px;margin-top:10px;}
+.weight-label{flex:1;font-size:13px;color:var(--text);}
+.weight-slider{flex:1.2;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:var(--border);outline:none;}
+.weight-slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;}
+.weight-slider::-moz-range-thumb{width:20px;height:20px;border:none;border-radius:50%;background:var(--accent);cursor:pointer;}
+.weight-val{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent);min-width:34px;text-align:right;}
 .precision-row{display:flex;gap:8px;margin-top:8px;}
 .precision-btn{flex:1;padding:11px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .precision-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent);}
@@ -916,6 +929,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
     </div>
     <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+      <label>Osa-arvioiden painotus</label>
+      <div id="weightRows"></div>
+      <div class="toggle-row-sub" style="margin-top:8px;">Kuinka paljon kukin ryhmä vaikuttaa laajennetun arvioinnin pisteeseen. 1,0 = normaali.</div>
+    </div>
+    <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
       <label>Vertailun tarkkuus</label>
       <div class="precision-row" id="precisionRow"></div>
       <div class="toggle-row-sub" style="margin-top:6px;">Montako kysymystä vertailu esittää enintään. Enemmän kysymyksiä = tarkempi piste.</div>
@@ -1540,6 +1558,8 @@ function ensureSettings(){
   if(!appData.settings.accent) appData.settings.accent = ACCENT_PRESETS[0].hex;
   if(appData.settings.posterColors == null) appData.settings.posterColors = true;
   if(!appData.settings.precision) appData.settings.precision = 'normal';
+  if(!appData.settings.weights) appData.settings.weights = {};
+  if(appData.settings.topLimit == null) appData.settings.topLimit = 5;
   return appData.settings;
 }
 
@@ -2832,13 +2852,55 @@ function genreLupausLabel(){
   return genres.length ? `🎯 Onnistuiko genressään (${genres.join(', ')})?` : '🎯 Onnistuiko genressään?';
 }
 
+// Ryhmäkohtaiset painot: tarina voi vaikuttaa enemmän kuin puvustus
+function groupWeight(groupId){
+  const w = (appData.settings && appData.settings.weights) || {};
+  const v = w[groupId];
+  if(typeof v !== 'number' || !isFinite(v)) return 1;
+  return Math.max(0.5, Math.min(2, v));   // vioittunut arvo rajataan, ei ohiteta
+}
+
 function computeRatingsScore(stateObj){
-  const vals = DIMENSION_DEFS.map(d=>stateObj[d.id]).filter(v=>v!=null);
-  if(!vals.length) return null;
-  const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+  let sum = 0, wsum = 0;
+  DIMENSION_DEFS.forEach(d=>{
+    const v = stateObj[d.id];
+    if(v == null) return;
+    const w = groupWeight(d.group);
+    sum += v * w;
+    wsum += w;
+  });
+  if(!wsum) return null;
+  const avg = sum / wsum;
   const maxLevel = RATING_LEVELS[RATING_LEVELS.length-1].v;
   return Math.round((avg-1)/(maxLevel-1)*100);
 }
+
+window.renderWeightRows = function(){
+  const el = document.getElementById('weightRows');
+  if(!el) return;
+  ensureSettings();
+  el.innerHTML = RATING_GROUPS.map(g=>{
+    const v = groupWeight(g.id);
+    return `<div class="weight-row">
+      <span class="weight-label">${g.label}</span>
+      <input type="range" class="weight-slider" min="0.5" max="2" step="0.1" value="${v}"
+        oninput="setGroupWeight('${g.id}', this.value, true)"
+        onchange="setGroupWeight('${g.id}', this.value, false)">
+      <span class="weight-val" id="weightVal-${g.id}">${v.toFixed(1).replace('.', ',')}</span>
+    </div>`;
+  }).join('');
+};
+
+window.setGroupWeight = async function(groupId, value, liveOnly){
+  const v = Math.max(0.5, Math.min(2, parseFloat(value) || 1));
+  const s = ensureSettings();
+  if(!s.weights) s.weights = {};
+  s.weights[groupId] = Math.round(v*10)/10;
+  const lbl = document.getElementById('weightVal-'+groupId);
+  if(lbl) lbl.textContent = s.weights[groupId].toFixed(1).replace('.', ',');
+  if(liveOnly) return;          // sormi vielä säätimellä — ei tallenneta joka pikselillä
+  await window.fbSave();
+};
 
 let ratingsGroupOpenState = {};
 
@@ -3454,19 +3516,68 @@ function topHeroIcon(cat){
   return '⭐';
 }
 
+let topGenreFilter = null;
+
+const TOP_LIMITS = [5, 10, 25, 0];   // 0 = kaikki
+
+window.setTopLimit = async function(n){
+  ensureSettings().topLimit = n;
+  renderTop();
+  await window.fbSave();
+};
+
+window.setTopGenre = function(g){
+  topGenreFilter = (topGenreFilter === g) ? null : g;
+  renderTop();
+};
+
+function topControlsHtml(){
+  const limit = (appData.settings && appData.settings.topLimit != null) ? appData.settings.topLimit : 5;
+  const lenBtns = TOP_LIMITS.map(n=>`
+    <button type="button" class="top-len-btn ${n===limit?'active':''}" onclick="setTopLimit(${n})">${n === 0 ? 'Kaikki' : 'Top ' + n}</button>
+  `).join('');
+
+  // Vain genret joita todella esiintyy arvosteluissa
+  const used = new Set();
+  appData.reviews.forEach(r=>{
+    const g = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
+    g.forEach(x=>used.add(x));
+  });
+  const genres = GENRES.filter(g=>used.has(g));
+  const genreBtns = genres.length ? `<div class="top-genre-row">${
+    genres.map(g=>`<button type="button" class="filter-chip ${g===topGenreFilter?'active':''}" onclick="setTopGenre('${escJs(g)}')">${esc(g)}</button>`).join('')
+  }</div>` : '';
+
+  return `<div class="top-controls">${lenBtns}</div>${genreBtns}`;
+}
+
 window.renderTop = function(){
   const grid = document.getElementById('cardsGrid');
   grid.className = 'cards-grid';
   const medals = ['gold','silver','bronze'];
-  let html = '';
+  const limitSetting = (appData.settings && appData.settings.topLimit != null) ? appData.settings.topLimit : 5;
+  let html = topControlsHtml();
+  let anySection = false;
+
   appData.categories.forEach(cat=>{
-    const reviews = appData.reviews
+    let pool = appData.reviews
       .filter(r=>r.category===cat)
       .map(r=>({...r, finalScore: getReviewScore(r)}))
-      .filter(r=>r.finalScore!==null)
-      .sort((a,b)=>b.finalScore-a.finalScore)
-      .slice(0,5);
-    if(!reviews.length) return;
+      .filter(r=>r.finalScore!==null);
+
+    if(topGenreFilter){
+      pool = pool.filter(r=>{
+        const g = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
+        return g.includes(topGenreFilter);
+      });
+    }
+    if(!pool.length) return;
+    anySection = true;
+
+    const total = pool.length;
+    const avg = Math.round(pool.reduce((a,r)=>a+r.finalScore,0)/total);
+    const sorted = pool.sort((a,b)=>b.finalScore-a.finalScore);
+    const reviews = limitSetting === 0 ? sorted : sorted.slice(0, limitSetting);
 
     const top = reviews[0];
     const rest = reviews.slice(1);
@@ -3475,7 +3586,8 @@ window.renderTop = function(){
     const heroAttrs = hasPoster ? '' : `data-icon="${topHeroIcon(cat)}"`;
 
     html += `<div class="top-section">
-      <div class="top-section-title">🏆 ${esc(cat)}</div>
+      <div class="top-section-title">🏆 ${esc(cat)}${topGenreFilter?` · ${esc(topGenreFilter)}`:''}</div>
+      <div class="top-avg-line">${total} arvostelua · keskiarvo <strong>${avg}</strong>${limitSetting && total > limitSetting ? ` · näytetään ${limitSetting}` : ''}</div>
       <div class="top-hero-card ${hasPoster?'':'no-poster'}" ${heroStyle} ${heroAttrs} ondblclick="openReadModal(${top.id})">
         <span class="top-hero-crown">👑 #1</span>
         <div class="top-hero-content">
@@ -3498,7 +3610,12 @@ window.renderTop = function(){
       `).join('')}
     </div>`;
   });
-  grid.innerHTML = html || `<div class="empty-state"><div class="empty-icon">🏆</div><div class="empty-title">Ei arvosteluja vielä</div></div>`;
+  if(!anySection){
+    html += topGenreFilter
+      ? `<div class="top-empty-note">Ei arvosteluja genressä <strong>${esc(topGenreFilter)}</strong>.</div>`
+      : `<div class="empty-state"><div class="empty-icon">🏆</div><div class="empty-title">Ei arvosteluja vielä</div></div>`;
+  }
+  grid.innerHTML = html;
 };
 
 // ── BUDJETTI ──
@@ -4081,6 +4198,7 @@ window.openSettings = function(){
   renderGenreManage();
   renderAccentRow();
   renderPrecisionRow();
+  renderWeightRows();
   updatePosterColorToggle();
   renderTmdbStatus();
   renderBackupInfo();
