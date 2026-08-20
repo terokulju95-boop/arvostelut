@@ -210,6 +210,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .compare-vs{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--muted);flex-shrink:0;align-self:center;}
 .compare-result-box{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.35);border-radius:12px;padding:18px;text-align:center;}
 .compare-result-score{font-family:'Bebas Neue',sans-serif;font-size:42px;color:#4ade80;line-height:1;}
+.score-line{width:100%;height:auto;display:block;margin-top:10px;}
+.compare-change{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:6px;}
+.compare-change-old{font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--muted);text-decoration:line-through;}
+.compare-change-arrow{font-size:18px;color:var(--muted);}
+.compare-change-new{font-family:'Bebas Neue',sans-serif;font-size:44px;line-height:1;}
+.compare-change-new.score-high{color:#4ade80;}
+.compare-change-new.score-mid{color:#e8b84b;}
+.compare-change-new.score-low{color:#ff6b6b;}
+.precision-row{display:flex;gap:8px;margin-top:8px;}
+.precision-btn{flex:1;padding:11px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.precision-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+.precision-btn-sub{display:block;font-size:10px;font-weight:400;opacity:0.75;margin-top:2px;}
+.rerank-btn{width:100%;margin-top:12px;padding:13px;background:var(--acc-10);color:var(--accent);border:1px solid var(--acc-30);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.rerank-btn:active{background:var(--acc-20);}
 
 /* LAAJENNETTU ARVIOINTI (osa-arviot) */
 .ratings-section{margin-top:14px;}
@@ -902,6 +916,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
     </div>
     <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+      <label>Vertailun tarkkuus</label>
+      <div class="precision-row" id="precisionRow"></div>
+      <div class="toggle-row-sub" style="margin-top:6px;">Montako kysymystä vertailu esittää enintään. Enemmän kysymyksiä = tarkempi piste.</div>
+    </div>
+    <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
       <label>Korostusväri</label>
       <div class="accent-row" id="accentRow"></div>
       <div class="toggle-row">
@@ -1520,6 +1539,7 @@ function ensureSettings(){
   if(!appData.settings) appData.settings = {};
   if(!appData.settings.accent) appData.settings.accent = ACCENT_PRESETS[0].hex;
   if(appData.settings.posterColors == null) appData.settings.posterColors = true;
+  if(!appData.settings.precision) appData.settings.precision = 'normal';
   return appData.settings;
 }
 
@@ -2436,14 +2456,47 @@ window.openCompareTune = function(){
     tieScore: null,
     newTitle: { name, poster, category: cat }
   };
-  compareState.maxRounds = Math.min(4, Math.max(2, Math.ceil(Math.log2(candidates.length + 1))));
+  compareState.maxRounds = duelRounds(candidates.length);
   showNextCompareRound();
+};
+
+// Kysymysten enimmäismäärä: käyttäjän valitsema tarkkuus, rajattuna siihen
+// mitä binäärihaku ylipäätään tarvitsee (log2 kandidaattien määrästä).
+const PRECISION_LEVELS = [
+  { id:'quick',   rounds:3, label:'Nopea',   sub:'3 kysymystä' },
+  { id:'normal',  rounds:5, label:'Normaali', sub:'5 kysymystä' },
+  { id:'precise', rounds:7, label:'Tarkka',  sub:'7 kysymystä' }
+];
+
+function duelRounds(candidateCount){
+  const id = (appData.settings && appData.settings.precision) || 'normal';
+  const lvl = PRECISION_LEVELS.find(p=>p.id===id) || PRECISION_LEVELS[1];
+  // Binäärihaku tarvitsee log2(n) kysymystä; pienissä joukoissa ei ylimääräistä puskuria
+  const needed = Math.ceil(Math.log2(candidateCount + 1)) + (candidateCount >= 6 ? 1 : 0);
+  return Math.max(2, Math.min(lvl.rounds, needed));
+}
+
+window.renderPrecisionRow = function(){
+  const el = document.getElementById('precisionRow');
+  if(!el) return;
+  const cur = (ensureSettings().precision) || 'normal';
+  el.innerHTML = PRECISION_LEVELS.map(p=>`
+    <button type="button" class="precision-btn ${p.id===cur?'active':''}" onclick="setPrecision('${p.id}')">
+      ${p.label}<span class="precision-btn-sub">${p.sub}</span>
+    </button>
+  `).join('');
+};
+
+window.setPrecision = async function(id){
+  ensureSettings().precision = id;
+  window.renderPrecisionRow();
+  await window.fbSave();
 };
 
 function showNextCompareRound(){
   const st = compareState;
   if(!st) return;
-  if(st.mode === 'tune'){
+  if(st.mode === 'tune' || st.mode === 'replace'){
     if(st.tieScore !== null || st.round >= st.maxRounds || st.hiIdx - st.loIdx <= 1){
       finishCompareTuning();
       return;
@@ -2455,6 +2508,7 @@ function showNextCompareRound(){
       : Math.floor((st.loIdx + st.hiIdx) / 2);
     st.currentProbeIdx = probeIdx;
     renderCompareDuel(st.newTitle, st.candidates[probeIdx], st.round + 1, st.maxRounds);
+    return;
   } else if(st.mode === 'daily'){
     renderCompareDuel(st.itemA, st.itemB, null, null);
   }
@@ -2498,7 +2552,7 @@ function renderCompareDuel(left, right, roundNum, maxRounds){
 window.compareChoose = function(side){
   const st = compareState;
   if(!st) return;
-  if(st.mode === 'tune'){
+  if(st.mode === 'tune' || st.mode === 'replace'){
     const idx = st.currentProbeIdx;
     if(side === 'a') st.loIdx = idx;
     else if(side === 'b') st.hiIdx = idx;
@@ -2515,21 +2569,70 @@ window.compareChoose = function(side){
 window.compareSkip = function(){
   closeModal('compareModal');
   compareState = null;
+  window._rerankPending = null;
 };
+
+// Laskee ehdotetun pisteen ja kertoo mihin väliin se osui
+function computeCompareResult(st){
+  const lowerItem = st.loIdx >= 0 ? st.candidates[st.loIdx] : null;
+  const upperItem = st.hiIdx < st.candidates.length ? st.candidates[st.hiIdx] : null;
+  const lower = lowerItem ? lowerItem.finalScore : null;
+  const upper = upperItem ? upperItem.finalScore : null;
+  let suggested;
+  if(st.tieScore !== null){
+    suggested = st.tieScore;
+  } else if(lower != null && upper != null){
+    suggested = Math.round((lower + upper) / 2);
+  } else if(lower != null){
+    suggested = Math.min(100, lower + 5);
+  } else if(upper != null){
+    suggested = Math.max(0, upper - 5);
+  } else {
+    suggested = 50;
+  }
+  return { suggested, lowerItem, upperItem };
+}
+
+// Vaakajana joka näyttää mihin uusi piste asettuu naapureidensa väliin
+function buildScoreLine(value, lowerItem, upperItem){
+  const W = 300, PAD = 10;
+  const x = v => PAD + (Math.max(0, Math.min(100, v)) / 100) * (W - 2*PAD);
+  const y = 46;
+  const short = s => {
+    const t = String(s || '');
+    return t.length > 16 ? t.slice(0, 15) + '…' : t;
+  };
+  const anchorFor = px => px < 55 ? 'start' : (px > W - 55 ? 'end' : 'middle');
+
+  let marks = '';
+  [[lowerItem, 'alle'], [upperItem, 'yli']].forEach(pair => {
+    const it = pair[0];
+    if(!it) return;
+    const px = x(it.finalScore);
+    marks += `<line x1="${px}" y1="${y-6}" x2="${px}" y2="${y+6}" stroke="var(--muted)" stroke-width="1.5"/>
+      <text x="${px}" y="${y+20}" font-size="9.5" fill="var(--muted)" text-anchor="${anchorFor(px)}">${esc(short(plainName(it)))} ${it.finalScore}</text>`;
+  });
+
+  const vx = x(value);
+  return `<svg class="score-line" viewBox="0 0 ${W} 66" xmlns="http://www.w3.org/2000/svg">
+    <rect x="${PAD}" y="${y-3}" width="${(W-2*PAD)*0.4}" height="6" rx="3" fill="#ff6b6b" opacity="0.28"/>
+    <rect x="${PAD+(W-2*PAD)*0.4}" y="${y-3}" width="${(W-2*PAD)*0.3}" height="6" rx="0" fill="#e8b84b" opacity="0.28"/>
+    <rect x="${PAD+(W-2*PAD)*0.7}" y="${y-3}" width="${(W-2*PAD)*0.3}" height="6" rx="3" fill="#4ade80" opacity="0.28"/>
+    ${marks}
+    <line x1="${vx}" y1="${y-16}" x2="${vx}" y2="${y+8}" stroke="var(--accent)" stroke-width="2"/>
+    <circle cx="${vx}" cy="${y}" r="5" fill="var(--accent)"/>
+    <text x="${vx}" y="${y-21}" font-size="18" font-family="'Bebas Neue',sans-serif" fill="var(--accent)" text-anchor="${anchorFor(vx)}">${value}</text>
+  </svg>`;
+}
 
 function finishCompareTuning(){
   const st = compareState;
   if(!st) return;
-  let suggested;
-  if(st.tieScore !== null){
-    suggested = st.tieScore;
-  } else {
-    const lower = st.loIdx >= 0 ? st.candidates[st.loIdx].finalScore : null;
-    const upper = st.hiIdx < st.candidates.length ? st.candidates[st.hiIdx].finalScore : null;
-    if(lower != null && upper != null) suggested = Math.round((lower+upper)/2);
-    else if(lower != null) suggested = Math.min(100, lower + 5);
-    else if(upper != null) suggested = Math.max(0, upper - 5);
-    else suggested = 50;
+  const res = computeCompareResult(st);
+  const suggested = res.suggested;
+  if(st.mode === 'replace'){
+    finishCompareReplace(st, res);
+    return;
   }
   compareState = null;
   window._compareSuggestedScore = suggested;
@@ -2548,11 +2651,87 @@ function finishCompareTuning(){
   resultArea.innerHTML = `<div class="compare-result-box">
     <div class="compare-result-score">${finalVal}</div>
     <div style="font-size:13px;color:var(--muted);margin-top:4px;">${hasRatings ? 'yhdistetty piste (vertailu + osa-arviot)' : 'pistettä ehdotettu vertailun perusteella'}</div>
+    ${buildScoreLine(Number(finalVal), res.lowerItem, res.upperItem)}
   </div>`;
   document.getElementById('compareTieBtn').style.display = 'none';
   document.getElementById('compareSkipBtn').textContent = 'Sulje';
   document.getElementById('compareModal').classList.add('open');
 }
+
+// ── SIJOITA LISTALLE: vanhan arvostelun pisteen tarkistus ──
+window.openRerank = function(id){
+  const r = appData.reviews.find(x => x.id === id);
+  if(!r) return;
+  const own = (!r.tvType || r.tvType === 'kokonaisuus') ? r.score : null;
+  if(own == null){ alert('Tämä toimii vain arvosteluille joilla on oma piste.'); return; }
+  const genres = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
+  const { list, genreFiltered } = getComparisonCandidates(r.category, genres, r.id);
+  if(list.length < 2){ alert('Tarvitset vähintään kaksi muuta arvostelua vertailua varten.'); return; }
+  const candidates = list.slice().sort((a,b)=>a.finalScore-b.finalScore);
+
+  closeModal('readModal');
+  compareState = {
+    mode: 'replace',
+    reviewId: id,
+    oldScore: own,
+    category: r.category,
+    genreFiltered,
+    candidates,
+    loIdx: -1,
+    hiIdx: candidates.length,
+    round: 0,
+    tieScore: null,
+    newTitle: { name: plainName(r), year: r.year, poster: r.poster || null, category: r.category }
+  };
+  compareState.maxRounds = duelRounds(candidates.length);
+  setTimeout(showNextCompareRound, 250);
+};
+
+function finishCompareReplace(st, res){
+  const id = st.reviewId;
+  const oldScore = st.oldScore;
+  const suggested = res.suggested;
+  compareState = null;
+  window._rerankPending = { id, oldScore, suggested };
+
+  const diff = suggested - oldScore;
+  const diffText = diff === 0 ? 'Piste pysyi samana.'
+    : diff > 0 ? `Nousee ${diff} pistettä.`
+    : `Laskee ${Math.abs(diff)} pistettä.`;
+
+  document.getElementById('compareModalTitle').textContent = '⚖️ Uusi sijoitus';
+  document.getElementById('compareModalSub').textContent = diffText;
+  document.getElementById('compareDuelArea').style.display = 'none';
+  const resultArea = document.getElementById('compareResultArea');
+  resultArea.style.display = 'block';
+  resultArea.innerHTML = `<div class="compare-result-box" style="background:var(--acc-10);border-color:var(--acc-30);">
+    <div class="compare-change">
+      <span class="compare-change-old">${oldScore}</span>
+      <span class="compare-change-arrow">→</span>
+      <span class="compare-change-new ${scoreClass(suggested)}">${suggested}</span>
+    </div>
+    ${buildScoreLine(suggested, res.lowerItem, res.upperItem)}
+  </div>
+  <button type="button" class="btn-primary" style="width:100%;margin-top:14px;padding:14px;border-radius:12px;" onclick="applyRerank()">Tallenna uusi piste</button>`;
+  document.getElementById('compareTieBtn').style.display = 'none';
+  document.getElementById('compareSkipBtn').textContent = 'Pidä vanha';
+  document.getElementById('compareModal').classList.add('open');
+}
+
+window.applyRerank = async function(){
+  const p = window._rerankPending;
+  window._rerankPending = null;
+  if(!p) return;
+  const r = appData.reviews.find(x => x.id === p.id);
+  if(r){
+    if(!Array.isArray(r.scoreHistory)) r.scoreHistory = [];
+    r.scoreHistory.push({ score: p.oldScore, date: new Date().toISOString() });
+    r.score = p.suggested;
+  }
+  closeModal('compareModal');
+  await window.fbSave();
+  renderCards();
+};
 
 // ── PÄIVÄN VERTAILU (kalibroinnin tarkistus sovelluksen avautuessa) ──
 function pickDailyDuelPair(){
@@ -3901,6 +4080,7 @@ window.openSettings = function(){
   renderCatManage();
   renderGenreManage();
   renderAccentRow();
+  renderPrecisionRow();
   updatePosterColorToggle();
   renderTmdbStatus();
   renderBackupInfo();
@@ -4078,6 +4258,16 @@ window.openReadModal = function(id){
       <div class="read-value">📅 ${dateStr}</div>
     </div>`:''}
   `;
+  // "Tarkista sijoitus" vain jos arvostelulla on oma piste ja vertailtavia löytyy
+  const rrHost = document.getElementById('readModalContent');
+  const ownScore = (!r.tvType || r.tvType === 'kokonaisuus') ? r.score : null;
+  if(ownScore != null && ratingsEligible(r.category)){
+    const cand = getComparisonCandidates(r.category, Array.isArray(r.genre)?r.genre:(r.genre?[r.genre]:[]), r.id);
+    if(cand.list.length >= 2){
+      rrHost.insertAdjacentHTML('beforeend',
+        `<button type="button" class="rerank-btn" onclick="openRerank(${id})">⚖️ Tarkista sijoitus</button>`);
+    }
+  }
   document.getElementById('readEditBtn').setAttribute('onclick', `closeModal('readModal'); editReviewWithFlip(${id})`);
   document.getElementById('readModal').classList.add('open');
 };
