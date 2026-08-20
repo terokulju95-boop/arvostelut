@@ -100,6 +100,36 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 /* KORTIT */
 .cards-grid{display:flex;flex-direction:column;gap:12px;}
+
+/* NÄKYMÄTILA: RUUDUKKO */
+.cards-grid.mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.poster-tile{position:relative;cursor:pointer;animation:cardSlideIn 0.35s ease both;}
+.poster-tile:active{transform:scale(0.97);}
+.tile-img{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:10px;background:var(--card);border:1px solid var(--border);display:block;}
+.tile-noimg{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:26px;padding:8px;text-align:center;}
+.tile-noimg-name{font-family:'Bebas Neue',sans-serif;font-size:14px;line-height:1.1;color:var(--muted);letter-spacing:0.5px;}
+.poster-tile.is-fav .tile-img{border-color:rgba(255,100,130,0.55);box-shadow:0 0 0 1px rgba(255,100,130,0.3);}
+.tile-score{position:absolute;top:5px;right:5px;min-width:28px;padding:1px 5px;border-radius:7px;background:rgba(8,10,18,0.88);font-family:'Bebas Neue',sans-serif;font-size:16px;text-align:center;line-height:1.35;backdrop-filter:blur(3px);}
+.tile-score.score-high{color:#4ade80;}
+.tile-score.score-mid{color:#e8b84b;}
+.tile-score.score-low{color:#ff6b6b;}
+.tile-mark{position:absolute;top:5px;left:5px;font-size:13px;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.8));}
+.tile-name{font-size:11px;line-height:1.25;margin-top:5px;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:600;}
+.tile-year{color:var(--muted);font-weight:400;}
+
+/* NÄKYMÄTILA: KOMPAKTI LISTA */
+.cards-grid.mode-list{display:flex;flex-direction:column;gap:0;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.list-row{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--border);cursor:pointer;min-height:46px;}
+.list-row:last-child{border-bottom:none;}
+.list-row:active{background:rgba(232,184,75,0.08);}
+.list-icon{font-size:15px;flex-shrink:0;width:20px;text-align:center;}
+.list-name{flex:1;min-width:0;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.list-year{color:var(--muted);font-weight:400;font-size:13px;}
+.list-date{font-size:11px;color:var(--muted);flex-shrink:0;}
+.list-score{font-family:'Bebas Neue',sans-serif;font-size:20px;min-width:32px;text-align:right;flex-shrink:0;}
+.list-score.score-high{color:#4ade80;}
+.list-score.score-mid{color:#e8b84b;}
+.list-score.score-low{color:#ff6b6b;}
 .review-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;position:relative;overflow:hidden;transition:border-color 0.2s, box-shadow 0.3s;}
 .review-card::after{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.03) 1px,transparent 1px);background-size:18px 18px;pointer-events:none;border-radius:14px;}
 .review-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--accent);border-radius:4px 0 0 4px;}
@@ -121,7 +151,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .card-score.score-low{color:var(--accent2);}
 .card-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
 .meta-chip{padding:3px 10px;border-radius:10px;font-size:12px;font-weight:600;background:rgba(255,255,255,0.07);}
-.card-note{font-size:14px;color:var(--muted);line-height:1.5;margin-top:6px;}
+.card-note{font-size:14px;color:var(--text);line-height:1.5;margin-top:6px;font-weight:600;}
 .card-note.collapsed{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .card-plot{font-size:13px;color:rgba(240,240,245,0.5);line-height:1.5;margin-top:8px;font-style:italic;padding-left:10px;border-left:2px solid var(--border);}
 .card-plot.collapsed{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
@@ -464,7 +494,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .md-btn:active{background:var(--accent);color:var(--bg);border-color:var(--accent);}
 .md-btn.md-i{font-style:italic;font-weight:500;}
 .md-hint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.4;}
-.card-note strong,.read-value strong,.tv-part-note strong{color:var(--text);font-weight:700;}
+.card-note strong,.read-note strong,.tv-part-note strong{color:var(--accent);font-weight:800;}
+.read-note{font-weight:600;}
+.tv-part-note{font-weight:600;}
 .card-note em,.read-value em,.tv-part-note em{font-style:italic;}
 .md-strike{text-decoration:line-through;opacity:0.6;}
 .md-list{margin:4px 0 4px 0;padding-left:18px;}
@@ -557,6 +589,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <input type="text" id="searchInput" placeholder="Hae nimellä..." oninput="renderCards()">
     </div>
     <button class="filter-btn" id="filterToggleBtn" onclick="toggleFilter()">⚡</button>
+    <button class="sort-btn" onclick="cycleViewMode()" id="viewModeBtn" title="Näkymä">🗂️</button>
     <button class="sort-btn" onclick="cycleSort()" id="sortBtn" title="Järjestys">↕️</button>
   </div>
 
@@ -1167,6 +1200,7 @@ function initApp(){
   renderCatTabs();
   renderGenreFilters();
   renderYearFilters();
+  if(window.updateViewModeBtn) window.updateViewModeBtn();
   renderAll();
   window.maybeShowDailyDuel();
 }
@@ -1567,6 +1601,79 @@ function catType(cat){
 }
 
 // ── KORTIT ──
+// ── NÄKYMÄTILA: kortti / ruudukko / lista ──
+let viewMode = 'cards';
+try { viewMode = localStorage.getItem('arvostelut_viewMode') || 'cards'; } catch(e){}
+
+const VIEW_MODES = [
+  { id:'cards', icon:'🗂️', label:'Kortit' },
+  { id:'grid',  icon:'▦',  label:'Ruudukko' },
+  { id:'list',  icon:'☰',  label:'Lista' }
+];
+
+window.updateViewModeBtn = function(){
+  const btn = document.getElementById('viewModeBtn');
+  if(!btn) return;
+  const m = VIEW_MODES.find(v=>v.id===viewMode) || VIEW_MODES[0];
+  btn.textContent = m.icon;
+  btn.title = 'Näkymä: ' + m.label;
+};
+
+window.cycleViewMode = function(){
+  const i = VIEW_MODES.findIndex(v=>v.id===viewMode);
+  viewMode = VIEW_MODES[(i+1) % VIEW_MODES.length].id;
+  try { localStorage.setItem('arvostelut_viewMode', viewMode); } catch(e){}
+  window.updateViewModeBtn();
+  const m = VIEW_MODES.find(v=>v.id===viewMode);
+  const el = document.getElementById('saveStatus');
+  if(el){
+    el.textContent = m.icon + ' ' + m.label;
+    el.style.background='#333'; el.style.color='white'; el.style.opacity='1';
+    setTimeout(()=>el.style.opacity='0', 1500);
+  }
+  renderCards();
+};
+
+function catEmoji(cat){
+  if(cat==='Elokuvat') return '🎬';
+  if(cat==='TV-sarjat') return '📺';
+  if(cat==='Ruuat') return '🍽️';
+  if(cat==='Juomat') return '🥤';
+  return '⭐';
+}
+
+// Ruudukkotila: pelkkä juliste + pistepallo
+function renderPosterTile(r, idx){
+  const score = getReviewScore(r);
+  const cls = score!=null ? scoreClass(score) : '';
+  const name = plainName(r);
+  const img = r.poster
+    ? `<img class="tile-img" src="https://image.tmdb.org/t/p/w342${r.poster}" alt="" loading="lazy">`
+    : `<div class="tile-img tile-noimg">${catEmoji(r.category)}<span class="tile-noimg-name">${esc(name)}</span></div>`;
+  const mark = r.mark==='heart' ? '<div class="tile-mark">❤️</div>'
+             : r.mark==='skull' ? '<div class="tile-mark">💀</div>' : '';
+  return `<div class="poster-tile ${r.mark==='heart'?'is-fav':''}" style="animation-delay:${Math.min(idx*0.03,0.4)}s" onclick="openReadModal(${r.id})">
+    ${img}
+    ${score!=null?`<div class="tile-score ${cls}">${score}</div>`:''}
+    ${mark}
+    <div class="tile-name">${esc(name)}${r.year?` <span class="tile-year">${r.year}</span>`:''}</div>
+  </div>`;
+}
+
+// Listatila: yksi rivi per arvostelu
+function renderListRow(r){
+  const score = getReviewScore(r);
+  const cls = score!=null ? scoreClass(score) : '';
+  const dateStr = r.date ? new Date(r.date).toLocaleDateString('fi-FI') : '';
+  const mark = r.mark==='heart' ? ' ❤️' : r.mark==='skull' ? ' 💀' : '';
+  return `<div class="list-row" onclick="openReadModal(${r.id})">
+    <span class="list-icon">${catEmoji(r.category)}</span>
+    <span class="list-name">${esc(plainName(r))}${r.year?` <span class="list-year">${r.year}</span>`:''}${mark}</span>
+    <span class="list-date">${dateStr}</span>
+    <span class="list-score ${cls}">${score!=null?score:'–'}</span>
+  </div>`;
+}
+
 window.renderCards = function(){
   const searchEl = document.getElementById('searchInput');
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
@@ -1601,7 +1708,19 @@ window.renderCards = function(){
 
   const grid = document.getElementById('cardsGrid');
   if(!reviews.length){
+    grid.className = 'cards-grid';
     grid.innerHTML=`<div class="empty-state"><div class="empty-icon">🎬</div><div class="empty-title">Ei arvosteluja vielä</div></div>`;
+    return;
+  }
+
+  grid.className = 'cards-grid' + (viewMode==='grid' ? ' mode-grid' : viewMode==='list' ? ' mode-list' : '');
+
+  if(viewMode==='grid'){
+    grid.innerHTML = reviews.map((r,idx)=>renderPosterTile(r,idx)).join('');
+    return;
+  }
+  if(viewMode==='list'){
+    grid.innerHTML = reviews.map(r=>renderListRow(r)).join('');
     return;
   }
 
@@ -1716,7 +1835,7 @@ window.renderCards = function(){
     if(r.country) extraInfo.push(`🌍 ${esc(r.country)}`);
     if(r.cast && r.cast.length) extraInfo.push(`🎭 ${esc(r.cast.slice(0,3).join(', '))}`);
     const tmdbScoreHtml = r.tmdb_score ? `<span class="tmdb-score-compare">⭐ TMDB ${r.tmdb_score}</span>` : '';
-    return `<div class="review-card type-${typeClass} ${scoreCardCls} ${favCls}" style="animation-delay:${idx*0.06}s" ondblclick="openReadModal(${r.id})">
+    return `<div class="review-card type-${typeClass} ${scoreCardCls} ${favCls}" style="animation-delay:${Math.min(idx*0.06,0.5)}s" ondblclick="openReadModal(${r.id})">
       ${posterBg}
       <div class="card-top">
         <div class="card-title">${escNl(r.name)}${r.year?` <span class="card-year">${r.year}</span>`:''}</div>
@@ -2912,6 +3031,7 @@ function topHeroIcon(cat){
 
 window.renderTop = function(){
   const grid = document.getElementById('cardsGrid');
+  grid.className = 'cards-grid';
   const medals = ['gold','silver','bronze'];
   let html = '';
   appData.categories.forEach(cat=>{
@@ -3092,6 +3212,7 @@ window.calcBudgetRange = function(){
 
 window.renderBudget = function(){
   const grid = document.getElementById('cardsGrid');
+  grid.className = 'cards-grid';
   if(!appData.budget) appData.budget = { monthlyPrice: 26.90, periods: [] };
   const periods = [...appData.budget.periods].sort((a,b)=> new Date(b.startDate) - new Date(a.startDate));
   const open = getOpenPeriod();
@@ -3702,7 +3823,7 @@ window.openReadModal = function(id){
     </div>`:''}
     ${r.note?`<div class="read-section">
       <div class="read-label">Arvostelu</div>
-      <div class="read-value">${mdText(r.note)}</div>
+      <div class="read-value read-note">${mdText(r.note)}</div>
     </div>`:''}
     ${dateStr?`<div class="read-section">
       <div class="read-label">Päivämäärä</div>
