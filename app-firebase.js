@@ -12,9 +12,10 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import {
-  getFirestore, doc, getDoc, setDoc, getDocs, collection,
+  getFirestore, doc, getDoc, setDoc, collection,
   onSnapshot, writeBatch, updateDoc
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+const FIRESTORE_URL = "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -27,18 +28,51 @@ const firebaseConfig = {
 };
 
 const fbApp = initializeApp(firebaseConfig);
-const db = getFirestore(fbApp);
 const auth = getAuth(fbApp);
 
-const OLD_DOC   = doc(db, "arvostelut", "data");
-const META_DOC  = doc(db, "arvostelut", "meta");
-const REVIEWS   = collection(db, "arvostelut", "meta", "reviews");
 const SCHEMA    = 2;
 const BATCH_MAX = 400;   // Firestoren raja on 500 operaatiota per erä
 
+// Nämä syntyvät vasta initDb():ssä, koska tietokannan asetukset on
+// annettava ennen ensimmäistä käyttöä.
+let db = null, OLD_DOC = null, META_DOC = null, REVIEWS = null;
+window._fbCacheMode = 'tuntematon';
+
+// Yrittää ottaa käyttöön pysyvän paikallisen välimuistin (IndexedDB).
+// Sen ansiosta sovelluksen avaus lukee arvostelut levyltä ja pyytää
+// palvelimelta vain muuttuneet — muuten jokainen avaus lukisi kaikki
+// dokumentit uudelleen ja söisi ilmaisen tason päivittäistä lukukiintiötä.
+//
+// Käyttö on suojattu: jos SDK ei tunne näitä funktioita, palataan
+// tavalliseen muistinvaraiseen tilaan eikä mikään hajoa.
+async function initDb(){
+  if(db) return db;
+  try{
+    const fs = await import(FIRESTORE_URL);
+    if(typeof fs.initializeFirestore === 'function' && typeof fs.persistentLocalCache === 'function'){
+      const cacheOpts = (typeof fs.persistentMultipleTabManager === 'function')
+        ? { tabManager: fs.persistentMultipleTabManager() }
+        : {};
+      db = fs.initializeFirestore(fbApp, { localCache: fs.persistentLocalCache(cacheOpts) });
+      window._fbCacheMode = 'pysyvä';
+    }
+  } catch(e){
+    // Selain voi estää IndexedDB:n (esim. yksityinen selaus) — ei kaadeta sovellusta
+  }
+  if(!db){
+    db = getFirestore(fbApp);
+    window._fbCacheMode = 'muisti';
+  }
+  OLD_DOC  = doc(db, "arvostelut", "data");
+  META_DOC = doc(db, "arvostelut", "meta");
+  REVIEWS  = collection(db, "arvostelut", "meta", "reviews");
+  return db;
+}
+
 let isSaving = false;
 let saveQueued = false;
-let listenersReady = false;
+let reviewListenerReady = false;
+let metaListenerReady = false;
 
 // Viimeksi pilveen kirjoitettu tila. Näiden avulla tiedetään mikä on muuttunut,
 // jottei jokaisella tallennuksella kirjoiteta kaikkia arvosteluja uudelleen.
@@ -135,6 +169,7 @@ function rememberSaved(){
 window.fbSave = async function(){
   if(isSaving){ saveQueued = true; return; }
   isSaving = true;
+  if(!db) await initDb();
 
   try{
     localStorage.setItem('arvostelut_bkp', JSON.stringify(appData));
@@ -247,16 +282,19 @@ async function migrateFromOldDoc(oldData){
 
 // ── LATAUS ──
 async function fbLoad(){
+  await initDb();
   let loaded = false;
 
   try{
     const metaSnap = await getDoc(META_DOC);
 
     if(metaSnap.exists() && metaSnap.data().schema >= SCHEMA){
-      // Uusi rakenne
-      const revSnap = await getDocs(REVIEWS);
-      const reviews = revSnap.docs.map(d => d.data()).filter(Boolean);
-      appData = assembleAppData(metaSnap.data(), reviews);
+      // Uusi rakenne.
+      // Arvosteluja EI haeta erikseen getDocs-kutsulla: kuuntelijan ensimmäinen
+      // tilannekuva sisältää saman datan, joten erillinen haku maksaisi
+      // jokaisen dokumentin lukuna kahteen kertaan.
+      appData = assembleAppData(metaSnap.data(), []);
+      await startReviewListener();
       loaded = true;
     } else {
       // Vanha rakenne → siirretään uuteen
@@ -268,6 +306,7 @@ async function fbLoad(){
         oldData.reviews = reviews;
         appData = oldData;
         loaded = true;
+        await startReviewListener();
       }
     }
   } catch(e){
@@ -302,46 +341,72 @@ async function fbLoad(){
     await window.fbSave();
   }
 
-  startListeners();
+  startMetaListener();
+  if(!reviewListenerReady) startReviewListener();   // esim. yhteysvirheen jälkeen
 }
 
 // ── REAALIAIKAINEN SEURANTA ──
-function startListeners(){
-  if(listenersReady) return;
-  listenersReady = true;
+// Arvostelukuuntelijan ENSIMMÄINEN tilannekuva toimii samalla ensilatauksena.
+// Palautettu lupaus ratkeaa kun data on muistissa (tai aikakatkaisun jälkeen,
+// jottei sovellus jää roikkumaan jos verkko ei vastaa).
+function startReviewListener(){
+  if(reviewListenerReady) return Promise.resolve();
+  reviewListenerReady = true;
 
-  onSnapshot(REVIEWS, snap => {
-    // Omat kirjoitukset kaikuvat takaisin — ne ohitetaan
-    if(snap.metadata.hasPendingWrites) return;
-    let changed = false;
+  return new Promise(resolve => {
+    let first = true;
+    const finishFirst = () => { if(first){ first = false; resolve(); } };
+    const timer = setTimeout(finishFirst, 8000);
 
-    snap.docChanges().forEach(ch => {
-      const data = ch.doc.data();
-      const id = ch.doc.id;
-      if(!appData.reviews) appData.reviews = [];
-      const idx = appData.reviews.findIndex(r => String(r.id) === id);
-
-      if(ch.type === 'removed'){
-        if(idx > -1){ appData.reviews.splice(idx, 1); changed = true; }
-        lastSavedReviews.delete(id);
-      } else {
-        const js = JSON.stringify(data);
-        if(idx > -1){
-          if(JSON.stringify(appData.reviews[idx]) !== js){ appData.reviews[idx] = data; changed = true; }
-        } else {
-          appData.reviews.push(data); changed = true;
-        }
-        lastSavedReviews.set(id, js);
+    onSnapshot(REVIEWS, snap => {
+      if(first){
+        clearTimeout(timer);
+        appData.reviews = snap.docs.map(d => d.data()).filter(Boolean);
+        first = false;
+        resolve();
+        return;
       }
-    });
 
-    if(changed){
-      if(window.migrateYearField) window.migrateYearField();
-      renderAll();
-    }
-  }, err => {
-    showStatus('⚠️ Synkronointi katkesi','#f59e0b', 4000);
+      // Omat kirjoitukset kaikuvat takaisin — ne ohitetaan
+      if(snap.metadata.hasPendingWrites) return;
+      let changed = false;
+
+      snap.docChanges().forEach(ch => {
+        const data = ch.doc.data();
+        const id = ch.doc.id;
+        if(!appData.reviews) appData.reviews = [];
+        const idx = appData.reviews.findIndex(r => String(r.id) === id);
+
+        if(ch.type === 'removed'){
+          if(idx > -1){ appData.reviews.splice(idx, 1); changed = true; }
+          lastSavedReviews.delete(id);
+        } else {
+          const js = JSON.stringify(data);
+          if(idx > -1){
+            if(JSON.stringify(appData.reviews[idx]) !== js){ appData.reviews[idx] = data; changed = true; }
+          } else {
+            appData.reviews.push(data); changed = true;
+          }
+          lastSavedReviews.set(id, js);
+        }
+      });
+
+      if(changed){
+        if(window.migrateYearField) window.migrateYearField();
+        renderAll();
+      }
+    }, err => {
+      clearTimeout(timer);
+      reviewListenerReady = false;
+      showStatus('⚠️ Synkronointi katkesi','#f59e0b', 4000);
+      finishFirst();
+    });
   });
+}
+
+function startMetaListener(){
+  if(metaListenerReady) return;
+  metaListenerReady = true;
 
   onSnapshot(META_DOC, snap => {
     if(!snap.exists() || snap.metadata.hasPendingWrites) return;
@@ -350,11 +415,14 @@ function startListeners(){
     appData.genres     = m.genres || appData.genres;
     appData.budget     = m.budget || appData.budget;
     appData.settings   = m.settings || appData.settings;
+    // Täydennä oletusasetukset ENNEN vertailuarvon laskentaa, muutoin
+    // ne näyttäisivät muutokselta ja aiheuttaisivat turhan kirjoituksen.
+    try{ if(typeof ensureSettings === 'function') ensureSettings(); } catch(e){}
     lastSavedMeta = JSON.stringify(metaObject());
     if(typeof GENRES !== 'undefined') GENRES = [...(appData.genres||[])];
     if(appData.settings && appData.settings.accent && window.applyAccent) window.applyAccent(appData.settings.accent);
     renderAll();
-  }, err => {});
+  }, err => { metaListenerReady = false; });
 }
 
 // KIRJAUTUMINEN

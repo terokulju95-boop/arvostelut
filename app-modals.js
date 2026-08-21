@@ -517,7 +517,10 @@ function renderBackupInfo(){
             + (pct >= 50 ? `<br><span style="color:var(--accent2);">⚠️ Lähestyy 1 Mt:n rajaa (${pct} %).</span>` : '');
     } catch(e){}
   }
-  el.innerHTML = `${st.reviews} arvostelua · ${st.kb} kt yhteensä${extra}`;
+  const cache = window._fbCacheMode === 'pysyvä'
+    ? '<br><span style="color:var(--muted);">Paikallinen välimuisti käytössä</span>'
+    : '';
+  el.innerHTML = `${st.reviews} arvostelua · ${st.kb} kt yhteensä${extra}${cache}`;
 }
 
 window.downloadBackup = function(){
