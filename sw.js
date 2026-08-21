@@ -1,7 +1,7 @@
 // ── ARVOSTELUT – SERVICE WORKER ──
 // TÄRKEÄÄ: nosta VERSION-numeroa aina kun muutat index.html:ää tai muita tiedostoja.
 // Muuten Android-puhelimen PWA voi tarjoilla vanhaa versiota välimuistista.
-const VERSION = 9;
+const VERSION = 10;
 
 const SHELL_CACHE = `arvostelut-shell-v${VERSION}`;
 const IMG_CACHE   = 'tmdb-img-v1';   // julisteet <img>-tagista (no-cors)
@@ -14,6 +14,11 @@ const KEEP = [SHELL_CACHE, IMG_CACHE, IMG_CORS_CACHE, API_CACHE];
 const ASSETS = [
   './',
   './index.html',
+  './style.css',
+  './app-core.js',
+  './app-views.js',
+  './app-modals.js',
+  './app-firebase.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -181,13 +186,17 @@ self.addEventListener('fetch', e => {
 
   // 8. Oma sovellus
   if (url.origin === self.location.origin) {
-    // Sivun lataus → network-first, jotta GitHubiin pusketut muutokset
-    // näkyvät heti kun verkko toimii. Offline-tilassa välimuisti.
-    if (req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/')) {
+    // Sivu, skriptit ja tyylit → network-first, jotta GitHubiin pusketut
+    // muutokset näkyvät heti. Offline-tilassa käytetään välimuistia.
+    // TÄRKEÄÄ: js ja css ovat samaa kokonaisuutta kuin index.html — jos niitä
+    // tarjoiltaisiin välimuistista, sivu voisi saada uuden HTML:n ja vanhan JS:n.
+    const p = url.pathname;
+    if (req.mode === 'navigate' || p.endsWith('.html') || p.endsWith('/') ||
+        p.endsWith('.js') || p.endsWith('.css')) {
       e.respondWith(networkFirst(req, SHELL_CACHE));
       return;
     }
-    // Muut omat tiedostot (ikonit, manifest, tulevat js/css) → cache-first
+    // Muut omat tiedostot (ikonit, manifest) → cache-first
     e.respondWith(
       cacheFirst(req, SHELL_CACHE).catch(() => caches.match(req).then(r => r || new Response('', { status: 504 })))
     );
