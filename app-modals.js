@@ -506,11 +506,18 @@ function renderBackupInfo(){
   const el = document.getElementById('backupInfo');
   if(!el) return;
   const st = backupStats();
-  const pct = Math.round(st.bytes / (1024*1024) * 100);
-  const warn = pct >= 70
-    ? `<br><span style="color:var(--accent2);">⚠️ Firestoren yhden dokumentin raja on 1 Mt — käytössä ${pct} %.</span>`
-    : '';
-  el.innerHTML = `${st.reviews} arvostelua · ${st.kb} kt (${pct} % 1 Mt:n rajasta)${warn}`;
+  // Uudessa rakenteessa 1 Mt:n raja koskee yhtä arvostelua, ei koko dataa
+  let extra = '';
+  if(window.fbSizeInfo){
+    try{
+      const info = window.fbSizeInfo();
+      const pct = Math.round(info.largest / (1024*1024) * 100);
+      extra = `<br>Suurin yksittäinen arvostelu: ${Math.max(1, Math.round(info.largest/1024))} kt`
+            + (info.largestName ? ` (${esc(info.largestName)})` : '')
+            + (pct >= 50 ? `<br><span style="color:var(--accent2);">⚠️ Lähestyy 1 Mt:n rajaa (${pct} %).</span>` : '');
+    } catch(e){}
+  }
+  el.innerHTML = `${st.reviews} arvostelua · ${st.kb} kt yhteensä${extra}`;
 }
 
 window.downloadBackup = function(){
