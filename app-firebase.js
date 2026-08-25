@@ -13,7 +13,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import {
   getFirestore, doc, getDoc, setDoc, collection,
-  onSnapshot, writeBatch, updateDoc
+  onSnapshot, writeBatch, updateDoc, waitForPendingWrites
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 const FIRESTORE_URL = "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
@@ -32,6 +32,16 @@ const auth = getAuth(fbApp);
 
 const SCHEMA    = 2;
 const BATCH_MAX = 400;   // Firestoren raja on 500 operaatiota per erä
+
+// Kuinka kauan odotetaan että PALVELIN kuittaa kirjoituksen. Firestoren
+// commit-lupaus ei ratkea koskaan jos yhteyttä ei ole — se ei heitä virhettä,
+// se vain jää roikkumaan. Ilman aikakatkaisua isSaving jäisi pysyvästi
+// päälle ja kaikki loput saman istunnon tallennukset katoaisivat hiljaa.
+const COMMIT_TIMEOUT = 10000;
+
+// Kuinka kauan käynnistyksessä odotetaan että edellisten istuntojen
+// jonossa olevat kirjoitukset menevät läpi, ennen kuin varoitetaan.
+const QUEUE_TIMEOUT = 12000;
 
 // Nämä syntyvät vasta initDb():ssä, koska tietokannan asetukset on
 // annettava ennen ensimmäistä käyttöä.
@@ -79,6 +89,16 @@ let metaListenerReady = false;
 let lastSavedReviews = new Map();   // id (merkkijono) -> JSON
 let lastSavedMeta = null;           // JSON
 
+// Kirjoitukset jotka on annettu Firestorelle mutta joita palvelin EI ole
+// vielä kuitannut. Nämä elävät toistaiseksi vain selaimen paikallisessa
+// välimuistissa (IndexedDB) — jos selaustiedot tyhjennetään, ne katoavat.
+const DEL_MARK = '\u0000poistettu';
+let pendingWrites = new Map();      // id -> JSON tai DEL_MARK (tämän istunnon kirjoitukset)
+let cacheQueuedIds = new Set();     // latauksessa löytyneet kuittaamattomat (aiemmat istunnot)
+let pendingMeta = null;             // JSON
+let queueStuck = false;             // edellisistä istunnoista jäänyt jono ei liiku
+let syncWarnShown = false;
+
 // TMDB token
 window.tmdbToken = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyYjhkODg4ZjdkMGZkNmRlNzE4MjIxNTM2NWYzZTlmMSIsIm5iZiI6MTc3NDkwNDg1Ny42MjIwMDAyLCJzdWIiOiI2OWNhZTYxOWIwMGYyNWRlZmJjZTNjY2YiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.EGIEIkcAl8J5FloGkTmahs_L3PQ6WTIuRsV3KLg4t2g";
 
@@ -88,6 +108,102 @@ function showStatus(msg, color, duration){
   setTimeout(()=>el.style.opacity='0', duration || 2200);
 }
 window.showStatus = showStatus;
+
+// ── AIKAKATKAISUAPURI ──
+// Palauttaa aina ratkeavan lupauksen: { ok:true, value } | { error } | { timedOut:true }.
+// Alkuperäinen lupaus jää elämään taustalle — jos yhteys palaa myöhemmin,
+// sen omat then-käsittelijät kuittaavat kirjoituksen normaalisti.
+function withTimeout(promise, ms){
+  let timer = null;
+  const timeout = new Promise(resolve => {
+    timer = setTimeout(() => resolve({ timedOut: true }), ms);
+  });
+  return Promise.race([
+    promise.then(value => ({ ok: true, value }), error => ({ error })),
+    timeout
+  ]).then(res => { clearTimeout(timer); return res; });
+}
+
+// ── SYNKRONOINTIVAROITUS ──
+// Pysyvä palkki ruudun alalaidassa aina kun jotain on tallennettu vain
+// paikallisesti. Palkki katoaa vasta kun palvelin on kuitannut kaiken.
+function ensureSyncBar(){
+  let el = document.getElementById('syncWarnBar');
+  if(el) return el;
+
+  el = document.createElement('div');
+  el.id = 'syncWarnBar';
+  el.style.cssText =
+    'position:fixed;left:0;right:0;bottom:0;z-index:400;display:none;' +
+    'align-items:center;gap:10px;background:#991b1b;color:#fff;' +
+    'font-size:12.5px;font-weight:600;line-height:1.35;' +
+    'padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom));' +
+    'box-shadow:0 -2px 16px rgba(0,0,0,0.55);';
+
+  const txt = document.createElement('span');
+  txt.id = 'syncWarnText';
+  txt.style.cssText = 'flex:1;';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = '⬇️ Varmuuskopio';
+  btn.style.cssText =
+    'flex:0 0 auto;background:#fff;color:#991b1b;border:none;border-radius:9px;' +
+    'padding:8px 11px;font-size:12px;font-weight:700;cursor:pointer;';
+  btn.onclick = () => { if(window.downloadBackup) window.downloadBackup(); };
+
+  el.appendChild(txt);
+  el.appendChild(btn);
+  document.body.appendChild(el);
+  return el;
+}
+
+function updateSyncBanner(){
+  const ids = new Set(pendingWrites.keys());
+  cacheQueuedIds.forEach(id => ids.add(id));
+  const n = ids.size;
+  const unsynced = n > 0 || pendingMeta !== null || queueStuck;
+  const bar = ensureSyncBar();
+  const fab = document.getElementById('fab');
+
+  if(unsynced){
+    const msg = n > 0
+      ? `⚠️ ${n} ${n === 1 ? 'arvostelu' : 'arvostelua'} ei ole tallennettu pilveen — älä tyhjennä selaustietoja`
+      : '⚠️ Tallentamattomia muutoksia odottaa yhteyttä — älä tyhjennä selaustietoja';
+    // textContent, ei innerHTML — teksti sisältää arvosteluista johdettuja lukuja
+    document.getElementById('syncWarnText').textContent = msg;
+    bar.style.display = 'flex';
+    if(fab) fab.style.bottom = '78px';
+    syncWarnShown = true;
+  } else {
+    bar.style.display = 'none';
+    if(fab) fab.style.bottom = '';
+    if(syncWarnShown){
+      syncWarnShown = false;
+      showStatus('✅ Kaikki tallennettu pilveen','#22c55e', 3000);
+    }
+  }
+}
+window.fbSyncState = function(){
+  const ids = new Set(pendingWrites.keys());
+  cacheQueuedIds.forEach(id => ids.add(id));
+  return { pending: ids.size, meta: pendingMeta !== null, queueStuck };
+};
+
+// Käynnistyksessä: onko edellisistä istunnoista jäänyt kuittaamattomia
+// kirjoituksia jonoon? Näistä oma pendingWrites-kirjanpito ei tiedä mitään,
+// koska se elää vain muistissa.
+async function checkQueuedWrites(){
+  if(!db) return;
+  let p;
+  try{ p = waitForPendingWrites(db); } catch(e){ return; }
+  p.then(() => { queueStuck = false; updateSyncBanner(); }).catch(() => {});
+  const res = await withTimeout(p, QUEUE_TIMEOUT);
+  if(res && res.timedOut){
+    queueStuck = true;
+    updateSyncBanner();
+  }
+}
 
 // ── TMDB-TUNNUKSEN TARKISTUS ──
 // Huom: TMDB:n v4-lukutunnuksissa (JWT) ei ole kiinteää "exp"-vanhenemispäivää,
@@ -166,14 +282,43 @@ function rememberSaved(){
 // ── TALLENNUS ──
 // Kirjoittaa vain muuttuneet arvostelut ja metan. Rajapinta ulospäin
 // on sama kuin ennen: await window.fbSave().
-window.fbSave = async function(){
-  if(isSaving){ saveQueued = true; return; }
-  isSaving = true;
-  if(!db) await initDb();
 
+// Palvelin kuittasi erän → se on oikeasti pilvessä
+function confirmChunk(chunk){
+  chunk.forEach(op => {
+    if(op.kind === 'set'){
+      lastSavedReviews.set(op.id, op.js);
+      if(pendingWrites.get(op.id) === op.js) pendingWrites.delete(op.id);
+    } else {
+      lastSavedReviews.delete(op.id);
+      if(pendingWrites.get(op.id) === DEL_MARK) pendingWrites.delete(op.id);
+    }
+    cacheQueuedIds.delete(op.id);
+  });
+  updateSyncBanner();
+}
+
+// Kirjoitus hylättiin pysyvästi → poistetaan odottavista, jotta se
+// yritetään uudelleen seuraavalla tallennuksella
+function releaseChunk(chunk){
+  chunk.forEach(op => {
+    const mark = op.kind === 'set' ? op.js : DEL_MARK;
+    if(pendingWrites.get(op.id) === mark) pendingWrites.delete(op.id);
+  });
+  updateSyncBanner();
+}
+
+window.fbSave = async function(){
+  // TÄRKEÄ: paikallinen varmuuskopio kirjoitetaan ENNEN isSaving-tarkistusta.
+  // Aiemmin se oli tarkistuksen jälkeen, jolloin jumiin jäänyt tallennus
+  // esti myös varmuuskopion syntymisen.
   try{
     localStorage.setItem('arvostelut_bkp', JSON.stringify(appData));
   } catch(e){ /* localStorage voi olla täynnä — ei kaadeta tallennusta */ }
+
+  if(isSaving){ saveQueued = true; return; }
+  isSaving = true;
+  if(!db) await initDb();
 
   try{
     const ops = [];
@@ -184,16 +329,20 @@ window.fbSave = async function(){
       const id = String(r.id);
       seen.add(id);
       const js = JSON.stringify(r);
-      if(lastSavedReviews.get(id) !== js) ops.push({ kind:'set', id, data:r, js });
+      if(lastSavedReviews.get(id) === js) return;   // jo pilvessä
+      if(pendingWrites.get(id) === js) return;      // jo jonossa samalla sisällöllä
+      ops.push({ kind:'set', id, data:r, js });
     });
 
     lastSavedReviews.forEach((_, id) => {
-      if(!seen.has(id)) ops.push({ kind:'del', id });
+      if(seen.has(id)) return;
+      if(pendingWrites.get(id) === DEL_MARK) return;
+      ops.push({ kind:'del', id });
     });
 
     const meta = metaObject();
     const metaJs = JSON.stringify(meta);
-    const metaChanged = metaJs !== lastSavedMeta;
+    const metaChanged = metaJs !== lastSavedMeta && metaJs !== pendingMeta;
 
     if(!ops.length && !metaChanged){
       isSaving = false;
@@ -203,6 +352,10 @@ window.fbSave = async function(){
 
     showStatus('💾 Tallennetaan...','#f97316');
 
+    // Kaikki erät annetaan Firestorelle heti. Offline-tilassa ne menevät
+    // paikalliseen jonoon ja lähtevät myöhemmin itsestään.
+    const commits = [];
+
     for(let i = 0; i < ops.length; i += BATCH_MAX){
       const chunk = ops.slice(i, i + BATCH_MAX);
       const batch = writeBatch(db);
@@ -210,25 +363,45 @@ window.fbSave = async function(){
         const ref = doc(REVIEWS, op.id);
         if(op.kind === 'set') batch.set(ref, clean(op.data));
         else batch.delete(ref);
+        pendingWrites.set(op.id, op.kind === 'set' ? op.js : DEL_MARK);
       });
-      await batch.commit();
-      // Merkitään onnistuneet vasta commitin jälkeen
-      chunk.forEach(op => {
-        if(op.kind === 'set') lastSavedReviews.set(op.id, op.js);
-        else lastSavedReviews.delete(op.id);
-      });
+
+      const p = batch.commit();
+      // Myöhäinenkin kuittaus otetaan vastaan: jos yhteys palaa vasta
+      // aikakatkaisun jälkeen, varoituspalkki katoaa silloin.
+      p.then(() => confirmChunk(chunk), () => releaseChunk(chunk));
+      commits.push(p);
     }
 
     if(metaChanged){
-      await setDoc(META_DOC, clean(meta), { merge: true });
-      lastSavedMeta = metaJs;
+      pendingMeta = metaJs;
+      const p = setDoc(META_DOC, clean(meta), { merge: true });
+      p.then(
+        () => { lastSavedMeta = metaJs; if(pendingMeta === metaJs) pendingMeta = null; updateSyncBanner(); },
+        () => { if(pendingMeta === metaJs) pendingMeta = null; updateSyncBanner(); }
+      );
+      commits.push(p);
     }
 
-    showStatus('✅ Tallennettu','#22c55e');
+    updateSyncBanner();
+
+    const res = await withTimeout(Promise.all(commits), COMMIT_TIMEOUT);
+
+    if(res && res.timedOut){
+      // Kirjoitukset ovat paikallisessa jonossa, eivät pilvessä.
+      // Varoituspalkki jää näkyviin kunnes palvelin kuittaa ne.
+      showStatus('⏳ Ei yhteyttä — tallennus jäi odottamaan','#f59e0b', 5000);
+    } else if(res && res.error){
+      const e = res.error;
+      showStatus('❌ Virhe: ' + (e && e.code ? e.code : 'tallennus epäonnistui'), '#dc2626', 5000);
+    } else {
+      showStatus('✅ Tallennettu','#22c55e');
+    }
   } catch(e){
     showStatus('❌ Virhe: ' + (e && e.code ? e.code : 'tallennus epäonnistui'), '#dc2626', 5000);
   }
 
+  updateSyncBanner();
   isSaving = false;
   if(saveQueued){ saveQueued = false; return window.fbSave(); }
 };
@@ -334,6 +507,12 @@ async function fbLoad(){
   // jotka muuten näyttäisivät heti "muuttuneilta" ja aiheuttaisivat turhan kirjoituksen.
   rememberSaved();
 
+  // Kuittaamattomia EI saa merkitä tallennetuiksi — muuten niitä ei
+  // koskaan yritetä kirjoittaa uudelleen ja ne jäävät pelkkään välimuistiin.
+  cacheQueuedIds.forEach(id => lastSavedReviews.delete(id));
+  updateSyncBanner();
+  checkQueuedWrites();
+
   // Jos migraatio muutti jotain tai pilvi oli tyhjä mutta paikallista dataa löytyi
   if(needsSave || (!loaded && (appData.reviews||[]).length > 0)){
     lastSavedReviews = new Map();   // pakota kaikkien kirjoitus
@@ -362,6 +541,11 @@ function startReviewListener(){
       if(first){
         clearTimeout(timer);
         appData.reviews = snap.docs.map(d => d.data()).filter(Boolean);
+        // Dokumentit joita palvelin ei ole kuitannut elävät vain tämän
+        // selaimen välimuistissa. Merkitään ne, jotta ne eivät päädy
+        // rememberSaved():ssa "jo tallennettujen" joukkoon.
+        cacheQueuedIds = new Set();
+        snap.docs.forEach(d => { if(d.metadata && d.metadata.hasPendingWrites) cacheQueuedIds.add(d.id); });
         first = false;
         resolve();
         return;
@@ -388,8 +572,13 @@ function startReviewListener(){
             appData.reviews.push(data); changed = true;
           }
           lastSavedReviews.set(id, js);
+          if(pendingWrites.get(id) === js) pendingWrites.delete(id);
         }
+        // Tämä tilannekuva tuli palvelimelta → dokumentti on pilvessä
+        cacheQueuedIds.delete(id);
       });
+
+      updateSyncBanner();
 
       if(changed){
         if(window.migrateYearField) window.migrateYearField();
