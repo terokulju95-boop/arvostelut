@@ -60,7 +60,6 @@ function initApp(){
   renderYearFilters();
   if(window.updateViewModeBtn) window.updateViewModeBtn();
   renderAll();
-  window.maybeShowDailyDuel();
 }
 
 function renderAll(){

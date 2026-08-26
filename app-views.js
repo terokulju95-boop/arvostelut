@@ -650,8 +650,6 @@ function showNextCompareRound(){
     st.currentProbeIdx = probeIdx;
     renderCompareDuel(st.newTitle, st.candidates[probeIdx], st.round + 1, st.maxRounds);
     return;
-  } else if(st.mode === 'daily'){
-    renderCompareDuel(st.itemA, st.itemB, null, null);
   }
 }
 
@@ -672,16 +670,9 @@ function compareCardHtml(item, side){
 }
 
 function renderCompareDuel(left, right, roundNum, maxRounds){
-  const isDaily = compareState?.mode === 'daily';
-  document.getElementById('compareModalTitle').textContent = isDaily ? '⚖️ Päivän vertailu' : '⚖️ Kumpi oli parempi?';
-  let sub;
-  if(isDaily){
-    sub = 'Nopea tarkistus omalle pisteytyksellesi';
-  } else {
-    const genreNote = compareState?.genreFiltered ? ' · samat genret' : ' · ei tarpeeksi samaa genreä, koko kategoria';
-    sub = `Kysymys ${roundNum}/${maxRounds}${genreNote}`;
-  }
-  document.getElementById('compareModalSub').textContent = sub;
+  document.getElementById('compareModalTitle').textContent = '⚖️ Kumpi oli parempi?';
+  const genreNote = compareState?.genreFiltered ? ' · samat genret' : ' · ei tarpeeksi samaa genreä, koko kategoria';
+  document.getElementById('compareModalSub').textContent = `Kysymys ${roundNum}/${maxRounds}${genreNote}`;
   document.getElementById('compareDuelArea').innerHTML = `${compareCardHtml(left,'a')}<div class="compare-vs">VS</div>${compareCardHtml(right,'b')}`;
   document.getElementById('compareDuelArea').style.display = 'flex';
   document.getElementById('compareResultArea').style.display = 'none';
@@ -701,9 +692,6 @@ window.compareChoose = function(side){
     st.round++;
     closeModal('compareModal');
     setTimeout(showNextCompareRound, 250);
-  } else if(st.mode === 'daily'){
-    closeModal('compareModal');
-    setTimeout(()=>finishDailyDuel(side), 250);
   }
 };
 
@@ -873,65 +861,6 @@ window.applyRerank = async function(){
   await window.fbSave();
   renderCards();
 };
-
-// ── PÄIVÄN VERTAILU (kalibroinnin tarkistus sovelluksen avautuessa) ──
-function pickDailyDuelPair(){
-  const eligibleCats = ['Elokuvat','TV-sarjat'].filter(cat => getScoredReviewsByCategory(cat).length >= 2);
-  if(!eligibleCats.length) return null;
-  const cat = eligibleCats[Math.floor(Math.random()*eligibleCats.length)];
-  const pool = getScoredReviewsByCategory(cat);
-
-  // Yritä ensin löytää pari, joilla on yhteinen genre (ettei verrata esim. komediaa dokumenttiin)
-  const genreGroups = {};
-  pool.forEach(r=>{
-    const rg = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
-    rg.forEach(g => { (genreGroups[g] = genreGroups[g] || []).push(r); });
-  });
-  const usableGroups = Object.values(genreGroups).filter(g => g.length >= 2);
-
-  let a, b, tries = 0;
-  if(usableGroups.length){
-    const group = usableGroups[Math.floor(Math.random()*usableGroups.length)];
-    do{
-      a = group[Math.floor(Math.random()*group.length)];
-      b = group[Math.floor(Math.random()*group.length)];
-      tries++;
-    } while((a.id === b.id || a.finalScore === b.finalScore) && tries < 20);
-  }
-  if(!a || !b || a.id === b.id){
-    tries = 0;
-    do{
-      a = pool[Math.floor(Math.random()*pool.length)];
-      b = pool[Math.floor(Math.random()*pool.length)];
-      tries++;
-    } while((a.id === b.id || a.finalScore === b.finalScore) && tries < 20);
-  }
-  if(a.id === b.id) return null;
-  return { a, b, category: cat };
-}
-
-window.maybeShowDailyDuel = function(){
-  const pair = pickDailyDuelPair();
-  if(!pair) return;
-  compareState = { mode:'daily', itemA: pair.a, itemB: pair.b, category: pair.category };
-  setTimeout(showNextCompareRound, 700);
-};
-
-function finishDailyDuel(side){
-  const st = compareState;
-  compareState = null;
-  if(!st || side === 'tie') return;
-  const chosen = side === 'a' ? st.itemA : st.itemB;
-  const other = side === 'a' ? st.itemB : st.itemA;
-  if(chosen.finalScore >= other.finalScore) return; // pisteet ja mielipide täsmäävät — ei tarvitse häiritä
-  setTimeout(()=>{
-    const chosenName = chosen.name.split('\n')[0];
-    const otherName = other.name.split('\n')[0];
-    if(confirm(`Valitsit "${chosenName}" (${chosen.finalScore}p) paremmaksi kuin "${otherName}" (${other.finalScore}p) — mutta pisteet ovat päinvastoin. Avataanko "${chosenName}" muokattavaksi?`)){
-      window.editReviewWithFlip(chosen.id);
-    }
-  }, 200);
-}
 
 // ── LAAJENNETTU ARVIOINTI (osa-arviot) ──
 const RATING_LEVELS = [
