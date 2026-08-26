@@ -520,8 +520,100 @@ function renderBackupInfo(){
   const cache = window._fbCacheMode === 'pysyvä'
     ? '<br><span style="color:var(--muted);">Paikallinen välimuisti käytössä</span>'
     : '';
-  el.innerHTML = `${st.reviews} arvostelua · ${st.kb} kt yhteensä${extra}${cache}`;
+  let last = '';
+  if(window.fbBackupDays){
+    const d = window.fbBackupDays();
+    if(d === null){
+      last = '<br><span style="color:var(--accent2);">Varmuuskopiota ei ole vielä ladattu</span>';
+    } else {
+      const teksti = d === 0 ? 'tänään' : (d === 1 ? 'eilen' : `${d} päivää sitten`);
+      const vari = d >= BACKUP_REMIND_DAYS ? 'var(--accent2)' : 'var(--muted)';
+      last = `<br><span style="color:${vari};">Edellinen varmuuskopio: ${teksti}</span>`;
+    }
+  }
+  el.innerHTML = `${st.reviews} arvostelua · ${st.kb} kt yhteensä${extra}${last}${cache}`;
 }
+
+// ── VARMUUSKOPIOMUISTUTUS ──
+const BACKUP_REMIND_DAYS = 7;
+let _backupReminderDismissed = false;
+
+function ensureBackupBar(){
+  let el = document.getElementById('backupReminderBar');
+  if(el) return el;
+
+  el = document.createElement('div');
+  el.id = 'backupReminderBar';
+  el.style.cssText =
+    'position:fixed;left:0;right:0;bottom:0;z-index:390;display:none;' +
+    'align-items:center;gap:10px;background:var(--bg3);color:var(--text);' +
+    'border-top:2px solid var(--accent);font-size:13px;font-weight:600;line-height:1.35;' +
+    'padding:12px 14px;padding-bottom:calc(12px + env(safe-area-inset-bottom));' +
+    'box-shadow:0 -2px 16px rgba(0,0,0,0.5);';
+
+  const txt = document.createElement('span');
+  txt.id = 'backupReminderText';
+  txt.style.cssText = 'flex:1;';
+
+  const dl = document.createElement('button');
+  dl.type = 'button';
+  dl.textContent = '⬇️ Lataa';
+  dl.style.cssText =
+    'flex:0 0 auto;background:var(--accent);color:#111;border:none;border-radius:9px;' +
+    'padding:9px 13px;font-size:13px;font-weight:700;cursor:pointer;';
+  dl.onclick = () => { window.downloadBackup(); };
+
+  const no = document.createElement('button');
+  no.type = 'button';
+  no.textContent = '✕';
+  no.setAttribute('aria-label','Sulje');
+  no.style.cssText =
+    'flex:0 0 auto;background:transparent;color:var(--muted);border:none;' +
+    'padding:9px 6px;font-size:16px;cursor:pointer;';
+  no.onclick = () => { _backupReminderDismissed = true; hideBackupReminder(); };
+
+  el.appendChild(txt);
+  el.appendChild(dl);
+  el.appendChild(no);
+  document.body.appendChild(el);
+  return el;
+}
+
+function hideBackupReminder(){
+  const el = document.getElementById('backupReminderBar');
+  if(el) el.style.display = 'none';
+  const fab = document.getElementById('fab');
+  if(fab && !syncBarVisible()) fab.style.bottom = '';
+}
+window.hideBackupReminder = hideBackupReminder;
+window.backupBarVisible = function(){
+  const el = document.getElementById('backupReminderBar');
+  return !!(el && el.style.display === 'flex');
+};
+
+function syncBarVisible(){
+  const sb = document.getElementById('syncWarnBar');
+  return !!(sb && sb.style.display === 'flex');
+}
+
+window.maybeShowBackupReminder = function(){
+  if(_backupReminderDismissed) return;
+  // Synkronointivaroitus on tärkeämpi — ei kahta palkkia päällekkäin
+  if(syncBarVisible()) return;
+  if(!window.fbBackupDays) return;
+
+  const days = window.fbBackupDays();
+  if(days !== null && days < BACKUP_REMIND_DAYS) return;
+
+  const el = ensureBackupBar();
+  document.getElementById('backupReminderText').textContent =
+    days === null
+      ? '📦 Et ole vielä ladannut varmuuskopiota'
+      : `📦 Edellisestä varmuuskopiosta on ${days} ${days === 1 ? 'päivä' : 'päivää'}`;
+  el.style.display = 'flex';
+  const fab = document.getElementById('fab');
+  if(fab) fab.style.bottom = '82px';
+};
 
 window.downloadBackup = function(){
   try{
@@ -541,6 +633,9 @@ window.downloadBackup = function(){
     document.body.removeChild(a);
     setTimeout(()=>URL.revokeObjectURL(url), 2000);
     showStatus('✅ Varmuuskopio ladattu','#22c55e');
+    _backupReminderDismissed = true;
+    hideBackupReminder();
+    if(window.fbMarkBackupDone) window.fbMarkBackupDone().then(()=>renderBackupInfo());
   } catch(e){
     alert('Varmuuskopion luonti epäonnistui: ' + e.message);
   }

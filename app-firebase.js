@@ -179,11 +179,13 @@ function updateSyncBanner(){
     // textContent, ei innerHTML — teksti sisältää arvosteluista johdettuja lukuja
     document.getElementById('syncWarnText').textContent = msg;
     bar.style.display = 'flex';
+    // Synkronointivaroitus on tärkeämpi kuin varmuuskopiomuistutus
+    if(window.hideBackupReminder) window.hideBackupReminder();
     if(fab) fab.style.bottom = '78px';
     syncWarnShown = true;
   } else {
     bar.style.display = 'none';
-    if(fab) fab.style.bottom = '';
+    if(fab) fab.style.bottom = (window.backupBarVisible && window.backupBarVisible()) ? '82px' : '';
     if(syncWarnShown){
       syncWarnShown = false;
       showStatus('✅ Kaikki tallennettu pilveen','#22c55e', 3000);
@@ -687,7 +689,30 @@ async function fbLoad(){
 
   startMetaListener();
   if(!reviewListenerReady) startReviewListener();   // esim. yhteysvirheen jälkeen
+
+  // Muistutus näytetään vasta kun näkymä on ehtinyt piirtyä
+  setTimeout(() => {
+    try{ if(window.maybeShowBackupReminder) window.maybeShowBackupReminder(); } catch(e){}
+  }, 1800);
 }
+
+// ── VARMUUSKOPIOMUISTUTUS ──
+// Päiväys asuu meta-dokumentissa (settings.lastBackupAt), ei localStoragessa.
+// Selausdatan tyhjennys ei siis nollaa laskuria.
+window.fbBackupDays = function(){
+  const t = appData.settings && appData.settings.lastBackupAt;
+  if(!t) return null;
+  const ms = Date.now() - Date.parse(t);
+  if(!isFinite(ms) || ms < 0) return null;
+  return Math.floor(ms / 86400000);
+};
+
+window.fbMarkBackupDone = async function(){
+  try{ if(typeof ensureSettings === 'function') ensureSettings(); } catch(e){}
+  if(!appData.settings) appData.settings = {};
+  appData.settings.lastBackupAt = new Date().toISOString();
+  try{ await window.fbSave(); } catch(e){}
+};
 
 // ── REAALIAIKAINEN SEURANTA ──
 // Arvostelukuuntelijan ENSIMMÄINEN tilannekuva toimii samalla ensilatauksena.
