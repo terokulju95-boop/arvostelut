@@ -12,7 +12,8 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import {
-  getFirestore, doc, getDoc, setDoc, collection,
+  getFirestore, doc, getDoc, getDocFromServer, setDoc, collection,
+  getDocsFromServer, query, limit,
   onSnapshot, writeBatch, updateDoc, waitForPendingWrites
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 const FIRESTORE_URL = "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
@@ -417,51 +418,142 @@ window.fbSizeInfo = function(){
   return { largest, largestName, metaSize, count: (appData.reviews||[]).length };
 };
 
-// ── MIGRAATIO VANHASTA RAKENTEESTA ──
-async function migrateFromOldDoc(oldData){
-  showStatus('🔄 Päivitetään tietorakennetta...','#f97316', 8000);
+// ── VANHA PILVIKOPIO (arvostelut/data) ──
+// Tätä ei enää käytetä automaattisesti missään. Asetuksista voi katsoa
+// raportin siitä mitä vanhassa dokumentissa on, ja halutessaan lisätä
+// sieltä VAIN ne arvostelut jotka puuttuvat nykyisestä datasta.
+// Olemassa olevien päälle ei kirjoiteta koskaan.
 
-  // Jono-ominaisuutta ei ole käytössä — ei siirretä sitä uuteen rakenteeseen
-  if(oldData.queue) delete oldData.queue;
+function ratedParts(r){
+  const p = (r && Array.isArray(r.parts)) ? r.parts : [];
+  return p.filter(x => x && Number(x.score) > 0).length;
+}
 
-  const reviews = Array.isArray(oldData.reviews) ? oldData.reviews : [];
-  for(let i = 0; i < reviews.length; i += BATCH_MAX){
-    const batch = writeBatch(db);
-    reviews.slice(i, i + BATCH_MAX).forEach(r => {
-      if(r && r.id != null) batch.set(doc(REVIEWS, String(r.id)), clean(r));
-    });
-    await batch.commit();
-  }
-
-  await setDoc(META_DOC, clean({
-    categories: oldData.categories || [],
-    genres:     oldData.genres || [],
-    budget:     oldData.budget || { monthlyPrice: 26.90, periods: [] },
-    settings:   oldData.settings || {},
-    schema:     SCHEMA,
-    migratedAt: new Date().toISOString(),
-    migratedFrom: 'arvostelut/data'
-  }));
-
-  // Vanhaan dokumenttiin jätetään merkintä, mutta sitä EI poisteta.
-  // Se jää koskemattomaksi varmuuskopioksi.
+// Lukee vanhan dokumentin palvelimelta ja vertaa sitä nykyiseen dataan
+window.fbOldDocReport = async function(){
+  await initDb();
+  let snap;
   try{
-    await updateDoc(OLD_DOC, { migratedToSchema: SCHEMA, migratedAt: new Date().toISOString() });
-  } catch(e){ /* ei kriittinen */ }
+    snap = await getDocFromServer(OLD_DOC);
+  } catch(e){
+    return { ok:false, error:'Vanhaa dokumenttia ei saatu luettua palvelimelta. Tarkista yhteys.' };
+  }
+  if(!snap.exists()) return { ok:false, error:'Vanhaa dokumenttia arvostelut/data ei ole olemassa.' };
 
-  showStatus('✅ Tietorakenne päivitetty','#22c55e');
-  return reviews;
+  let old;
+  try{ old = JSON.parse(snap.data().json); }
+  catch(e){ return { ok:false, error:'Vanhan dokumentin sisältöä ei voitu jäsentää.' }; }
+
+  const oldReviews = Array.isArray(old.reviews) ? old.reviews : [];
+  const now = new Map();
+  (appData.reviews||[]).forEach(r => { if(r && r.id != null) now.set(String(r.id), r); });
+
+  const missing = [], differing = [];
+  let same = 0;
+
+  oldReviews.forEach(r => {
+    if(!r || r.id == null) return;
+    const id = String(r.id);
+    const cur = now.get(id);
+    const info = {
+      id,
+      name: String(r.name || '(nimetön)').split('\n')[0],
+      cat:  String(r.category || ''),
+      oldScore: Number(r.score) || 0,
+      oldParts: ratedParts(r)
+    };
+    if(!cur){
+      missing.push(info);
+    } else if(JSON.stringify(cur) !== JSON.stringify(r)){
+      info.nowScore = Number(cur.score) || 0;
+      info.nowParts = ratedParts(cur);
+      differing.push(info);
+    } else {
+      same++;
+    }
+  });
+
+  const onlyOld = (a, b) => (a||[]).filter(x => !(b||[]).includes(x));
+
+  return {
+    ok: true,
+    count: oldReviews.length,
+    nowCount: (appData.reviews||[]).length,
+    savedAt: snap.data().migratedAt || snap.data().savedAt || null,
+    migratedToSchema: snap.data().migratedToSchema || null,
+    missing, differing, same,
+    catsOnlyOld:   onlyOld(old.categories, appData.categories),
+    genresOnlyOld: onlyOld(old.genres, appData.genres)
+  };
+};
+
+// Lisää vain annetut id:t. Kirjoitus menee normaalin fbSave()-polun kautta,
+// joten muutosseuranta ja synkronointivaroitus toimivat samalla tavalla.
+window.fbRestoreMissing = async function(ids){
+  const want = new Set((ids||[]).map(String));
+  if(!want.size) return 0;
+  await initDb();
+
+  let snap;
+  try{ snap = await getDocFromServer(OLD_DOC); } catch(e){ return -1; }
+  if(!snap.exists()) return -1;
+
+  let old;
+  try{ old = JSON.parse(snap.data().json); } catch(e){ return -1; }
+
+  const have = new Set((appData.reviews||[]).map(r => r && r.id != null ? String(r.id) : ''));
+  let added = 0;
+  (Array.isArray(old.reviews) ? old.reviews : []).forEach(r => {
+    if(!r || r.id == null) return;
+    const id = String(r.id);
+    if(!want.has(id) || have.has(id)) return;   // ei koskaan olemassa olevan päälle
+    if(r.queue) delete r.queue;
+    appData.reviews.push(r);
+    have.add(id);
+    added++;
+  });
+
+  if(added){
+    if(window.renderAll) renderAll();
+    await window.fbSave();
+  }
+  return added;
+};
+
+// Kirjoittaa meta-dokumentin uudelleen kun se on kadonnut tai schema puuttuu,
+// mutta arvostelut ovat tallessa. Tämä estää migraatiohaaran laukeamisen
+// uudelleen seuraavalla käynnistyksellä.
+async function repairMeta(){
+  try{
+    await setDoc(META_DOC, clean(metaObject()), { merge: true });
+    lastSavedMeta = JSON.stringify(metaObject());
+  } catch(e){ /* yritetään uudelleen seuraavalla tallennuksella */ }
 }
 
 // ── LATAUS ──
 async function fbLoad(){
   await initDb();
   let loaded = false;
+  let metaBroken = false;
 
   try{
-    const metaSnap = await getDoc(META_DOC);
+    // SUOJAUS 1: meta luetaan ensisijaisesti PALVELIMELTA.
+    // Tyhjän välimuistin kanssa getDoc() ei heitä virhettä vaan ratkeaa
+    // tilannekuvalla jossa exists() === false ja fromCache === true.
+    // Vanha koodi tulkitsi sen "metaa ei ole" ja käynnisti migraation,
+    // joka kirjoitti elokuun varmuuskopion kaiken päälle.
+    let metaSnap = null;
+    let serverAnswered = false;
+    try{
+      metaSnap = await getDocFromServer(META_DOC);
+      serverAnswered = true;
+    } catch(e){
+      try{ metaSnap = await getDoc(META_DOC); } catch(e2){ metaSnap = null; }
+    }
 
-    if(metaSnap.exists() && metaSnap.data().schema >= SCHEMA){
+    const schemaOk = !!(metaSnap && metaSnap.exists() && metaSnap.data().schema >= SCHEMA);
+
+    if(schemaOk){
       // Uusi rakenne.
       // Arvosteluja EI haeta erikseen getDocs-kutsulla: kuuntelijan ensimmäinen
       // tilannekuva sisältää saman datan, joten erillinen haku maksaisi
@@ -469,16 +561,48 @@ async function fbLoad(){
       appData = assembleAppData(metaSnap.data(), []);
       await startReviewListener();
       loaded = true;
+
+    } else if(!serverAnswered){
+      // SUOJAUS 2: emme saaneet palvelimelta vastausta, joten emme TIEDÄ
+      // onko rakenne vanha. Tässä tilassa ei kosketa mihinkään.
+      showStatus('⚠️ Ei yhteyttä palvelimeen','#f59e0b', 5000);
+      if(metaSnap && metaSnap.exists()) appData = assembleAppData(metaSnap.data(), []);
+      await startReviewListener();
+      // Välimuistista saatu tila on tuoreempi kuin localStorage-kopio
+      if((appData.reviews||[]).length > 0 || (metaSnap && metaSnap.exists())) loaded = true;
+
     } else {
-      // Vanha rakenne → siirretään uuteen
-      const oldSnap = await getDoc(OLD_DOC);
-      if(oldSnap.exists()){
-        const oldData = JSON.parse(oldSnap.data().json);
-        const reviews = await migrateFromOldDoc(oldData);
-        if(oldData.queue) delete oldData.queue;
-        oldData.reviews = reviews;
-        appData = oldData;
+      // Palvelin vastasi: metaa ei ole tai schema on vanha.
+      // SUOJAUS 3: onko uusi rakenne kuitenkin jo olemassa?
+      let hasReviews = false;
+      let probeOk = true;
+      try{
+        const probe = await getDocsFromServer(query(REVIEWS, limit(1)));
+        hasReviews = !probe.empty;
+      } catch(e){
+        probeOk = false;
+      }
+
+      if(!probeOk){
+        // Emme saaneet varmuutta → ei palautusta missään tilanteessa
+        showStatus('⚠️ Ei yhteyttä palvelimeen','#f59e0b', 5000);
+        if(metaSnap && metaSnap.exists()) appData = assembleAppData(metaSnap.data(), []);
+        await startReviewListener();
+        if((appData.reviews||[]).length > 0 || (metaSnap && metaSnap.exists())) loaded = true;
+
+      } else if(hasReviews){
+        // Arvostelut ovat tallessa, vain meta on rikki. Ladataan normaalisti
+        // ja korjataan meta — EI palautusta vanhasta dokumentista.
+        appData = assembleAppData(metaSnap.exists() ? metaSnap.data() : {}, []);
+        await startReviewListener();
         loaded = true;
+        metaBroken = true;
+
+      } else {
+        // Uusi rakenne on aidosti tyhjä. Vanhaa dokumenttia EI kosketa
+        // automaattisesti — palautus tehdään käsin Asetuksista, jotta
+        // mikään lataus ei voi kirjoittaa elokuun tilannekuvaa datan päälle.
+        showStatus('⚠️ Pilvestä ei löytynyt arvosteluja','#f59e0b', 6000);
         await startReviewListener();
       }
     }
@@ -518,6 +642,10 @@ async function fbLoad(){
     lastSavedReviews = new Map();   // pakota kaikkien kirjoitus
     lastSavedMeta = null;
     await window.fbSave();
+  } else if(metaBroken){
+    // Meta puuttui tai schema oli vanha, mutta arvostelut olivat tallessa.
+    // Kirjoitetaan meta ehjäksi, jottei sama toistu seuraavalla avauksella.
+    await repairMeta();
   }
 
   startMetaListener();

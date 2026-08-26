@@ -546,6 +546,113 @@ window.downloadBackup = function(){
   }
 };
 
+// ── VANHA PILVIKOPIO (arvostelut/data) ──
+// Näyttää mitä elokuun tilannekuvassa on ja mitä siitä KANNATTAISI lisätä.
+// Mitään ei kirjoiteta olemassa olevien arvostelujen päälle.
+let _oldDocReport = null;
+
+function oldDocRow(x, mode){
+  const nimi = esc(x.name);
+  const kat  = x.cat ? ` · ${esc(x.cat)}` : '';
+  if(mode === 'diff'){
+    const osat = (x.oldParts || x.nowParts)
+      ? ` · arvosteltuja osia ${x.oldParts} → ${x.nowParts}`
+      : '';
+    return `<div style="margin:3px 0;">• ${nimi}${kat}<br>` +
+           `<span style="color:var(--muted);">&nbsp;&nbsp;piste ${x.oldScore} → ${x.nowScore}${osat}</span></div>`;
+  }
+  return `<div style="margin:3px 0;">• ${nimi}${kat}</div>`;
+}
+
+function renderOldDocReport(){
+  const el = document.getElementById('oldDocReport');
+  if(!el) return;
+  const r = _oldDocReport;
+  if(!r){ el.innerHTML = ''; return; }
+
+  const LIMIT = 15;
+  const lista = (arr, mode) => {
+    const osa = arr.slice(0, LIMIT).map(x => oldDocRow(x, mode)).join('');
+    const loput = arr.length > LIMIT ? `<div style="margin:3px 0;">… ja ${arr.length - LIMIT} muuta</div>` : '';
+    return osa + loput;
+  };
+
+  const pvm = r.savedAt ? esc(String(r.savedAt).slice(0,10)) : 'ei tiedossa';
+
+  let html = `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">`;
+  html += `<div style="color:var(--text);font-weight:600;margin-bottom:6px;">Vanha pilvikopio · arvostelut/data</div>`;
+  html += `Tilannekuvan päiväys: ${pvm}<br>`;
+  html += `Vanhassa ${r.count} arvostelua · nykyisessä ${r.nowCount}<br>`;
+  html += `<div style="margin-top:8px;">✅ Täysin samoja: ${r.same}</div>`;
+
+  html += `<div style="margin-top:8px;color:#22c55e;">➕ Puuttuu nykyisestä: ${r.missing.length}</div>`;
+  if(r.missing.length){
+    html += `<div style="margin-top:4px;">${lista(r.missing, 'miss')}</div>`;
+    html += `<div style="margin-top:6px;color:var(--muted);">Nämä voidaan lisätä turvallisesti.</div>`;
+  }
+
+  html += `<div style="margin-top:10px;color:var(--accent2);">⚠️ Eroaa nykyisestä: ${r.differing.length}</div>`;
+  if(r.differing.length){
+    html += `<div style="margin-top:4px;">${lista(r.differing, 'diff')}</div>`;
+    html += `<div style="margin-top:6px;color:var(--muted);">Näihin EI kosketa. Vanha versio on lähes aina huonompi — juuri näiden ylikirjoittaminen hävitti jaksojen pisteet.</div>`;
+  }
+
+  if(r.catsOnlyOld.length) html += `<div style="margin-top:8px;">Vain vanhassa olevat kategoriat: ${esc(r.catsOnlyOld.join(', '))}</div>`;
+  if(r.genresOnlyOld.length) html += `<div style="margin-top:4px;">Vain vanhassa olevat genret: ${esc(r.genresOnlyOld.join(', '))}</div>`;
+
+  html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);color:var(--text);">`;
+  html += r.missing.length
+    ? `Hyötyä: ${r.missing.length} arvostelua on lisättävissä.`
+    : `Ei mitään lisättävää — vanhassa kopiossa ei ole yhtään arvostelua jota sinulla ei jo olisi.`;
+  html += `</div></div>`;
+
+  if(r.missing.length){
+    html += `<button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="restoreMissingFromOldDoc()">➕ Lisää ${r.missing.length} puuttuvaa arvostelua</button>`;
+  }
+
+  el.innerHTML = html;
+}
+
+window.checkOldDoc = async function(){
+  const el = document.getElementById('oldDocReport');
+  if(!el) return;
+  _oldDocReport = null;
+  el.innerHTML = '<span style="color:var(--muted);">Luetaan vanhaa dokumenttia palvelimelta…</span>';
+
+  if(!window.fbOldDocReport){
+    el.innerHTML = '<span style="color:var(--accent2);">Toimintoa ei ole käytettävissä.</span>';
+    return;
+  }
+  let rep;
+  try{
+    rep = await window.fbOldDocReport();
+  } catch(e){
+    el.innerHTML = `<span style="color:var(--accent2);">${esc('Virhe: ' + (e && e.message ? e.message : 'lukeminen epäonnistui'))}</span>`;
+    return;
+  }
+  if(!rep || !rep.ok){
+    el.innerHTML = `<span style="color:var(--accent2);">${esc(rep && rep.error ? rep.error : 'Lukeminen epäonnistui.')}</span>`;
+    return;
+  }
+  _oldDocReport = rep;
+  renderOldDocReport();
+};
+
+window.restoreMissingFromOldDoc = async function(){
+  const r = _oldDocReport;
+  if(!r || !r.missing.length) return;
+  if(!confirm(`Lisätäänkö ${r.missing.length} arvostelua vanhasta pilvikopiosta?\n\nOlemassa oleviin arvosteluihin ei kosketa.`)) return;
+
+  const n = await window.fbRestoreMissing(r.missing.map(x => x.id));
+  if(n < 0){
+    alert('Vanhaa dokumenttia ei saatu luettua. Tarkista yhteys ja yritä uudelleen.');
+    return;
+  }
+  showStatus(`✅ Lisättiin ${n} arvostelua`, '#22c55e');
+  renderBackupInfo();
+  await window.checkOldDoc();
+};
+
 window.restoreBackup = function(input){
   const file = input.files && input.files[0];
   input.value = '';
@@ -597,6 +704,9 @@ window.openSettings = function(){
   updatePosterColorToggle();
   renderTmdbStatus();
   renderBackupInfo();
+  _oldDocReport = null;
+  const odr = document.getElementById('oldDocReport');
+  if(odr) odr.innerHTML = '';
   document.getElementById('settingsModal').classList.add('open');
 };
 
