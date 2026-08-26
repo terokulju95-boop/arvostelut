@@ -600,6 +600,14 @@ function renderOldDocReport(){
   if(r.catsOnlyOld.length) html += `<div style="margin-top:8px;">Vain vanhassa olevat kategoriat: ${esc(r.catsOnlyOld.join(', '))}</div>`;
   if(r.genresOnlyOld.length) html += `<div style="margin-top:4px;">Vain vanhassa olevat genret: ${esc(r.genresOnlyOld.join(', '))}</div>`;
 
+  const om = r.oldMeta || {};
+  const jaksot = (om.budget && Array.isArray(om.budget.periods)) ? om.budget.periods.length : 0;
+  html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">`;
+  html += `<span style="color:var(--text);">Asetukset vanhassa kopiossa</span><br>`;
+  html += `${(om.categories||[]).length} kategoriaa · ${(om.genres||[]).length} genreä · ${jaksot} budjettijaksoa`;
+  if((om.categories||[]).length) html += `<br><span style="color:var(--muted);">${esc(om.categories.join(', '))}</span>`;
+  html += `</div>`;
+
   html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);color:var(--text);">`;
   html += r.missing.length
     ? `Hyötyä: ${r.missing.length} arvostelua on lisättävissä.`
@@ -609,9 +617,58 @@ function renderOldDocReport(){
   if(r.missing.length){
     html += `<button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="restoreMissingFromOldDoc()">➕ Lisää ${r.missing.length} puuttuvaa arvostelua</button>`;
   }
+  if((r.oldMeta && (r.oldMeta.categories||[]).length)){
+    html += `<button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="restoreMetaFromOldDoc()">⚙️ Palauta vain asetukset vanhasta kopiosta</button>`;
+  }
 
   el.innerHTML = html;
 }
+
+window.restoreMetaFromOldDoc = async function(){
+  const r = _oldDocReport;
+  if(!r || !r.oldMeta) return;
+  const om = r.oldMeta;
+  const jaksot = (om.budget && Array.isArray(om.budget.periods)) ? om.budget.periods.length : 0;
+  if(!confirm(
+    'Palautetaanko asetukset vanhasta pilvikopiosta?\n\n' +
+    `Kategoriat: ${om.categories.length}\nGenret: ${om.genres.length}\nBudjettijaksot: ${jaksot}\n\n` +
+    'Arvosteluihin EI kosketa. Nykyiset kategoriat, genret, budjetti ja asetukset korvataan.'
+  )) return;
+
+  const ok = await window.fbRestoreMeta(om);
+  if(!ok){ alert('Asetusten palautus epäonnistui. Tarkista yhteys.'); return; }
+  showStatus('✅ Asetukset palautettu','#22c55e');
+  renderBackupInfo();
+};
+
+// Palauttaa vain asetukset JSON-tiedostosta — arvosteluihin ei kosketa
+window.restoreMetaFile = function(input){
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    let parsed;
+    try{ parsed = JSON.parse(reader.result); }
+    catch(e){ alert('Tiedostoa ei voitu lukea — onko se kelvollinen JSON-varmuuskopio?'); return; }
+    const d = (parsed && parsed.data) ? parsed.data : parsed;
+    if(!d || !Array.isArray(d.categories) || !d.categories.length){
+      alert('Tiedostosta ei löytynyt kategorioita.');
+      return;
+    }
+    const jaksot = (d.budget && Array.isArray(d.budget.periods)) ? d.budget.periods.length : 0;
+    if(!confirm(
+      'Palautetaanko asetukset tiedostosta?\n\n' +
+      `Kategoriat: ${d.categories.length}\nGenret: ${(d.genres||[]).length}\nBudjettijaksot: ${jaksot}\n\n` +
+      'Arvosteluihin EI kosketa.'
+    )) return;
+    const ok = await window.fbRestoreMeta(d);
+    if(!ok){ alert('Asetusten palautus epäonnistui. Tarkista yhteys.'); return; }
+    showStatus('✅ Asetukset palautettu','#22c55e');
+    renderBackupInfo();
+  };
+  reader.readAsText(file);
+};
 
 window.checkOldDoc = async function(){
   const el = document.getElementById('oldDocReport');

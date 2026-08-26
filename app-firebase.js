@@ -90,6 +90,11 @@ let metaListenerReady = false;
 let lastSavedReviews = new Map();   // id (merkkijono) -> JSON
 let lastSavedMeta = null;           // JSON
 
+// Meta-dokumenttia EI kirjoiteta ennen kuin se on kerran luettu palvelimelta.
+// Muuten tyhjästä välimuistista syntyvä puutteellinen tila voi ylikirjoittaa
+// kategoriat, genret, budjetin ja asetukset.
+let metaTrusted = false;
+
 // Kirjoitukset jotka on annettu Firestorelle mutta joita palvelin EI ole
 // vielä kuitannut. Nämä elävät toistaiseksi vain selaimen paikallisessa
 // välimuistissa (IndexedDB) — jos selaustiedot tyhjennetään, ne katoavat.
@@ -254,9 +259,15 @@ function clean(obj){
 }
 
 function metaObject(){
+  // Tyhjää kategoria- tai genrelistaa ei kirjoiteta koskaan. Sovellus on
+  // käyttökelvoton ilman kategorioita, joten tyhjä lista on aina virhe.
+  const cats = (Array.isArray(appData.categories) && appData.categories.length)
+    ? appData.categories : [...DEFAULT_CATS];
+  const gens = (Array.isArray(appData.genres) && appData.genres.length)
+    ? appData.genres : [...DEFAULT_GENRES];
   return {
-    categories: appData.categories || [],
-    genres:     appData.genres || [],
+    categories: cats,
+    genres:     gens,
     budget:     appData.budget || { monthlyPrice: 26.90, periods: [] },
     settings:   appData.settings || {},
     schema:     SCHEMA
@@ -265,11 +276,12 @@ function metaObject(){
 
 // Kokoaa appData-objektin metasta ja arvostelutaulukosta
 function assembleAppData(meta, reviews){
+  const m = meta || {};
   return {
-    categories: meta.categories || [],
-    genres:     meta.genres || [],
-    budget:     meta.budget || { monthlyPrice: 26.90, periods: [] },
-    settings:   meta.settings || {},
+    categories: (Array.isArray(m.categories) && m.categories.length) ? m.categories : [...DEFAULT_CATS],
+    genres:     (Array.isArray(m.genres) && m.genres.length) ? m.genres : [...DEFAULT_GENRES],
+    budget:     m.budget || { monthlyPrice: 26.90, periods: [] },
+    settings:   m.settings || {},
     reviews:    reviews
   };
 }
@@ -343,7 +355,7 @@ window.fbSave = async function(){
 
     const meta = metaObject();
     const metaJs = JSON.stringify(meta);
-    const metaChanged = metaJs !== lastSavedMeta && metaJs !== pendingMeta;
+    const metaChanged = metaTrusted && metaJs !== lastSavedMeta && metaJs !== pendingMeta;
 
     if(!ops.length && !metaChanged){
       isSaving = false;
@@ -483,8 +495,41 @@ window.fbOldDocReport = async function(){
     migratedToSchema: snap.data().migratedToSchema || null,
     missing, differing, same,
     catsOnlyOld:   onlyOld(old.categories, appData.categories),
-    genresOnlyOld: onlyOld(old.genres, appData.genres)
+    genresOnlyOld: onlyOld(old.genres, appData.genres),
+    oldMeta: {
+      categories: Array.isArray(old.categories) ? old.categories : [],
+      genres:     Array.isArray(old.genres) ? old.genres : [],
+      budget:     old.budget || null,
+      settings:   old.settings || {}
+    }
   };
+};
+
+// Palauttaa VAIN asetukset (kategoriat, genret, budjetti, asetukset).
+// Arvosteluihin ei kosketa. Tämä on tarkoituksellinen käyttäjän toiminto,
+// joten se ohittaa metaTrusted-suojauksen.
+window.fbRestoreMeta = async function(src){
+  if(!src) return false;
+  await initDb();
+
+  if(Array.isArray(src.categories) && src.categories.length) appData.categories = [...src.categories];
+  if(Array.isArray(src.genres) && src.genres.length)         appData.genres     = [...src.genres];
+  if(src.budget)   appData.budget   = src.budget;
+  if(src.settings) appData.settings = src.settings;
+
+  try{ if(typeof ensureSettings === 'function') ensureSettings(); } catch(e){}
+  if(typeof GENRES !== 'undefined') GENRES = [...(appData.genres||[])];
+
+  try{
+    await setDoc(META_DOC, clean(metaObject()), { merge: true });
+  } catch(e){
+    return false;
+  }
+  metaTrusted = true;
+  lastSavedMeta = JSON.stringify(metaObject());
+  if(appData.settings && appData.settings.accent && window.applyAccent) window.applyAccent(appData.settings.accent);
+  if(window.renderAll) renderAll();
+  return true;
 };
 
 // Lisää vain annetut id:t. Kirjoitus menee normaalin fbSave()-polun kautta,
@@ -520,16 +565,6 @@ window.fbRestoreMissing = async function(ids){
   return added;
 };
 
-// Kirjoittaa meta-dokumentin uudelleen kun se on kadonnut tai schema puuttuu,
-// mutta arvostelut ovat tallessa. Tämä estää migraatiohaaran laukeamisen
-// uudelleen seuraavalla käynnistyksellä.
-async function repairMeta(){
-  try{
-    await setDoc(META_DOC, clean(metaObject()), { merge: true });
-    lastSavedMeta = JSON.stringify(metaObject());
-  } catch(e){ /* yritetään uudelleen seuraavalla tallennuksella */ }
-}
-
 // ── LATAUS ──
 async function fbLoad(){
   await initDb();
@@ -559,6 +594,7 @@ async function fbLoad(){
       // tilannekuva sisältää saman datan, joten erillinen haku maksaisi
       // jokaisen dokumentin lukuna kahteen kertaan.
       appData = assembleAppData(metaSnap.data(), []);
+      metaTrusted = true;
       await startReviewListener();
       loaded = true;
 
@@ -591,9 +627,10 @@ async function fbLoad(){
         if((appData.reviews||[]).length > 0 || (metaSnap && metaSnap.exists())) loaded = true;
 
       } else if(hasReviews){
-        // Arvostelut ovat tallessa, vain meta on rikki. Ladataan normaalisti
-        // ja korjataan meta — EI palautusta vanhasta dokumentista.
-        appData = assembleAppData(metaSnap.exists() ? metaSnap.data() : {}, []);
+        // Arvostelut ovat tallessa, mutta metaa ei saatu. Ladataan
+        // oletusasetuksilla eikä kirjoiteta mitään: metaTrusted jää
+        // epätodeksi kunnes kuuntelija tuo palvelimelta oikean tilan.
+        appData = assembleAppData(metaSnap.exists() ? metaSnap.data() : null, []);
         await startReviewListener();
         loaded = true;
         metaBroken = true;
@@ -643,9 +680,9 @@ async function fbLoad(){
     lastSavedMeta = null;
     await window.fbSave();
   } else if(metaBroken){
-    // Meta puuttui tai schema oli vanha, mutta arvostelut olivat tallessa.
-    // Kirjoitetaan meta ehjäksi, jottei sama toistu seuraavalla avauksella.
-    await repairMeta();
+    // Meta puuttui tai schema oli vanha. Mitään ei kirjoiteta — käyttäjä
+    // näkee varoituksen ja voi palauttaa asetukset Asetuksista.
+    showStatus('⚠️ Asetuksia ei saatu ladattua','#f59e0b', 6000);
   }
 
   startMetaListener();
@@ -726,7 +763,10 @@ function startMetaListener(){
   metaListenerReady = true;
 
   onSnapshot(META_DOC, snap => {
-    if(!snap.exists() || snap.metadata.hasPendingWrites) return;
+    if(snap.metadata.hasPendingWrites) return;
+    // Palvelimelta tullut tilannekuva — vasta nyt metaa saa kirjoittaa
+    if(!snap.metadata.fromCache) metaTrusted = true;
+    if(!snap.exists()) return;
     const m = snap.data();
     appData.categories = m.categories || appData.categories;
     appData.genres     = m.genres || appData.genres;

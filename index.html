@@ -385,6 +385,8 @@
       <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="downloadBackup()">⬇️ Lataa varmuuskopio</button>
       <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="document.getElementById('restoreFileInput').click()">⬆️ Palauta tiedostosta</button>
       <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none;" onchange="restoreBackup(this)">
+      <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="document.getElementById('restoreMetaInput').click()">⚙️ Palauta vain asetukset tiedostosta</button>
+      <input type="file" id="restoreMetaInput" accept="application/json,.json" style="display:none;" onchange="restoreMetaFile(this)">
       <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="checkOldDoc()">🗄️ Tarkista vanha pilvikopio</button>
       <div id="oldDocReport" style="font-size:12px;color:var(--muted);line-height:1.55;margin-top:10px;"></div>
     </div>
