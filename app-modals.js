@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-08-28.3';
+window.BUILD_MODALS = '2026-08-28.4';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1200,6 +1200,185 @@ window.openReadModal = function(id){
   document.getElementById('readModal').classList.add('open');
 };
 
+// ══ KÄÄNNÖS SUOMEKSI (KÄSIN KÄYNNISTETTÄVÄ) ══
+// Tuonti hakee tiedot suomeksi, ja englanniksi vain siltä osin kuin
+// suomennosta ei ole. Kääntäminen on erillinen, käyttäjän käynnistämä työ,
+// koska se kuluttaa rajallista päiväkiintiötä.
+let _trReviewId = null;
+let _trCancel = false;
+
+window.openTranslateModal = function(reviewId){
+  const r = appData.reviews.find(x => x.id === reviewId);
+  if(!r) return;
+  _trReviewId = reviewId;
+  _trCancel = false;
+  document.getElementById('trmSetup').style.display = 'block';
+  document.getElementById('trmProgress').style.display = 'none';
+  renderTranslateSetup(r);
+  document.getElementById('translateModal').classList.add('open');
+};
+
+function fmtNum(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+
+function renderTranslateSetup(r){
+  const q = window.translateQuotaState();
+  const s = ensureSettings();
+  const info = document.getElementById('trmInfo');
+  const host = document.getElementById('trmList');
+
+  const what = [];
+  if(s.translatePlots) what.push('juonet');
+  if(s.translateNames) what.push('nimet');
+
+  const pct = Math.min(100, Math.round(q.chars / q.limit * 100));
+  const quotaLine = q.exhausted
+    ? `<div class="trm-quota-warn">⏳ Päivän käännöskiintiö on täynnä. Jatka huomenna — jo käännetyt tekstit säilyvät.</div>`
+    : `<div class="trm-quota">
+         <div class="trm-quota-head"><span>Päiväkiintiö</span><span>${fmtNum(q.chars)} / ${fmtNum(q.limit)} merkkiä</span></div>
+         <div class="trm-quota-track"><div class="trm-quota-bar" style="width:${pct}%"></div></div>
+         <div class="trm-quota-sub">${fmtNum(q.left)} merkkiä jäljellä tänään${q.hasEmail ? '' : ' · sähköpostilla raja olisi 50 000'}</div>
+       </div>`;
+
+  info.innerHTML = `
+    <div class="si-info">
+      <strong>${esc(plainName(r))}</strong><br>
+      Käännetään vain ne tekstit, joita TMDB ei tarjoa suomeksi.
+      ${what.length ? `Mukaan otetaan: <strong>${what.join(' ja ')}</strong> (valittavissa asetuksista).`
+                    : '<strong>Asetuksissa ei ole valittuna mitään käännettävää.</strong>'}
+    </div>
+    ${quotaLine}
+  `;
+
+  const seasons = r.seasons || [];
+  const rows = seasons.map((season, si) => {
+    const jobs = pendingTranslations(r, [si]);
+    const cost = window.pendingCharCost(jobs);
+    const total = (season.episodes || []).length;
+    const already = (season.episodes || []).filter(e => e.plotLang === 'fi' || e.plotLang === 'fi-auto').length;
+    return { si, season, jobs, cost, total, already };
+  });
+
+  const withWork = rows.filter(x => x.jobs.length);
+  if(!withWork.length){
+    host.innerHTML = `<div class="trm-empty">✅ Kaikki on jo suomeksi. Ei käännettävää.</div>`;
+    document.getElementById('trmStartBtn').disabled = true;
+    document.getElementById('trmStartBtn').textContent = 'Ei käännettävää';
+    return;
+  }
+
+  document.getElementById('trmStartBtn').disabled = false;
+  host.innerHTML = rows.map(x => {
+    const none = x.jobs.length === 0;
+    return `<label class="si-row${none ? ' is-done' : ''}">
+      <input type="checkbox" class="trm-check" data-si="${x.si}" ${none ? 'disabled' : 'checked'}>
+      <span class="si-name">${esc(x.season.name || ('Kausi ' + (x.si+1)))}</span>
+      ${none
+        ? `<span class="si-badge">✓ suomeksi</span>`
+        : `<span class="si-count">${x.jobs.length} ${x.jobs.length === 1 ? 'kohde' : 'kohdetta'}</span><span class="si-badge si-new">${fmtNum(x.cost)} merkkiä</span>`}
+    </label>`;
+  }).join('');
+  updateTrmEstimate();
+}
+
+// Näyttää valinnan yhteismerkkimäärän ja varoittaa jos kiintiö ei riitä.
+window.updateTrmEstimate = function(){
+  const r = appData.reviews.find(x => x.id === _trReviewId);
+  if(!r) return;
+  const sel = [...document.querySelectorAll('.trm-check')].filter(c => c.checked).map(c => +c.dataset.si);
+  const jobs = pendingTranslations(r, sel);
+  const cost = window.pendingCharCost(jobs);
+  const q = window.translateQuotaState();
+  const el = document.getElementById('trmEstimate');
+  if(!el) return;
+  if(!jobs.length){ el.innerHTML = 'Ei valittuja kausia.'; return; }
+  const fits = cost <= q.left && !q.exhausted;
+  el.innerHTML = fits
+    ? `Valittuna <strong>${jobs.length}</strong> ${jobs.length === 1 ? 'kohde' : 'kohdetta'}, noin <strong>${fmtNum(cost)}</strong> merkkiä. Mahtuu tämän päivän kiintiöön.`
+    : `Valittuna <strong>${jobs.length}</strong> kohdetta, noin <strong>${fmtNum(cost)}</strong> merkkiä.
+       <span class="trm-warn">Tämän päivän kiintiöstä on jäljellä ${fmtNum(q.left)} merkkiä, joten työ keskeytyy kesken ja voit jatkaa huomenna.</span>`;
+};
+
+window.trmSelectAll = function(on){
+  document.querySelectorAll('.trm-check').forEach(c => { if(!c.disabled) c.checked = !!on; });
+  updateTrmEstimate();
+};
+
+window.cancelTranslate = function(){ _trCancel = true; };
+
+window.runTranslate = async function(){
+  const r = appData.reviews.find(x => x.id === _trReviewId);
+  if(!r) return;
+  const sel = [...document.querySelectorAll('.trm-check')].filter(c => c.checked).map(c => +c.dataset.si);
+  const jobs = pendingTranslations(r, sel);
+  if(!jobs.length){ alert('Valitse ainakin yksi kausi.'); return; }
+
+  _trCancel = false;
+  document.getElementById('trmSetup').style.display = 'none';
+  const prog = document.getElementById('trmProgress');
+  prog.style.display = 'block';
+  // Rakennetaan joka ajolla uudelleen, koska lopputulos korvaa tämän sisällön
+  prog.innerHTML = `
+    <div class="trm-run">
+      <div class="trm-run-head">
+        <span id="trmLabel">0 / ${jobs.length}</span>
+        <span class="trm-run-pct">Käännetään...</span>
+      </div>
+      <div class="trm-quota-track"><div class="trm-quota-bar" id="trmBar" style="width:0%"></div></div>
+      <div class="trm-run-sub" id="trmSub">Aloitetaan...</div>
+      <button class="btn-secondary" style="width:100%;margin-top:16px;" onclick="cancelTranslate()">Keskeytä</button>
+      <div class="trm-run-note">Keskeytys ei hukkaa jo käännettyjä tekstejä.</div>
+    </div>`;
+  const bar   = document.getElementById('trmBar');
+  const label = document.getElementById('trmLabel');
+  const sub   = document.getElementById('trmSub');
+
+  const result = await runTranslationJobs(
+    jobs,
+    (done, total, job) => {
+      bar.style.width = Math.round(done / total * 100) + '%';
+      label.textContent = `${done} / ${total}`;
+      const name = job.ep.name || ('Jakso ' + job.ep.episode);
+      sub.textContent = `${job.field === 'name' ? 'Nimi' : 'Juoni'}: ${name}`;
+    },
+    () => _trCancel,
+    async () => { await window.fbSave(); }   // välitallennus 8 kohteen välein
+  );
+
+  await window.fbSave();
+  renderCards();
+
+  // Yhteenveto
+  const q = window.translateQuotaState();
+  let title, tone;
+  if(result.quota){
+    title = '⏳ Päivän kiintiö täyttyi';
+    tone = 'warn';
+  } else if(result.cancelled){
+    title = '⏸️ Keskeytetty';
+    tone = 'warn';
+  } else {
+    title = '✅ Valmis';
+    tone = 'ok';
+  }
+  const left = jobs.length - result.ok;
+  document.getElementById('trmProgress').innerHTML = `
+    <div class="trm-result trm-${tone}">
+      <div class="trm-result-title">${title}</div>
+      <div class="trm-result-text">
+        Käännetty ${result.ok}/${jobs.length} kohdetta.
+        ${result.failed ? `${result.failed} epäonnistui ja jäi englanniksi.<br>` : ''}
+        ${left > 0
+          ? (result.quota
+              ? `<strong>${left} ${left === 1 ? 'kohde jäi' : 'kohdetta jäi'} jäljelle.</strong> Kiintiö nollautuu vuorokauden kuluessa — avaa tämä ikkuna huomenna uudelleen ja jatka siitä mihin jäit. Jo käännetyt tekstit on tallennettu.`
+              : `${left} ${left === 1 ? 'kohde jäi' : 'kohdetta jäi'} jäljelle.`)
+          : 'Kaikki valitut on nyt suomeksi.'}
+      </div>
+      <div class="trm-result-quota">Käytetty tänään: ${fmtNum(q.chars)} / ${fmtNum(q.limit)} merkkiä</div>
+      <button class="btn-primary" style="width:100%;margin-top:14px;" onclick="closeModal('translateModal')">Sulje</button>
+    </div>
+  `;
+};
+
 // ══ KAUSIEN TUONTI TMDB:STÄ ══
 // Erillinen, valikoiva tuonti: näet mitkä kaudet ovat jo tuotu ja valitset
 // mitä haetaan. Pisteitä ja omia muistiinpanoja ei koskaan ylikirjoiteta.
@@ -1264,15 +1443,11 @@ window.openSeasonImport = async function(reviewId){
 function renderSeasonImportList(r, list){
   const info = document.getElementById('seasonImportInfo');
   const host = document.getElementById('seasonImportList');
-  const s = ensureSettings();
-  const trBits = [];
-  if(s.translatePlots) trBits.push('juonet');
-  if(s.translateNames) trBits.push('nimet');
   info.innerHTML = `<div class="si-info">
     <strong>${esc(plainName(r))}</strong> · ${list.length} kautta TMDB:ssä<br>
-    Pisteesi ja omat muistiinpanosi säilyvät. Vain puuttuvat nimet täydennetään ja juonet päivitetään.
-    ${trBits.length ? `<br>Käännetään suomeksi: ${trBits.join(' ja ')} (muutettavissa asetuksista).`
-                    : '<br>Automaattikäännös on pois päältä asetuksista.'}
+    Haetaan suomeksi, ja englanniksi vain siltä osin kuin suomennosta ei ole.
+    Pisteesi ja omat muistiinpanosi säilyvät.<br>
+    Kääntäminen tehdään erikseen tuonnin jälkeen 🌐-napista.
   </div>`;
 
   host.innerHTML = list.map((s2, i) => {
@@ -1327,10 +1502,6 @@ window.runSeasonImport = async function(){
     if(!fresh){ failed++; continue; }
     if(sNum === 0 && /^Kausi 0$/.test(fresh.name)) fresh.name = 'Erikoisjaksot';
 
-    await translateSeasonFields(fresh, (done, total) => {
-      subEl.textContent = `Käännetään kausi ${sNum}: ${done}/${total}`;
-    });
-
     const target = findSeasonByNumber(r, sNum);
     if(target){
       const st = mergeSeasonInto(target, fresh);
@@ -1360,10 +1531,6 @@ window.runSeasonImport = async function(){
   if(plots) bits.push(`${plots} juonta`);
   if(failed) bits.push(`${failed} kautta epäonnistui`);
   subEl.textContent = bits.length ? `✅ ${bits.join(' · ')}` : '✅ Kaikki oli jo ajan tasalla';
-  if(window.translateQuotaHit()){
-    subEl.textContent += ' — käännöskiintiö täyttyi, loput jäivät englanniksi';
-  }
-
   _seasonImport = null;
   await window.fbSave();
   renderCards();
@@ -1689,24 +1856,21 @@ window.fillFromTmdb = async function(idx) {
     const tvType = document.querySelector('.tv-type-opt.selected')?.dataset?.type;
     if (isTv && tvType === 'jaksot') {
       const numSeasons = detail.number_of_seasons || 0;
-      window.resetTranslateQuotaFlag();
       const seasons = [];
       for (let s = 1; s <= numSeasons; s++) {
         subEl.textContent = `Haetaan kausi ${s}/${numSeasons}...`;
         progBar.style.width = (50 + (s / numSeasons) * 45) + '%';
         const fresh = await fetchSeasonFromTmdb(tmdbId, s);
         if (!fresh) { seasons.push({ name: `Kausi ${s}`, seasonNumber: s, episodes: [] }); continue; }
-        await translateSeasonFields(fresh, (done, total) => {
-          subEl.textContent = `Käännetään kausi ${s}: ${done}/${total}`;
-        });
+        // Ei automaattikäännöstä. Suomi käytetään jos TMDB:ssä on suomi,
+        // muuten englanti. Kääntäminen tehdään erikseen napista.
         seasons.push(seasonFromFresh(fresh));
       }
       window._tmdbPending.seasons = seasons;
       const epCount = seasons.reduce((a, x) => a + x.episodes.length, 0);
-      const plotCount = seasons.reduce((a, x) => a + x.episodes.filter(e => e.plot).length, 0);
-      subEl.textContent = window.translateQuotaHit()
-        ? `${seasons.length} kautta, ${epCount} jaksoa — käännöskiintiö täyttyi`
-        : `${seasons.length} kautta, ${epCount} jaksoa, ${plotCount} juonta`;
+      const enCount = seasons.reduce((a, x) => a + x.episodes.filter(e => e.plotLang === 'en').length, 0);
+      subEl.textContent = `${seasons.length} kautta, ${epCount} jaksoa`
+        + (enCount ? ` · ${enCount} juonta englanniksi` : '');
     }
 
     progBar.style.width = '100%';

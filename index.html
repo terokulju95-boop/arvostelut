@@ -325,6 +325,30 @@
   </div>
 </div>
 
+<!-- KÄÄNNÖS SUOMEKSI -->
+<div class="modal-overlay" id="translateModal" onclick="closeModalIfOutside(event,'translateModal')">
+  <div class="modal-sheet" style="max-width:460px;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🌐 Käännä suomeksi</div>
+
+    <div id="trmSetup">
+      <div id="trmInfo"></div>
+      <div class="si-tools">
+        <button type="button" class="si-tool" onclick="trmSelectAll(true)">Valitse kaikki</button>
+        <button type="button" class="si-tool" onclick="trmSelectAll(false)">Tyhjennä valinnat</button>
+      </div>
+      <div id="trmList" onchange="updateTrmEstimate()"></div>
+      <div class="trm-estimate" id="trmEstimate"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeModal('translateModal')">Peruuta</button>
+        <button class="btn-primary" id="trmStartBtn" onclick="runTranslate()">Käännä valitut</button>
+      </div>
+    </div>
+
+    <div id="trmProgress" style="display:none;"></div>
+  </div>
+</div>
+
 <!-- KAUSIEN TUONTI TMDB:STÄ -->
 <div class="modal-overlay" id="seasonImportModal" onclick="closeModalIfOutside(event,'seasonImportModal')">
   <div class="modal-sheet" style="max-width:460px;">
@@ -425,17 +449,17 @@
       </div>
       <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
         <label>Jaksotiedot ja käännökset</label>
-        <div class="toggle-row-sub" style="margin-bottom:10px;">TMDB:n suomenkieliset jaksotiedot käytetään aina ensin. Nämä koskevat vain tilannetta jossa suomennosta ei ole olemassa.</div>
+        <div class="toggle-row-sub" style="margin-bottom:10px;">Tuonti ei käännä mitään automaattisesti: TMDB:n suomi käytetään aina kun se on olemassa, muuten englanti. Kääntäminen käynnistetään käsin sarjakortin 🌐-napista. Nämä valinnat kertovat mitä silloin käännetään.</div>
         <div class="toggle-row">
           <div>
-            <div class="toggle-row-label">Käännä jaksojen juonet</div>
-            <div class="toggle-row-sub">Englanninkieliset juonikuvaukset konekäännetään</div>
+            <div class="toggle-row-label">Ota juonet mukaan käännökseen</div>
+            <div class="toggle-row-sub">Englanninkieliset juonikuvaukset käännetään kun painat 🌐-nappia</div>
           </div>
           <button type="button" class="toggle-switch" id="translatePlotsToggle" onclick="toggleTranslatePlots()"></button>
         </div>
         <div class="toggle-row">
           <div>
-            <div class="toggle-row-label">Käännä jaksojen nimet</div>
+            <div class="toggle-row-label">Ota nimet mukaan käännökseen</div>
             <div class="toggle-row-sub">Ei suositella — nimet ovat usein sanaleikkejä joita konekäännös pilaa</div>
           </div>
           <button type="button" class="toggle-switch" id="translateNamesToggle" onclick="toggleTranslateNames()"></button>

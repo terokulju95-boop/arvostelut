@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-28.3';
+window.BUILD_VIEWS = '2026-08-28.4';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -270,6 +270,11 @@ window.renderCards = function(){
             <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>
             <button class="btn-import-seasons" onclick="openSeasonImport(${r.id})">📥 Tuo TMDB:stä</button>
           </div>
+          ${(function(){
+            const pend = pendingTranslations(r).length;
+            if(!pend) return '';
+            return `<button class="btn-translate-seasons" onclick="openTranslateModal(${r.id})">🌐 Käännä suomeksi <span class="bts-count">${pend}</span></button>`;
+          })()}
         </div>`;
       } else {
         // Kausittain (ei muutosta rakenteeseen)
@@ -1294,7 +1299,6 @@ window.updateTmdbData = async function(id) {
       const numSeasons = detail.number_of_seasons || 0;
       r.seasons = r.seasons || [];
       const existingSeasons = r.seasons;
-      window.resetTranslateQuotaFlag();
       let added = 0, renamed = 0, plots = 0;
 
       for (let s = 1; s <= numSeasons; s++) {
@@ -1302,9 +1306,6 @@ window.updateTmdbData = async function(id) {
         subEl.textContent = `Päivitetään kausi ${s}/${numSeasons}...`;
         const fresh = await fetchSeasonFromTmdb(tmdbId, s);
         if (!fresh) continue;
-        await translateSeasonFields(fresh, (done, total) => {
-          subEl.textContent = `Käännetään kausi ${s}: ${done}/${total}`;
-        });
 
         // Etsi vastaava kausi numerolla, nimellä tai sijainnilla
         const target = findSeasonByNumber(r, s);
@@ -1318,7 +1319,7 @@ window.updateTmdbData = async function(id) {
         }
       }
       r.seasons = existingSeasons;
-      window._tmdbUpdateSummary = { added, renamed, plots, quota: window.translateQuotaHit() };
+      window._tmdbUpdateSummary = { added, renamed, plots };
     }
 
     progBar.style.width = '100%';
@@ -1330,7 +1331,7 @@ window.updateTmdbData = async function(id) {
       if(sum.renamed) bits.push(`${sum.renamed} nimeä`);
       if(sum.plots) bits.push(`${sum.plots} juonta`);
       subEl.textContent = bits.length
-        ? `✅ ${bits.join(', ')}${sum.quota ? ' · käännöskiintiö täynnä' : ''}`
+        ? `✅ ${bits.join(', ')}`
         : '✅ Kaikki oli jo ajan tasalla';
     } else {
       subEl.textContent = '✅ Tiedot päivitetty!';

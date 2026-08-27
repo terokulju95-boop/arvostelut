@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-08-28.3';
+window.BUILD_CORE = '2026-08-28.4';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -842,8 +842,8 @@ window.fetchSeasonFromTmdb = fetchSeasonFromTmdb;
 // lauserajoilta, ja jokainen epäonnistuminen koskee vain omaa tekstiään.
 
 const TR_CACHE_KEY = 'arvostelut_translations_v1';
+const TR_USAGE_KEY = 'arvostelut_tr_usage_v1';
 let _trCache = null;
-let _trQuotaHit = false;
 
 function trCache(){
   if(_trCache) return _trCache;
@@ -877,6 +877,66 @@ window.clearTranslationCache = function(){
   try { localStorage.removeItem(TR_CACHE_KEY); } catch(e){}
 };
 
+// ── PÄIVÄKIINTIÖN SEURANTA ──
+// MyMemoryn raja on merkkimääräinen ja nollautuu vuorokausittain. Pidämme
+// itse kirjaa käytöstä, jotta osaamme kertoa etukäteen paljonko on jäljellä
+// eikä käännöstyötä tarvitse aloittaa arvaamalla. Päivämäärän vaihtuessa
+// laskuri nollautuu itsestään.
+function trToday(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function trUsage(){
+  try {
+    const raw = localStorage.getItem(TR_USAGE_KEY);
+    if(raw){
+      const o = JSON.parse(raw);
+      if(o && o.date === trToday()) return o;
+    }
+  } catch(e){}
+  return { date: trToday(), chars: 0, exhausted: false };
+}
+
+function trSaveUsage(u){
+  try { localStorage.setItem(TR_USAGE_KEY, JSON.stringify(u)); } catch(e){}
+}
+
+function trAddUsage(n){
+  const u = trUsage();
+  u.chars += n;
+  trSaveUsage(u);
+}
+
+function trMarkExhausted(){
+  const u = trUsage();
+  u.exhausted = true;
+  trSaveUsage(u);
+}
+
+// Kiintiön tila käyttöliittymää varten.
+window.translateQuotaState = function(){
+  const u = trUsage();
+  const email = String((appData.settings && appData.settings.translateEmail) || '').trim();
+  const limit = email ? 50000 : 5000;
+  return {
+    date: u.date,
+    chars: u.chars,
+    limit,
+    left: Math.max(0, limit - u.chars),
+    exhausted: !!u.exhausted,
+    hasEmail: !!email
+  };
+};
+
+// Nollaa kiintiölipun käsin (esim. jos sähköposti lisättiin kesken päivän).
+window.resetTranslateQuotaFlag = function(){
+  const u = trUsage();
+  u.exhausted = false;
+  trSaveUsage(u);
+};
+window.translateQuotaHit = function(){ return trUsage().exhausted; };
+
 // MyMemory palauttaa toisinaan HTML-entiteettejä (&#39;) raakana.
 function decodeEntities(s){
   if(!s || s.indexOf('&') === -1) return s;
@@ -895,7 +955,6 @@ function splitForTranslate(text, limit){
   let rest = text;
   while(rest.length > max){
     let cut = -1;
-    // Etsi lauseen loppu takaperin
     for(const mark of ['. ', '! ', '? ', '; ', ', ']){
       const i = rest.lastIndexOf(mark, max);
       if(i > cut) cut = i + mark.length - 1;
@@ -910,7 +969,7 @@ function splitForTranslate(text, limit){
 }
 
 async function myMemoryTranslate(text){
-  if(_trQuotaHit) return null;
+  if(trUsage().exhausted) return null;
   const email = String((appData.settings && appData.settings.translateEmail) || '').trim();
   const url = 'https://api.mymemory.translated.net/get'
     + `?q=${encodeURIComponent(text)}&langpair=en|fi`
@@ -921,11 +980,13 @@ async function myMemoryTranslate(text){
     const out = data && data.responseData && data.responseData.translatedText;
     // Päiväkiintiö täynnä tai muu palvelun oma virheilmoitus tulee
     // käännöksen paikalla tekstinä — sitä ei saa tallentaa nimeksi.
-    if(/MYMEMORY WARNING|QUOTA|USAGE LIMIT|INVALID/i.test(String(out || ''))){
-      _trQuotaHit = true;
+    if(/MYMEMORY WARNING|QUOTA|USAGE LIMIT|TOO MANY|INVALID/i.test(String(out || '')) ||
+       data.responseStatus === 429 || data.responseStatus === 403){
+      trMarkExhausted();
       return null;
     }
     if(!out || data.responseStatus !== 200) return null;
+    trAddUsage(text.length);
     return decodeEntities(String(out)).trim() || null;
   } catch(e){
     return null;
@@ -949,30 +1010,56 @@ async function translateToFi(text){
     if(i < chunks.length - 1) await new Promise(r => setTimeout(r, 120));
   }
   const joined = out.join(' ').trim();
-  // Jos "käännös" on identtinen lähtötekstin kanssa, se ei tuonut mitään
-  if(!joined || joined.toLowerCase() === src.toLowerCase()) { cache[src] = null; trCacheSave(); return null; }
+  if(!joined || joined.toLowerCase() === src.toLowerCase()){ cache[src] = null; trCacheSave(); return null; }
   cache[src] = joined;
   trCacheSave();
   return joined;
 }
 window.translateToFi = translateToFi;
-window.resetTranslateQuotaFlag = function(){ _trQuotaHit = false; };
-window.translateQuotaHit = function(){ return _trQuotaHit; };
 
-// Kääntää kauden englanninkieliset kentät asetusten mukaan.
-// onProgress(tehty, yhteensä) päivittää latausikkunan tekstiä.
-async function translateSeasonFields(season, onProgress){
+// ── KÄÄNNETTÄVÄT KOHTEET ──
+// Tuonti EI enää käännä mitään automaattisesti. Tämä kerää listan siitä,
+// mikä olisi käännettävissä, jotta käyttöliittymä voi näyttää määrän ja
+// arvioidun merkkimäärän ennen kuin mitään lähetetään palveluun.
+function pendingTranslations(r, seasonIdxs){
   const s = ensureSettings();
   const jobs = [];
-  (season.episodes || []).forEach(ep => {
-    if(s.translatePlots && ep.plotLang === 'en' && ep.plot) jobs.push({ ep, field:'plot' });
-    if(s.translateNames && ep.nameLang === 'en' && ep.name) jobs.push({ ep, field:'name' });
+  (r.seasons || []).forEach((season, si) => {
+    if(seasonIdxs && seasonIdxs.indexOf(si) === -1) return;
+    (season.episodes || []).forEach(ep => {
+      if(s.translatePlots && ep.plotLang === 'en' && ep.plot){
+        jobs.push({ si, ep, field: 'plot', len: ep.plot.length });
+      }
+      if(s.translateNames && ep.nameLang === 'en' && ep.name){
+        jobs.push({ si, ep, field: 'name', len: ep.name.length });
+      }
+    });
   });
-  if(!jobs.length) return { done:0, total:0, quota:false };
+  return jobs;
+}
+window.pendingTranslations = pendingTranslations;
 
-  let done = 0;
-  for(const job of jobs){
-    if(_trQuotaHit) break;
+// Montako merkkiä jono veisi kiintiöstä. Välimuistissa olevat eivät maksa
+// mitään, joten ne jätetään laskuista pois.
+window.pendingCharCost = function(jobs){
+  const cache = trCache();
+  let sum = 0;
+  jobs.forEach(j => {
+    const src = String(j.ep[j.field] || '').trim();
+    if(!Object.prototype.hasOwnProperty.call(cache, src)) sum += src.length;
+  });
+  return sum;
+};
+
+// Ajaa käännösjonon. Keskeytyy siististi jos kiintiö loppuu tai käyttäjä
+// peruu — siihen asti tehdyt käännökset jäävät voimaan.
+async function runTranslationJobs(jobs, onProgress, isCancelled, onCheckpoint){
+  let done = 0, ok = 0, failed = 0, cancelled = false;
+  for(let i = 0; i < jobs.length; i++){
+    if(isCancelled && isCancelled()){ cancelled = true; break; }
+    if(trUsage().exhausted) break;
+
+    const job = jobs[i];
     const src = job.ep[job.field];
     const t = await translateToFi(src);
     if(t){
@@ -981,17 +1068,27 @@ async function translateSeasonFields(season, onProgress){
         job.ep.name = t;
         job.ep.nameLang = 'fi-auto';
       } else {
+        job.ep.plotOriginal = src;
         job.ep.plot = t;
         job.ep.plotLang = 'fi-auto';
       }
+      ok++;
+    } else if(trUsage().exhausted){
+      // Kiintiö loppui juuri tähän kohteeseen. Se ei ole virhe vaan
+      // jatkokohta huomiselle, joten sitä ei lasketa epäonnistuneeksi.
+      break;
+    } else {
+      failed++;
     }
     done++;
-    if(onProgress) onProgress(done, jobs.length);
+    if(onProgress) onProgress(done, jobs.length, job);
+    // Tallenna välillä, jotta keskeytys ei hukkaa tehtyä työtä
+    if(onCheckpoint && done % 8 === 0) await onCheckpoint();
     await new Promise(r => setTimeout(r, 120));
   }
-  return { done, total: jobs.length, quota: _trQuotaHit };
+  return { done, ok, failed, cancelled, quota: trUsage().exhausted, total: jobs.length };
 }
-window.translateSeasonFields = translateSeasonFields;
+window.runTranslationJobs = runTranslationJobs;
 
 // ── KAUDEN YHDISTÄMINEN OLEMASSA OLEVAAN ──
 // Sääntö: omat pisteet ja omat muistiinpanot ovat pyhiä eikä niitä
