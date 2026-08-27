@@ -365,6 +365,11 @@ function ensureSettings(){
   if(!appData.settings.precision) appData.settings.precision = 'normal';
   if(!appData.settings.weights) appData.settings.weights = {};
   if(appData.settings.topLimit == null) appData.settings.topLimit = 5;
+  // Jaksotiedot: juonet käännetään oletuksena, nimiä ei — jaksojen nimet
+  // ovat usein sanaleikkejä tai erisnimiä, joita konekäännös pilaa.
+  if(appData.settings.translatePlots == null) appData.settings.translatePlots = true;
+  if(appData.settings.translateNames == null) appData.settings.translateNames = false;
+  if(appData.settings.translateEmail == null) appData.settings.translateEmail = '';
   return appData.settings;
 }
 
@@ -739,6 +744,347 @@ function fuzzyNormCached(s){
 window.fuzzyNorm = fuzzyNorm;
 window.fuzzyMatch = fuzzyMatch;
 window.fuzzyNormCached = fuzzyNormCached;
+
+// ══════════════════════════════════════════════════════════════════
+// ── JAKSOTIEDOT: TMDB-HAKU, KÄÄNNÖS JA YHDISTÄMINEN ──
+// Yksi yhteinen toteutus, jota sekä uuden arvostelun luonti että
+// olemassa olevan päivitys käyttävät. Aiemmin sama logiikka oli
+// kahtena hieman erilaisena kopiona, mikä aiheutti sen että jaksot
+// tulivat välillä suomeksi, välillä englanniksi ja välillä tyhjinä.
+// ══════════════════════════════════════════════════════════════════
+
+// TMDB:n suomenkielinen jaksodata sisältää usein paikanpitäjänimiä
+// ("Jakso 7"). Ne eivät ole oikeita nimiä vaan merkki puuttuvasta
+// käännöksestä, joten ne pitää tunnistaa ja korvata englanninkielisellä.
+function isGenericEpName(name, num){
+  const n = String(name == null ? '' : name).trim();
+  if(!n) return true;
+  if(n === `Jakso ${num}` || n === `Episode ${num}` || n === `Avsnitt ${num}`) return true;
+  return /^(jakso|episode|ep\.?|osa)\s*\d+$/i.test(n);
+}
+window.isGenericEpName = isGenericEpName;
+
+// Yksi TMDB-kutsu. Palauttaa null virheen sattuessa, ei heitä poikkeusta,
+// jotta yhden kauden epäonnistuminen ei kaada koko tuontia.
+async function tmdbGet(path){
+  const token = window.tmdbToken;
+  if(!token) return null;
+  try{
+    const res = await fetch(`https://api.themoviedb.org/3${path}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if(!res.ok) return null;
+    return await res.json();
+  } catch(e){
+    return null;
+  }
+}
+window.tmdbGet = tmdbGet;
+
+// Hakee yhden kauden AINA sekä suomeksi että englanniksi ja yhdistää
+// parhaat palat jakso kerrallaan. Näin puolittain käännetty kausi
+// täydentyy oikein — aiemmin englanti haettiin vain jos JOKAINEN jakson
+// nimi oli paikanpitäjä, joten sekamuotoiset kaudet jäivät vajaiksi.
+// Molemmat kutsut menevät service workerin 24 h välimuistin läpi,
+// joten toinen kutsu ei käytännössä maksa mitään.
+async function fetchSeasonFromTmdb(tmdbId, sNum){
+  const [fi, en] = await Promise.all([
+    tmdbGet(`/tv/${tmdbId}/season/${sNum}?language=fi-FI`),
+    tmdbGet(`/tv/${tmdbId}/season/${sNum}?language=en-US`)
+  ]);
+  if(!fi && !en) return null;
+
+  const enByNum = {};
+  ((en && en.episodes) || []).forEach(e => { enByNum[e.episode_number] = e; });
+
+  const source = (fi && fi.episodes && fi.episodes.length) ? fi.episodes : ((en && en.episodes) || []);
+  const episodes = source.map(ep => {
+    const num  = ep.episode_number;
+    const enEp = enByNum[num] || {};
+
+    const fiName = String(ep.name || '').trim();
+    const enName = String(enEp.name || '').trim();
+    let name = '', nameLang = '';
+    if(!isGenericEpName(fiName, num)){ name = fiName; nameLang = 'fi'; }
+    else if(!isGenericEpName(enName, num)){ name = enName; nameLang = 'en'; }
+    else { name = fiName || enName || `Jakso ${num}`; nameLang = ''; }
+
+    const fiPlot = String(ep.overview || '').trim();
+    const enPlot = String(enEp.overview || '').trim();
+    const plot = fiPlot || enPlot;
+    const plotLang = fiPlot ? 'fi' : (enPlot ? 'en' : '');
+
+    return {
+      episode: num,
+      name, nameLang,
+      plot, plotLang,
+      air_date: ep.air_date || enEp.air_date || null,
+      still: ep.still_path || enEp.still_path || null
+    };
+  });
+
+  return {
+    seasonNumber: sNum,
+    name: (fi && fi.name) || (en && en.name) || `Kausi ${sNum}`,
+    episodes
+  };
+}
+window.fetchSeasonFromTmdb = fetchSeasonFromTmdb;
+
+// ── KÄÄNNÖS (MyMemory) ──
+// Vanha toteutus niputti kymmenen nimeä yhteen merkkijonoon " ||| "
+// -erottimella. Käännöspalvelu muutti tai poisti erottimen usein, jolloin
+// pilkkominen meni väärin ja nimet menivät sekaisin tai katosivat.
+// Nyt käännetään yksi teksti kerrallaan, pitkät tekstit pilkotaan
+// lauserajoilta, ja jokainen epäonnistuminen koskee vain omaa tekstiään.
+
+const TR_CACHE_KEY = 'arvostelut_translations_v1';
+let _trCache = null;
+let _trQuotaHit = false;
+
+function trCache(){
+  if(_trCache) return _trCache;
+  _trCache = {};
+  try {
+    const raw = localStorage.getItem(TR_CACHE_KEY);
+    if(raw) _trCache = JSON.parse(raw) || {};
+  } catch(e){ _trCache = {}; }
+  return _trCache;
+}
+
+function trCacheSave(){
+  try {
+    const c = trCache();
+    const keys = Object.keys(c);
+    // Pidä välimuisti kohtuullisena: vanhimmat pois kun rajaa lähestytään
+    if(keys.length > 1200){
+      const trimmed = {};
+      keys.slice(-800).forEach(k => { trimmed[k] = c[k]; });
+      _trCache = trimmed;
+    }
+    localStorage.setItem(TR_CACHE_KEY, JSON.stringify(_trCache));
+  } catch(e){}
+}
+
+window.translationCacheSize = function(){
+  try { return Object.keys(trCache()).length; } catch(e){ return 0; }
+};
+window.clearTranslationCache = function(){
+  _trCache = {};
+  try { localStorage.removeItem(TR_CACHE_KEY); } catch(e){}
+};
+
+// MyMemory palauttaa toisinaan HTML-entiteettejä (&#39;) raakana.
+function decodeEntities(s){
+  if(!s || s.indexOf('&') === -1) return s;
+  const el = document.createElement('textarea');
+  el.innerHTML = s;
+  return el.value;
+}
+
+// Pilko pitkä teksti lauserajoilta alle rajan mittaisiin paloihin.
+// MyMemory hylkää yli 500 merkin kyselyt, ja jaksojen juonikuvaukset
+// ylittävät sen usein.
+function splitForTranslate(text, limit){
+  const max = limit || 460;
+  if(text.length <= max) return [text];
+  const parts = [];
+  let rest = text;
+  while(rest.length > max){
+    let cut = -1;
+    // Etsi lauseen loppu takaperin
+    for(const mark of ['. ', '! ', '? ', '; ', ', ']){
+      const i = rest.lastIndexOf(mark, max);
+      if(i > cut) cut = i + mark.length - 1;
+    }
+    if(cut < max * 0.4) cut = rest.lastIndexOf(' ', max);
+    if(cut <= 0) cut = max;
+    parts.push(rest.slice(0, cut + 1).trim());
+    rest = rest.slice(cut + 1).trim();
+  }
+  if(rest) parts.push(rest);
+  return parts;
+}
+
+async function myMemoryTranslate(text){
+  if(_trQuotaHit) return null;
+  const email = String((appData.settings && appData.settings.translateEmail) || '').trim();
+  const url = 'https://api.mymemory.translated.net/get'
+    + `?q=${encodeURIComponent(text)}&langpair=en|fi`
+    + (email ? `&de=${encodeURIComponent(email)}` : '');
+  try{
+    const res = await fetch(url);
+    const data = await res.json();
+    const out = data && data.responseData && data.responseData.translatedText;
+    // Päiväkiintiö täynnä tai muu palvelun oma virheilmoitus tulee
+    // käännöksen paikalla tekstinä — sitä ei saa tallentaa nimeksi.
+    if(/MYMEMORY WARNING|QUOTA|USAGE LIMIT|INVALID/i.test(String(out || ''))){
+      _trQuotaHit = true;
+      return null;
+    }
+    if(!out || data.responseStatus !== 200) return null;
+    return decodeEntities(String(out)).trim() || null;
+  } catch(e){
+    return null;
+  }
+}
+
+// Kääntää yhden tekstin. Palauttaa null jos käännös epäonnistuu,
+// jolloin kutsuja jättää alkuperäisen englanninkielisen tekstin paikalleen.
+async function translateToFi(text){
+  const src = String(text || '').trim();
+  if(!src) return null;
+  const cache = trCache();
+  if(Object.prototype.hasOwnProperty.call(cache, src)) return cache[src];
+
+  const chunks = splitForTranslate(src, 460);
+  const out = [];
+  for(let i = 0; i < chunks.length; i++){
+    const t = await myMemoryTranslate(chunks[i]);
+    if(t == null) return null;          // yksikin pala pieleen → koko teksti ennalleen
+    out.push(t);
+    if(i < chunks.length - 1) await new Promise(r => setTimeout(r, 120));
+  }
+  const joined = out.join(' ').trim();
+  // Jos "käännös" on identtinen lähtötekstin kanssa, se ei tuonut mitään
+  if(!joined || joined.toLowerCase() === src.toLowerCase()) { cache[src] = null; trCacheSave(); return null; }
+  cache[src] = joined;
+  trCacheSave();
+  return joined;
+}
+window.translateToFi = translateToFi;
+window.resetTranslateQuotaFlag = function(){ _trQuotaHit = false; };
+window.translateQuotaHit = function(){ return _trQuotaHit; };
+
+// Kääntää kauden englanninkieliset kentät asetusten mukaan.
+// onProgress(tehty, yhteensä) päivittää latausikkunan tekstiä.
+async function translateSeasonFields(season, onProgress){
+  const s = ensureSettings();
+  const jobs = [];
+  (season.episodes || []).forEach(ep => {
+    if(s.translatePlots && ep.plotLang === 'en' && ep.plot) jobs.push({ ep, field:'plot' });
+    if(s.translateNames && ep.nameLang === 'en' && ep.name) jobs.push({ ep, field:'name' });
+  });
+  if(!jobs.length) return { done:0, total:0, quota:false };
+
+  let done = 0;
+  for(const job of jobs){
+    if(_trQuotaHit) break;
+    const src = job.ep[job.field];
+    const t = await translateToFi(src);
+    if(t){
+      if(job.field === 'name'){
+        job.ep.nameOriginal = src;
+        job.ep.name = t;
+        job.ep.nameLang = 'fi-auto';
+      } else {
+        job.ep.plot = t;
+        job.ep.plotLang = 'fi-auto';
+      }
+    }
+    done++;
+    if(onProgress) onProgress(done, jobs.length);
+    await new Promise(r => setTimeout(r, 120));
+  }
+  return { done, total: jobs.length, quota: _trQuotaHit };
+}
+window.translateSeasonFields = translateSeasonFields;
+
+// ── KAUDEN YHDISTÄMINEN OLEMASSA OLEVAAN ──
+// Sääntö: omat pisteet ja omat muistiinpanot ovat pyhiä eikä niitä
+// koskaan ylikirjoiteta. Nimi päivitetään vain jos vanha puuttuu tai on
+// paikanpitäjä. Juoni tulee aina TMDB:stä, koska se on lähdetietoa.
+// Jaksot yhdistetään jaksonumeron perusteella, ei listan järjestyksen —
+// muuten yksi puuttuva jakso siirsi kaikki loput nimet väärille riveille.
+function mergeSeasonInto(existing, fresh){
+  const stats = { added:0, renamed:0, plots:0, kept:0 };
+  const byNum = new Map();
+  (existing.episodes || []).forEach(ep => {
+    if(ep.episode != null) byNum.set(Number(ep.episode), ep);
+  });
+
+  (fresh.episodes || []).forEach(fe => {
+    const old = byNum.get(Number(fe.episode));
+    if(old){
+      const oldName = String(old.name || '').trim();
+      if(isGenericEpName(oldName, fe.episode) && fe.name){
+        old.name = fe.name;
+        old.nameLang = fe.nameLang;
+        stats.renamed++;
+      }
+      // Vanhassa datassa TMDB:n juoni tallentui muistiinpanokenttään.
+      // Jos muistiinpano on täsmälleen sama teksti, se ei ole käyttäjän
+      // omaa tekstiä vaan vanha tuonti → siirretään oikeaan kenttään.
+      if(old.note && fe.plot && old.note.trim() === fe.plot.trim()) old.note = '';
+      if(fe.plot){
+        if(old.plot !== fe.plot) stats.plots++;
+        old.plot = fe.plot;
+        old.plotLang = fe.plotLang;
+      }
+      if(fe.air_date && !old.air_date) old.air_date = fe.air_date;
+      if(old.episode == null) old.episode = fe.episode;
+      stats.kept++;
+    } else {
+      existing.episodes = existing.episodes || [];
+      existing.episodes.push({
+        episode: fe.episode,
+        name: fe.name,
+        nameLang: fe.nameLang,
+        plot: fe.plot,
+        plotLang: fe.plotLang,
+        air_date: fe.air_date || null,
+        note: '',
+        score: null
+      });
+      stats.added++;
+    }
+  });
+
+  if(fresh.name && (!existing.name || /^Kausi \d+$/.test(existing.name))) existing.name = fresh.name;
+  existing.seasonNumber = fresh.seasonNumber;
+  (existing.episodes || []).sort((a,b) => (a.episode || 0) - (b.episode || 0));
+  return stats;
+}
+window.mergeSeasonInto = mergeSeasonInto;
+
+// Rakentaa uuden kausiolion tuoreesta TMDB-datasta.
+function seasonFromFresh(fresh){
+  return {
+    name: fresh.name,
+    seasonNumber: fresh.seasonNumber,
+    episodes: (fresh.episodes || []).map(fe => ({
+      episode: fe.episode,
+      name: fe.name,
+      nameLang: fe.nameLang,
+      plot: fe.plot,
+      plotLang: fe.plotLang,
+      air_date: fe.air_date || null,
+      note: '',
+      score: null
+    }))
+  };
+}
+window.seasonFromFresh = seasonFromFresh;
+
+// Etsii arvostelusta kauden, joka vastaa TMDB:n kausinumeroa.
+// Ennen tätä päivitystä tallennetuissa kausissa ei ole seasonNumber-kenttää,
+// joten pelkkä numerovertailu ei riitä: ilman varasuunnitelmaa tuonti loisi
+// jokaisesta kaudesta kaksoiskappaleen. Päättely menee järjestyksessä
+// numero → nimessä oleva luku → sijainti listassa.
+function findSeasonByNumber(r, sNum){
+  const list = (r && r.seasons) || [];
+  let hit = list.find(x => x.seasonNumber != null && Number(x.seasonNumber) === sNum);
+  if(hit) return hit;
+  hit = list.find(x => {
+    if(x.seasonNumber != null) return false;
+    const m = String(x.name || '').match(/(\d+)/);
+    return m && Number(m[1]) === sNum;
+  });
+  if(hit) return hit;
+  if(sNum >= 1 && list[sNum - 1] && list[sNum - 1].seasonNumber == null) return list[sNum - 1];
+  return null;
+}
+window.findSeasonByNumber = findSeasonByNumber;
 
 // ── DUPLIKAATTITARKISTUS ──
 function normName(s){

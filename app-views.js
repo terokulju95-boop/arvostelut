@@ -208,6 +208,7 @@ window.renderCards = function(){
                   <div class="tv-part">
                     <div class="tv-part-info">
                       <span class="tv-part-name">${ep.episode?`<span style="color:var(--accent);font-weight:700;font-size:12px;">J${ep.episode} </span>`:''}${esc(ep.name||'')}</span>
+                      ${ep.plot?`<span class="tv-part-plot${(ep.plotLang==='en')?' is-en':''}" onclick="event.stopPropagation();this.classList.toggle('open')" title="Napauta laajentaaksesi">${ep.plotLang==='en'?'<span class="plot-lang">EN</span> ':''}${escNl(ep.plot)}</span>`:''}
                       ${ep.note?`<span class="tv-part-note">${mdText(ep.note)}</span>`:''}
                     </div>
                     <span class="tv-part-score ${ep.score != null ? scoreClass(ep.score) : ''}" style="${ep.score == null ? 'color:var(--muted);font-size:14px;' : ''}">${ep.score != null ? ep.score : '–'}</span>
@@ -262,7 +263,10 @@ window.renderCards = function(){
           ${progHtml}
           ${bestWorstHtml}
           ${seasonHtml}
-          <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>
+          <div class="season-actions">
+            <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>
+            <button class="btn-import-seasons" onclick="openSeasonImport(${r.id})">📥 Tuo TMDB:stä</button>
+          </div>
         </div>`;
       } else {
         // Kausittain (ei muutosta rakenteeseen)
@@ -1280,101 +1284,57 @@ window.updateTmdbData = async function(id) {
 
     progBar.style.width = '55%';
 
-    // TV-sarja jaksoittain: päivitä jaksojen NIMET, säilytä pisteet
+    // TV-sarja jaksoittain: päivitä nimet ja juonet, säilytä pisteet.
+    // Yhdistäminen tehdään jaksonumeron perusteella (ks. mergeSeasonInto),
+    // joten puuttuva jakso ei enää siirrä muiden nimiä väärille riveille.
     if (isTv && isJaksot) {
       const numSeasons = detail.number_of_seasons || 0;
-      const existingSeasons = r.seasons || [];
-      subEl.textContent = `Haetaan ${numSeasons} kauden jaksonimet...`;
+      r.seasons = r.seasons || [];
+      const existingSeasons = r.seasons;
+      window.resetTranslateQuotaFlag();
+      let added = 0, renamed = 0, plots = 0;
 
       for (let s = 1; s <= numSeasons; s++) {
         progBar.style.width = (55 + (s / numSeasons) * 40) + '%';
         subEl.textContent = `Päivitetään kausi ${s}/${numSeasons}...`;
-        try {
-          const sUrl = `https://api.themoviedb.org/3/tv/${tmdbId}/season/${s}?language=${lang}`;
-          const sRes = await fetch(sUrl, { headers: { Authorization: `Bearer ${token}` } });
-          const sData = await sRes.json();
+        const fresh = await fetchSeasonFromTmdb(tmdbId, s);
+        if (!fresh) continue;
+        await translateSeasonFields(fresh, (done, total) => {
+          subEl.textContent = `Käännetään kausi ${s}: ${done}/${total}`;
+        });
 
-          // Tarkista geneerisiä nimiä, hae englanti fallbackina
-          const fiEps = sData.episodes || [];
-          const hasGenericNames = fiEps.length > 0 && fiEps.every(ep =>
-            !ep.name || ep.name.trim() === `Jakso ${ep.episode_number}` || ep.name.trim() === `Episode ${ep.episode_number}`
-          );
-          let enEpMap = {};
-          if (hasGenericNames) {
-            try {
-              const enUrl = `https://api.themoviedb.org/3/tv/${tmdbId}/season/${s}?language=en-US`;
-              const enRes = await fetch(enUrl, { headers: { Authorization: `Bearer ${token}` } });
-              const enData = await enRes.json();
-              (enData.episodes || []).forEach(ep => { enEpMap[ep.episode_number] = ep; });
-            } catch(e2) {}
-          }
-          const resolvedName = (ep) => {
-            const fi = ep.name ? ep.name.trim() : '';
-            const isGeneric = !fi || fi === `Jakso ${ep.episode_number}` || fi === `Episode ${ep.episode_number}`;
-            return isGeneric && enEpMap[ep.episode_number]?.name ? enEpMap[ep.episode_number].name : fi;
-          };
-
-          // Etsi vastaava olemassa oleva kausi
-          const existingSeason = existingSeasons[s - 1];
-          if (existingSeason) {
-            // Päivitä kauden nimi
-            existingSeason.name = sData.name || existingSeason.name;
-            // Päivitä jaksojen nimet — EI korvaa pisteitä
-            const tmdbEps = fiEps;
-            const existingEps = existingSeason.episodes || [];
-            const needsTranslation = [];
-            tmdbEps.forEach((tmdbEp, ei) => {
-              if (existingEps[ei]) {
-                const newName = resolvedName(tmdbEp);
-                const oldName = existingEps[ei].name ? existingEps[ei].name.trim() : '';
-                const oldIsGeneric = !oldName || oldName === `Jakso ${tmdbEp.episode_number}` || oldName === `Episode ${tmdbEp.episode_number}`;
-                // Päivitä nimi jos se on tyhjä tai geneerinen
-                if (!oldName || oldIsGeneric) {
-                  existingEps[ei].name = newName;
-                  if (hasGenericNames && enEpMap[tmdbEp.episode_number]?.name) {
-                    needsTranslation.push(ei);
-                  }
-                }
-                // Lisää jaksonumero jos puuttuu
-                if (!existingEps[ei].episode) {
-                  existingEps[ei].episode = tmdbEp.episode_number;
-                }
-              }
-            });
-            // Käännä englanninkieliset nimet suomeksi
-            if (needsTranslation.length > 0) {
-              subEl.textContent = `✨ Käännetään kausi ${s} suomeksi...`;
-              const rawNames = existingEps.map(e => e.name || '');
-              const translated = await translateEpisodeNamesBatch(rawNames);
-              needsTranslation.forEach(ei => { if (translated[ei]) existingEps[ei].name = translated[ei]; });
-            }
-          } else {
-            // Kausi puuttuu kokonaan — lisää se tyhjin pistein
-            const episodes = fiEps.map(ep => ({
-              episode: ep.episode_number,
-              name: resolvedName(ep),
-              note: '',
-              score: null
-            }));
-            // Käännä jos englanninkieliset nimet
-            if (hasGenericNames && Object.keys(enEpMap).length > 0) {
-              subEl.textContent = `✨ Käännetään kausi ${s} suomeksi...`;
-              const rawNames = episodes.map(e => e.name);
-              const translated = await translateEpisodeNamesBatch(rawNames);
-              translated.forEach((name, i) => { if (episodes[i]) episodes[i].name = name; });
-            }
-            existingSeasons.push({ name: sData.name || `Kausi ${s}`, episodes });
-          }
-        } catch(e) { /* jatka */ }
+        // Etsi vastaava kausi numerolla, nimellä tai sijainnilla
+        const target = findSeasonByNumber(r, s);
+        if (target) {
+          const st = mergeSeasonInto(target, fresh);
+          added += st.added; renamed += st.renamed; plots += st.plots;
+        } else {
+          existingSeasons.push(seasonFromFresh(fresh));
+          added += fresh.episodes.length;
+          plots += fresh.episodes.filter(e => e.plot).length;
+        }
       }
       r.seasons = existingSeasons;
+      window._tmdbUpdateSummary = { added, renamed, plots, quota: window.translateQuotaHit() };
     }
 
     progBar.style.width = '100%';
-    subEl.textContent = '✅ Tiedot päivitetty!';
+    const sum = window._tmdbUpdateSummary;
+    window._tmdbUpdateSummary = null;
+    if(sum){
+      const bits = [];
+      if(sum.added) bits.push(`${sum.added} uutta jaksoa`);
+      if(sum.renamed) bits.push(`${sum.renamed} nimeä`);
+      if(sum.plots) bits.push(`${sum.plots} juonta`);
+      subEl.textContent = bits.length
+        ? `✅ ${bits.join(', ')}${sum.quota ? ' · käännöskiintiö täynnä' : ''}`
+        : '✅ Kaikki oli jo ajan tasalla';
+    } else {
+      subEl.textContent = '✅ Tiedot päivitetty!';
+    }
     await window.fbSave();
     renderCards();
-    setTimeout(() => overlay.classList.remove('open'), 1000);
+    setTimeout(() => overlay.classList.remove('open'), sum ? 1800 : 1000);
 
   } catch(e) {
     overlay.classList.remove('open');
@@ -1468,6 +1428,7 @@ window.openAddPart = function(reviewId, seasonIdx){
   }
   document.getElementById('partName').value='';
   document.getElementById('partNote').value='';
+  window.renderPartPlot(null);
   selectedPartScore=null;
   const psi=document.getElementById('partScoreInput'); if(psi) psi.value='';
   buildScorePicker('partScorePicker','partScore');
@@ -1476,32 +1437,62 @@ window.openAddPart = function(reviewId, seasonIdx){
   document.getElementById('partModal').classList.add('open');
 };
 
-// Auto-täytä jakson nimi TMDB-datasta jaksonumeron tai kauden vaihtuessa
+// Auto-täytä jakson nimi TMDB-datasta jaksonumeron tai kauden vaihtuessa.
+// Samalla haetaan jakson juoni näkyviin, jotta arvostelua kirjoittaessa
+// muistaa mistä jaksossa oli kyse.
 window.autoFillEpisodeName = function(initial) {
   const r = appData.reviews.find(x => x.id === editingPartReviewId);
-  if (!r || !r.seasons) return;
   const epEl = document.getElementById('partEpisode');
   const siEl = document.getElementById('partSeasonSelect');
-  if (!epEl || !siEl) return;
+  if (!r || !r.seasons || !epEl || !siEl) { window.renderPartPlot(null); return; }
+
   const epNum = +epEl.value;
   const si = +siEl.value;
-  if (!epNum || isNaN(si)) return;
-  const season = r.seasons[si];
-  if (!season) return;
-  const ep = (season.episodes || []).find(e => e.episode === epNum);
-  if (!ep || !ep.name) return;
-  // Täytä vain jos nimi on tyhjä (ei ylikirjoita käyttäjän syötettä), tai initial-kutsussa
+  const season = (!epNum || isNaN(si)) ? null : r.seasons[si];
+  const ep = season ? (season.episodes || []).find(e => e.episode === epNum) : null;
+  if (!ep) { window.renderPartPlot(null); return; }
+
+  // Täytä nimi vain jos kenttä on tyhjä — käyttäjän omaa tekstiä ei korvata
   const nameEl = document.getElementById('partName');
-  const noteEl = document.getElementById('partNote');
-  if (nameEl && (initial || !nameEl.value)) {
+  if (nameEl && ep.name && (initial || !nameEl.value)) {
     nameEl.value = ep.name;
-    // Lisää placeholder joka kertoo mistä nimi tuli
     nameEl.style.borderColor = 'var(--accent)';
     setTimeout(() => { if(nameEl) nameEl.style.borderColor = 'var(--border)'; }, 1200);
   }
-  if (noteEl && initial && !noteEl.value && ep.note) {
-    noteEl.value = ep.note;
+  // Juoni EI mene muistiinpanokenttään — se on TMDB:n tekstiä, ei sinun.
+  // Se näytetään omassa laatikossaan, josta sen voi halutessaan kopioida.
+  window.renderPartPlot(ep);
+};
+
+// Jakson juoni luettavaksi arvostelua kirjoittaessa.
+window.renderPartPlot = function(ep){
+  const box = document.getElementById('partPlotBox');
+  if(!box) return;
+  if(!ep || !ep.plot){
+    box.style.display = 'none';
+    box.innerHTML = '';
+    window._currentPartPlot = null;
+    return;
   }
+  const mark = ep.plotLang === 'en'
+    ? '<span class="plot-lang">EN</span>'
+    : (ep.plotLang === 'fi-auto' ? '<span class="plot-lang auto">konekäännös</span>' : '');
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div class="part-plot-head"><span>📖 Jakson juoni</span>${mark}</div>
+    <div class="part-plot-text">${escNl(ep.plot)}</div>
+    <button type="button" class="part-plot-copy" onclick="copyPlotToNote()">⬇️ Kopioi muistiinpanoon</button>
+  `;
+  window._currentPartPlot = ep.plot;
+};
+
+window.copyPlotToNote = function(){
+  const noteEl = document.getElementById('partNote');
+  if(!noteEl || !window._currentPartPlot) return;
+  noteEl.value = noteEl.value
+    ? noteEl.value.replace(/\s*$/, '') + '\n\n' + window._currentPartPlot
+    : window._currentPartPlot;
+  noteEl.focus();
 };
 
 window.editEpisode = function(reviewId, si, ei){
@@ -1525,6 +1516,7 @@ window.editEpisode = function(reviewId, si, ei){
   sel.innerHTML = seasons.map((s,i)=>`<option value="${i}" ${i===si?'selected':''}>${esc(s.name)}</option>`).join('');
   document.getElementById('partName').value = ep.name||'';
   document.getElementById('partNote').value = ep.note||'';
+  window.renderPartPlot(ep);
   const pe=document.getElementById('partEpisode'); if(pe) pe.value=ep.episode||'';
   const psi=document.getElementById('partScoreInput'); if(psi) psi.value=selectedPartScore!==null?selectedPartScore:'';
   buildScorePicker('partScorePicker','partScore');
@@ -1559,6 +1551,7 @@ window.editPart = function(reviewId, partIdx){
   document.getElementById('partEpisodeRow').style.display = 'none';
   document.getElementById('partName').value = p.name||'';
   document.getElementById('partNote').value = p.note||'';
+  window.renderPartPlot(null);
   buildScorePicker('partScorePicker','partScore');
   document.getElementById('partModal').classList.add('open');
 };
@@ -1580,14 +1573,16 @@ window.savePart = async function(){
       ratings: partRatingsEnabled && Object.keys(selectedPartRatings).length ? {...selectedPartRatings} : null
     };
     if(!r.seasons[si].episodes) r.seasons[si].episodes=[];
+    // TÄRKEÄÄ: yhdistä olemassa olevaan olioon äläkä korvaa sitä. Muuten
+    // TMDB:stä haetut kentät (juoni, ensiesityspäivä, kielitiedot) katoaisivat
+    // heti kun jakso arvostellaan.
     if(editingPartId!==null) {
-      r.seasons[si].episodes[editingPartId]=epData;
+      Object.assign(r.seasons[si].episodes[editingPartId] || {}, epData);
     } else {
-      // Tarkista onko sama jaksonumero jo olemassa (esim. TMDB:stä haettu, pistemäärä null)
       const existIdx = epData.episode != null
         ? r.seasons[si].episodes.findIndex(e => e.episode === epData.episode)
         : -1;
-      if(existIdx >= 0) r.seasons[si].episodes[existIdx] = epData;
+      if(existIdx >= 0) Object.assign(r.seasons[si].episodes[existIdx], epData);
       else r.seasons[si].episodes.push(epData);
     }
   } else {

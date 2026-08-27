@@ -883,6 +883,51 @@ function renderAccountInfo(){
   `;
 }
 
+// ── JAKSOTIETOJEN ASETUKSET ──
+function renderTranslateSettings(){
+  const s = ensureSettings();
+  const p = document.getElementById('translatePlotsToggle');
+  const n = document.getElementById('translateNamesToggle');
+  const e = document.getElementById('translateEmailInput');
+  const c = document.getElementById('translateCacheInfo');
+  if(p) p.classList.toggle('on', !!s.translatePlots);
+  if(n) n.classList.toggle('on', !!s.translateNames);
+  if(e && document.activeElement !== e) e.value = s.translateEmail || '';
+  if(c){
+    const n2 = window.translationCacheSize();
+    c.textContent = n2
+      ? `💾 ${n2} käännöstä muistissa — samaa tekstiä ei käännetä kahdesti.`
+      : '💾 Käännösvälimuisti on tyhjä.';
+  }
+}
+
+window.toggleTranslatePlots = async function(){
+  const s = ensureSettings();
+  s.translatePlots = !s.translatePlots;
+  renderTranslateSettings();
+  await window.fbSave();
+};
+
+window.toggleTranslateNames = async function(){
+  const s = ensureSettings();
+  s.translateNames = !s.translateNames;
+  renderTranslateSettings();
+  await window.fbSave();
+};
+
+window.saveTranslateEmail = async function(val){
+  ensureSettings().translateEmail = String(val || '').trim();
+  window.resetTranslateQuotaFlag();
+  await window.fbSave();
+};
+
+window.resetTranslationCache = async function(){
+  if(!confirm('Tyhjennetäänkö käännösvälimuisti? Seuraava tuonti kääntää tekstit uudelleen.')) return;
+  window.clearTranslationCache();
+  window.resetTranslateQuotaFlag();
+  renderTranslateSettings();
+};
+
 window.openSettings = function(){
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   GENRES = [...appData.genres];
@@ -895,6 +940,7 @@ window.openSettings = function(){
   renderTmdbStatus();
   renderBackupInfo();
   renderAccountInfo();
+  renderTranslateSettings();
   _oldDocReport = null;
   const odr = document.getElementById('oldDocReport');
   if(odr) odr.innerHTML = '';
@@ -1098,37 +1144,175 @@ window.openReadModal = function(id){
   document.getElementById('readModal').classList.add('open');
 };
 
-// ── JAKSONIMIEN KÄÄNTÄMINEN SUOMEKSI (MyMemory API) ──
-async function translateEpisodeNamesBatch(names) {
-  const toTranslate = names.map((n, i) => ({ i, n: (n || '').trim() })).filter(x => x.n);
-  if (!toTranslate.length) return names;
+// ══ KAUSIEN TUONTI TMDB:STÄ ══
+// Erillinen, valikoiva tuonti: näet mitkä kaudet ovat jo tuotu ja valitset
+// mitä haetaan. Pisteitä ja omia muistiinpanoja ei koskaan ylikirjoiteta.
+let _seasonImport = null;   // { reviewId, tmdbId, seasons: [...] }
 
-  // MyMemory tukee max ~500 merkkiä per kutsu — pilko eriin
-  const BATCH_SIZE = 10;
-  const result = [...names];
+window.openSeasonImport = async function(reviewId){
+  const r = appData.reviews.find(x => x.id === reviewId);
+  if(!r) return;
+  if(!window.tmdbToken){ alert('TMDB-tunnus ei ole vielä latautunut. Yritä hetken kuluttua uudelleen.'); return; }
 
-  for (let b = 0; b < toTranslate.length; b += BATCH_SIZE) {
-    const batch = toTranslate.slice(b, b + BATCH_SIZE);
-    // Yhdistä nimien välimerkeillä jotka ovat helppo splitata
-    const joined = batch.map(x => x.n).join(' ||| ');
-    try {
-      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(joined)}&langpair=en|fi`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.responseStatus === 200 && data.responseData?.translatedText) {
-        const parts = data.responseData.translatedText.split(' ||| ');
-        batch.forEach((x, idx) => {
-          const translated = parts[idx] ? parts[idx].trim() : '';
-          // Käytä käännöstä vain jos se ei ole tyhjä eikä identtinen englanniksi
-          if (translated && translated.toLowerCase() !== x.n.toLowerCase()) {
-            result[x.i] = translated;
-          }
-        });
+  const overlay = document.getElementById('tmdbLoadingOverlay');
+  const subEl   = document.getElementById('tmdbLoadingSub');
+  const progBar = document.getElementById('tmdbProgressBar');
+  overlay.classList.add('open');
+  subEl.textContent = 'Haetaan sarjan kaudet...';
+  progBar.style.width = '20%';
+
+  try{
+    let tmdbId = r.tmdb_id;
+
+    // Sarjaa ei ole vielä linkitetty TMDB:hen → hae nimellä
+    if(!tmdbId){
+      subEl.textContent = `Etsitään: ${plainName(r)}`;
+      const sr = await tmdbGet(`/search/tv?query=${encodeURIComponent(plainName(r))}&language=fi-FI&page=1`);
+      const hits = (sr && sr.results) || [];
+      if(!hits.length){
+        overlay.classList.remove('open');
+        alert(`Ei tuloksia haulle "${plainName(r)}". Avaa arvostelu muokattavaksi ja hae sarja TMDB-haulla.`);
+        return;
       }
-    } catch (e) { /* fallback: pidä englanninkieliset */ }
+      tmdbId = hits[0].id;
+      if(hits.length > 1){
+        overlay.classList.remove('open');
+        const opts = hits.slice(0,5).map((h,i)=>`${i+1}. ${h.name}${h.first_air_date?' ('+h.first_air_date.slice(0,4)+')':''}`).join('\n');
+        const pick = prompt(`Löytyi useita sarjoja. Valitse numero (1-${Math.min(hits.length,5)}):\n\n${opts}`);
+        const idx = parseInt(pick,10) - 1;
+        if(isNaN(idx) || idx < 0 || idx >= hits.length) return;
+        tmdbId = hits[idx].id;
+        overlay.classList.add('open');
+      }
+    }
+
+    progBar.style.width = '60%';
+    const detail = await tmdbGet(`/tv/${tmdbId}?language=fi-FI`);
+    overlay.classList.remove('open');
+    if(!detail || !detail.seasons){ alert('Kausitietoja ei saatu haettua.'); return; }
+
+    // Erikoisjaksot (kausi 0) viimeiseksi, ne ovat harvemmin haluttuja
+    const list = detail.seasons
+      .filter(s => s.episode_count > 0)
+      .sort((a,b) => (a.season_number === 0 ? 999 : a.season_number) - (b.season_number === 0 ? 999 : b.season_number));
+
+    _seasonImport = { reviewId, tmdbId, seasons: list };
+    renderSeasonImportList(r, list);
+    document.getElementById('seasonImportModal').classList.add('open');
+  } catch(e){
+    overlay.classList.remove('open');
+    alert('Virhe kausien haussa. Tarkista internetyhteys.');
   }
-  return result;
+};
+
+function renderSeasonImportList(r, list){
+  const info = document.getElementById('seasonImportInfo');
+  const host = document.getElementById('seasonImportList');
+  const s = ensureSettings();
+  const trBits = [];
+  if(s.translatePlots) trBits.push('juonet');
+  if(s.translateNames) trBits.push('nimet');
+  info.innerHTML = `<div class="si-info">
+    <strong>${esc(plainName(r))}</strong> · ${list.length} kautta TMDB:ssä<br>
+    Pisteesi ja omat muistiinpanosi säilyvät. Vain puuttuvat nimet täydennetään ja juonet päivitetään.
+    ${trBits.length ? `<br>Käännetään suomeksi: ${trBits.join(' ja ')} (muutettavissa asetuksista).`
+                    : '<br>Automaattikäännös on pois päältä asetuksista.'}
+  </div>`;
+
+  host.innerHTML = list.map((s2, i) => {
+    const ex = findSeasonByNumber(r, s2.season_number);
+    const have = ex ? (ex.episodes || []).length : 0;
+    const rated = ex ? (ex.episodes || []).filter(e => e.score != null).length : 0;
+    const isNew = !ex;
+    const label = s2.season_number === 0 ? 'Erikoisjaksot' : (s2.name || `Kausi ${s2.season_number}`);
+    const status = isNew
+      ? `<span class="si-badge si-new">uusi</span>`
+      : `<span class="si-badge">${have} tuotu · ${rated} arvosteltu</span>`;
+    return `<label class="si-row">
+      <input type="checkbox" class="si-check" data-idx="${i}" ${isNew ? 'checked' : ''}>
+      <span class="si-name">${esc(label)}</span>
+      <span class="si-count">${s2.episode_count} jaksoa</span>
+      ${status}
+    </label>`;
+  }).join('');
 }
+
+window.seasonImportSelectAll = function(on){
+  document.querySelectorAll('#seasonImportList .si-check').forEach(c => { c.checked = !!on; });
+};
+
+window.runSeasonImport = async function(){
+  if(!_seasonImport) return;
+  const r = appData.reviews.find(x => x.id === _seasonImport.reviewId);
+  if(!r) return;
+  const picked = [...document.querySelectorAll('#seasonImportList .si-check')]
+    .filter(c => c.checked)
+    .map(c => _seasonImport.seasons[parseInt(c.dataset.idx, 10)]);
+  if(!picked.length){ alert('Valitse ainakin yksi kausi.'); return; }
+
+  closeModal('seasonImportModal');
+  const overlay = document.getElementById('tmdbLoadingOverlay');
+  const subEl   = document.getElementById('tmdbLoadingSub');
+  const progBar = document.getElementById('tmdbProgressBar');
+  overlay.classList.add('open');
+  progBar.style.width = '5%';
+  window.resetTranslateQuotaFlag();
+
+  r.seasons = r.seasons || [];
+  r.tmdb_id = r.tmdb_id || _seasonImport.tmdbId;
+  let added = 0, renamed = 0, plots = 0, failed = 0;
+
+  for(let i = 0; i < picked.length; i++){
+    const sNum = picked[i].season_number;
+    subEl.textContent = `Haetaan kausi ${i+1}/${picked.length}...`;
+    progBar.style.width = (5 + (i / picked.length) * 90) + '%';
+
+    const fresh = await fetchSeasonFromTmdb(_seasonImport.tmdbId, sNum);
+    if(!fresh){ failed++; continue; }
+    if(sNum === 0 && /^Kausi 0$/.test(fresh.name)) fresh.name = 'Erikoisjaksot';
+
+    await translateSeasonFields(fresh, (done, total) => {
+      subEl.textContent = `Käännetään kausi ${sNum}: ${done}/${total}`;
+    });
+
+    const target = findSeasonByNumber(r, sNum);
+    if(target){
+      const st = mergeSeasonInto(target, fresh);
+      added += st.added; renamed += st.renamed; plots += st.plots;
+    } else {
+      r.seasons.push(seasonFromFresh(fresh));
+      added += fresh.episodes.length;
+      plots += fresh.episodes.filter(e => e.plot).length;
+    }
+  }
+
+  // Pidä kaudet järjestyksessä, erikoisjaksot viimeisenä
+  r.seasons.sort((a,b) => {
+    const an = a.seasonNumber == null ? 998 : (a.seasonNumber === 0 ? 999 : a.seasonNumber);
+    const bn = b.seasonNumber == null ? 998 : (b.seasonNumber === 0 ? 999 : b.seasonNumber);
+    return an - bn;
+  });
+
+  if(!r.episodes_total){
+    r.episodes_total = r.seasons.reduce((a,s) => a + (s.episodes || []).length, 0);
+  }
+
+  progBar.style.width = '100%';
+  const bits = [];
+  if(added) bits.push(`${added} jaksoa`);
+  if(renamed) bits.push(`${renamed} nimeä täydennetty`);
+  if(plots) bits.push(`${plots} juonta`);
+  if(failed) bits.push(`${failed} kautta epäonnistui`);
+  subEl.textContent = bits.length ? `✅ ${bits.join(' · ')}` : '✅ Kaikki oli jo ajan tasalla';
+  if(window.translateQuotaHit()){
+    subEl.textContent += ' — käännöskiintiö täyttyi, loput jäivät englanniksi';
+  }
+
+  _seasonImport = null;
+  await window.fbSave();
+  renderCards();
+  setTimeout(() => overlay.classList.remove('open'), 2200);
+};
 
 // ── AI ARVOSTELU ──
 let aiGeneratedText = '';
@@ -1445,63 +1629,28 @@ window.fillFromTmdb = async function(idx) {
     // Tallenna pending TMDB-data
     window._tmdbPending = { poster, director, runtime, episodes_total, country: countryStr, cast, tmdb_score, tmdb_id: tmdbId, plot: overview || null };
 
-    // Jos TV-sarja — hae kaudet ja jaksot
+    // Jos TV-sarja — hae kaudet ja jaksot yhteisellä logiikalla
     const tvType = document.querySelector('.tv-type-opt.selected')?.dataset?.type;
     if (isTv && tvType === 'jaksot') {
       const numSeasons = detail.number_of_seasons || 0;
-      subEl.textContent = `Haetaan ${numSeasons} kautta...`;
+      window.resetTranslateQuotaFlag();
       const seasons = [];
       for (let s = 1; s <= numSeasons; s++) {
         subEl.textContent = `Haetaan kausi ${s}/${numSeasons}...`;
         progBar.style.width = (50 + (s / numSeasons) * 45) + '%';
-        try {
-          const sUrl = `https://api.themoviedb.org/3/tv/${tmdbId}/season/${s}?language=${lang}`;
-          const sRes = await fetch(sUrl, { headers: { Authorization: `Bearer ${token}` } });
-          const sData = await sRes.json();
-
-          // Tarkista onko nimet geneerisiä (Jakso 1, Jakso 2...) — jos on, hae englanninkieliset
-          const fiEps = sData.episodes || [];
-          const hasGenericNames = fiEps.length > 0 && fiEps.every(ep =>
-            !ep.name || ep.name.trim() === `Jakso ${ep.episode_number}` || ep.name.trim() === `Episode ${ep.episode_number}`
-          );
-          let enEps = [];
-          if (hasGenericNames) {
-            try {
-              const enUrl = `https://api.themoviedb.org/3/tv/${tmdbId}/season/${s}?language=en-US`;
-              const enRes = await fetch(enUrl, { headers: { Authorization: `Bearer ${token}` } });
-              const enData = await enRes.json();
-              enEps = enData.episodes || [];
-            } catch(e2) {}
-          }
-
-          const episodes = fiEps.map((ep, i) => {
-            const enEp = enEps[i];
-            const fiName = ep.name ? ep.name.trim() : '';
-            const isGeneric = !fiName || fiName === `Jakso ${ep.episode_number}` || fiName === `Episode ${ep.episode_number}`;
-            const name = isGeneric && enEp && enEp.name ? enEp.name : fiName;
-            return {
-              episode: ep.episode_number,
-              name,
-              note: ep.overview || (enEp && !ep.overview ? enEp.overview : '') || '',
-              score: null
-            };
-          });
-
-          // Käännä englanninkieliset nimet suomeksi Claudella jos tarpeen
-          if (hasGenericNames && enEps.length > 0) {
-            subEl.textContent = `✨ Käännetään kausi ${s} suomeksi...`;
-            const rawNames = episodes.map(e => e.name);
-            const translated = await translateEpisodeNamesBatch(rawNames);
-            translated.forEach((name, i) => { if (episodes[i]) episodes[i].name = name; });
-          }
-
-          seasons.push({ name: sData.name || `Kausi ${s}`, episodes });
-        } catch(e) {
-          seasons.push({ name: `Kausi ${s}`, episodes: [] });
-        }
+        const fresh = await fetchSeasonFromTmdb(tmdbId, s);
+        if (!fresh) { seasons.push({ name: `Kausi ${s}`, seasonNumber: s, episodes: [] }); continue; }
+        await translateSeasonFields(fresh, (done, total) => {
+          subEl.textContent = `Käännetään kausi ${s}: ${done}/${total}`;
+        });
+        seasons.push(seasonFromFresh(fresh));
       }
       window._tmdbPending.seasons = seasons;
-      subEl.textContent = `✅ ${seasons.length} kautta, ${seasons.reduce((a,s)=>a+s.episodes.length,0)} jaksoa haettu!`;
+      const epCount = seasons.reduce((a, x) => a + x.episodes.length, 0);
+      const plotCount = seasons.reduce((a, x) => a + x.episodes.filter(e => e.plot).length, 0);
+      subEl.textContent = window.translateQuotaHit()
+        ? `${seasons.length} kautta, ${epCount} jaksoa — käännöskiintiö täyttyi`
+        : `${seasons.length} kautta, ${epCount} jaksoa, ${plotCount} juonta`;
     }
 
     progBar.style.width = '100%';
