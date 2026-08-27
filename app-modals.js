@@ -1,4 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
+// Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
+// päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
+window.BUILD_MODALS = '2026-08-28.3';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -880,6 +883,7 @@ function renderAccountInfo(){
     <div>📧 ${esc(email)}</div>
     <div style="margin-top:6px;">📚 ${count} arvostelua</div>
     <div>💾 Paikallinen välimuisti: ${esc(cache)}</div>
+    <div style="margin-top:6px;">🏷️ Versio: ${esc(window.BUILD_CORE || 'tuntematon')}</div>
   `;
 }
 
@@ -928,19 +932,71 @@ window.resetTranslationCache = async function(){
   renderTranslateSettings();
 };
 
+// ── VERSIOTARKISTUS ──
+// Jokaisessa JS-tiedostossa on sama versioleima. Jos yksi tiedosto jää
+// päivittämättä (tai jää välimuistiin), toiminnot katoavat hiljaisesti:
+// napit näkyvät, mutta niiden takana oleva funktio puuttuu eikä mitään
+// tapahdu. Tämä tarkistus tekee tilanteesta heti näkyvän.
+const BUILD_FILES = [
+  ['app-core.js',     'BUILD_CORE',     true],
+  ['app-views.js',    'BUILD_VIEWS',    true],
+  ['app-modals.js',   'BUILD_MODALS',   true],
+  ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
+];
+
+function renderBuildCheck(){
+  const el = document.getElementById('buildWarning');
+  if(!el) return;
+  const rows = BUILD_FILES.map(([file, key, required]) => ({ file, required, v: window[key] || null }));
+  const versions = [...new Set(rows.filter(r => r.v).map(r => r.v))];
+  // Puuttuva versioleima kertoo vanhasta tiedostosta. Firebase-moduuli
+  // jätetään pois tästä, koska se voi olla vielä latautumatta.
+  const missing = rows.filter(r => r.required && !r.v);
+
+  if(versions.length <= 1 && !missing.length){
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  const list = rows.map(r =>
+    `<div class="bw-row"><span>${r.file}</span><span>${r.v ? esc(r.v) : (r.required ? '⚠️ vanha versio' : '– ei ladattu')}</span></div>`
+  ).join('');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="bw-title">⚠️ Tiedostot eivät ole samaa versiota</div>
+    <div class="bw-text">Osa napeista ei toimi ennen kuin kaikki tiedostot on päivitetty GitHubiin samasta paketista.</div>
+    ${list}
+    <button class="bw-btn" onclick="forceReload()">🔄 Tyhjennä välimuisti ja lataa uudelleen</button>
+  `;
+}
+
+window.forceReload = function(){
+  if(navigator.serviceWorker && navigator.serviceWorker.controller){
+    navigator.serviceWorker.controller.postMessage('CLEAR_CACHES');
+  }
+  setTimeout(() => location.reload(true), 400);
+};
+
+// Suorittaa renderöinnin niin, ettei yhden osan virhe estä modaalin avautumista.
+function safeRender(label, fn){
+  try { fn(); }
+  catch(e){ console.error('Asetusten osa epäonnistui:', label, e); }
+}
+
 window.openSettings = function(){
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   GENRES = [...appData.genres];
-  renderCatManage();
-  renderGenreManage();
-  renderAccentRow();
-  renderPrecisionRow();
-  renderWeightRows();
-  updatePosterColorToggle();
-  renderTmdbStatus();
-  renderBackupInfo();
-  renderAccountInfo();
-  renderTranslateSettings();
+  safeRender('versiotarkistus', renderBuildCheck);
+  safeRender('kategoriat', renderCatManage);
+  safeRender('genret', renderGenreManage);
+  safeRender('korostusväri', renderAccentRow);
+  safeRender('tarkkuus', renderPrecisionRow);
+  safeRender('painotukset', renderWeightRows);
+  safeRender('julistevärit', updatePosterColorToggle);
+  safeRender('tmdb-tila', renderTmdbStatus);
+  safeRender('varmuuskopio', renderBackupInfo);
+  safeRender('tili', renderAccountInfo);
+  safeRender('käännösasetukset', renderTranslateSettings);
   _oldDocReport = null;
   const odr = document.getElementById('oldDocReport');
   if(odr) odr.innerHTML = '';

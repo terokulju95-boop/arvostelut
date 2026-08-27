@@ -1,4 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
+// Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
+// päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
+window.BUILD_VIEWS = '2026-08-28.3';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
