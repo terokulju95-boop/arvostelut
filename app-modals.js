@@ -845,6 +845,44 @@ window.restoreBackup = function(input){
 };
 
 // ── ASETUKSET ──
+// Asetukset on jaettu neljään välilehteen. Valittu välilehti muistetaan,
+// jotta esim. varmuuskopiointi löytyy heti uudelleen avattaessa.
+const SETTINGS_TABS = ['ulkoasu','pisteytys','data','tili'];
+let settingsTab = 'ulkoasu';
+try {
+  const saved = localStorage.getItem('arvostelut_settingsTab');
+  if(saved && SETTINGS_TABS.includes(saved)) settingsTab = saved;
+} catch(e){}
+
+window.setSettingsTab = function(id){
+  if(!SETTINGS_TABS.includes(id)) id = 'ulkoasu';
+  settingsTab = id;
+  try { localStorage.setItem('arvostelut_settingsTab', id); } catch(e){}
+  document.querySelectorAll('#settingsTabs .settings-tab').forEach(b=>{
+    b.classList.toggle('active', b.dataset.tab === id);
+  });
+  document.querySelectorAll('#settingsModal .settings-pane').forEach(p=>{
+    p.classList.toggle('active', p.dataset.pane === id);
+  });
+  // Vieritä ylös, muuten pitkältä välilehdeltä lyhyelle siirtyminen
+  // jättää näkymän tyhjän näköiseksi
+  const sheet = document.querySelector('#settingsModal .modal-sheet');
+  if(sheet) sheet.scrollTop = 0;
+};
+
+function renderAccountInfo(){
+  const el = document.getElementById('accountInfo');
+  if(!el) return;
+  const email = window.fbUserEmail || '–';
+  const cache = window._fbCacheMode || 'tuntematon';
+  const count = (appData.reviews || []).length;
+  el.innerHTML = `
+    <div>📧 ${esc(email)}</div>
+    <div style="margin-top:6px;">📚 ${count} arvostelua</div>
+    <div>💾 Paikallinen välimuisti: ${esc(cache)}</div>
+  `;
+}
+
 window.openSettings = function(){
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   GENRES = [...appData.genres];
@@ -856,9 +894,11 @@ window.openSettings = function(){
   updatePosterColorToggle();
   renderTmdbStatus();
   renderBackupInfo();
+  renderAccountInfo();
   _oldDocReport = null;
   const odr = document.getElementById('oldDocReport');
   if(odr) odr.innerHTML = '';
+  window.setSettingsTab(settingsTab);
   document.getElementById('settingsModal').classList.add('open');
 };
 
@@ -1002,7 +1042,18 @@ window.openReadModal = function(id){
   if(r.director) extraRows.push(`<div class="read-section"><div class="read-label">🎬 Ohjaaja</div><div class="read-value">${esc(r.director)}</div></div>`);
   if(r.cast && r.cast.length) extraRows.push(`<div class="read-section"><div class="read-label">🎭 Näyttelijät</div><div class="read-value">${esc(r.cast.join(', '))}</div></div>`);
   if(r.runtime) extraRows.push(`<div class="read-section"><div class="read-label">⏱️ Kesto</div><div class="read-value">${r.runtime} min</div></div>`);
-  if(r.episodes_total) extraRows.push(`<div class="read-section"><div class="read-label">📺 Jaksoja</div><div class="read-value">${r.episodes_total}</div></div>`);
+  if(r.tvType === 'jaksot'){
+    const p = episodeProgress(r);
+    if(p.total) extraRows.push(`<div class="read-section">
+      <div class="read-label">📺 Edistyminen</div>
+      <div class="read-value">${p.rated}/${p.total} jaksoa arvosteltu</div>
+      <div class="ep-progress${p.rated>=p.total?' is-complete':''}" style="margin-top:8px;">
+        <div class="ep-progress-track"><div class="ep-progress-bar" style="width:${Math.min(100,p.pct)}%"></div></div>
+      </div>
+    </div>`);
+  } else if(r.episodes_total){
+    extraRows.push(`<div class="read-section"><div class="read-label">📺 Jaksoja</div><div class="read-value">${r.episodes_total}</div></div>`);
+  }
   if(r.country) extraRows.push(`<div class="read-section"><div class="read-label">🌍 Maa</div><div class="read-value">${esc(r.country)}</div></div>`);
   if(r.tmdb_score) extraRows.push(`<div class="read-section"><div class="read-label">⭐ TMDB-arvosana</div><div class="read-value">${r.tmdb_score}/10</div></div>`);
 

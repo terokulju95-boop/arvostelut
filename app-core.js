@@ -90,6 +90,8 @@ window.setView = function(view){
   if(fp){ fp.classList.remove('open'); fp.style.display = ''; }
   const ftb = document.getElementById('filterToggleBtn');
   if(ftb) ftb.classList.remove('active');
+  const sn = document.getElementById('searchNote');
+  if(sn){ sn.style.display = 'none'; sn.innerHTML = ''; }
   renderAll();
 };
 
@@ -230,6 +232,28 @@ window.clearAllFilters = function(){
   document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));
   renderCards();
   if(window.updateFilterBadge) window.updateFilterBadge();
+};
+
+// ── HAKUKENTTÄ ──
+// Sumea haku käy koko listan läpi, joten renderöintiä ei kannata tehdä
+// jokaisella näppäinpainalluksella. Pieni viive riittää pitämään sen sujuvana.
+let _searchTimer = null;
+window.onSearchInput = function(){
+  const inp = document.getElementById('searchInput');
+  const clr = document.getElementById('searchClear');
+  if(clr) clr.style.display = (inp && inp.value) ? 'flex' : 'none';
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(()=>renderCards(), 140);
+};
+
+window.clearSearch = function(){
+  const inp = document.getElementById('searchInput');
+  if(inp) inp.value = '';
+  const clr = document.getElementById('searchClear');
+  if(clr) clr.style.display = 'none';
+  const note = document.getElementById('searchNote');
+  if(note){ note.style.display='none'; note.innerHTML=''; }
+  renderCards();
 };
 
 window.cycleSort = function(){
@@ -578,6 +602,144 @@ function nameWithYear(r){
 window.plainName = plainName;
 window.nameWithYear = nameWithYear;
 
+// ── SUMEA HAKU ──
+// Haku sietää kirjoitusvirheet: "oppenhaimer" löytää OPPENHEIMERin.
+// Toimintaperiaate:
+//   1. Teksti normalisoidaan (pienet kirjaimet, aksentit pois, välimerkit pois).
+//   2. Ensin kokeillaan halvat tarkat osumat (alkaa samalla, sisältää).
+//   3. Vasta jos ne eivät osu, lasketaan muokkausetäisyys (Levenshtein).
+// Palautettu luku on osuvuuspiste: mitä suurempi, sitä parempi osuma.
+// 0 tarkoittaa "ei osumaa".
+
+// Normalisointi: ä→a, ö→o, é→e, välimerkit välilyönneiksi.
+// Näin "wall·e", "WALL-E" ja "walle" ovat sama asia, ja ääkkösvirheet sallitaan.
+function fuzzyNorm(s){
+  let t = String(s == null ? '' : s).toLowerCase();
+  try {
+    t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  } catch(e){
+    // Vanhat selaimet ilman normalize-tukea: korvaa yleisimmät käsin
+    t = t.replace(/[äàáâã]/g,'a').replace(/[öòóôõ]/g,'o').replace(/[åā]/g,'a')
+         .replace(/[éèêë]/g,'e').replace(/[íìîï]/g,'i').replace(/[úùûü]/g,'u');
+  }
+  return t.replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+// Pienin muokkausetäisyys hakusanan ja kohteen MINKÄ TAHANSA alun välillä.
+// Tämä on olennaista: kirjoitat "oppenhaim", joten koko nimeen vertaaminen
+// antaisi ison etäisyyden pelkän puuttuvan lopun takia. Vertaamalla vain
+// alkuun saadaan haku toimimaan jo muutaman kirjaimen jälkeen.
+// max = suurin sallittu etäisyys; sen ylittyessä lopetetaan kesken.
+function prefixDistance(q, t, max){
+  const ql = q.length, tl = t.length;
+  if(!ql) return 0;
+  let prev = new Array(ql + 1), cur = new Array(ql + 1);
+  for(let i = 0; i <= ql; i++) prev[i] = i;
+  let best = prev[ql];
+  for(let j = 1; j <= tl; j++){
+    cur[0] = j;
+    let rowMin = cur[0];
+    for(let i = 1; i <= ql; i++){
+      const cost = t.charCodeAt(j-1) === q.charCodeAt(i-1) ? 0 : 1;
+      let v = prev[i] + 1;
+      if(cur[i-1] + 1 < v) v = cur[i-1] + 1;
+      if(prev[i-1] + cost < v) v = prev[i-1] + cost;
+      cur[i] = v;
+      if(v < rowMin) rowMin = v;
+    }
+    if(cur[ql] < best) best = cur[ql];
+    if(best === 0) return 0;
+    // Rivien minimi ei voi enää laskea → turha jatkaa
+    if(rowMin > max) break;
+    const tmp = prev; prev = cur; cur = tmp;
+  }
+  return best;
+}
+
+// Kuinka monta virhettä sallitaan hakusanan pituuden mukaan.
+// Lyhyissä hakusanoissa ei sallita mitään, muuten tuloksia tulisi liikaa.
+function fuzzyTolerance(len){
+  if(len <= 3) return 0;
+  if(len <= 5) return 1;
+  if(len <= 9) return 2;
+  return 3;
+}
+
+// Osuvuuspisteet. Tarkat osumat aina sumeiden edelle.
+//   100 = täsmälleen sama      90 = alkaa hakusanalla
+//    80 = jokin sana alkaa     70 = sisältää hakusanan
+//  40–60 = sumea osuma (mitä vähemmän virheitä, sitä korkeampi)
+// Yhden hakusanan osuvuus yhteen kohteen sanaan.
+function tokenMatch(qt, w){
+  if(w === qt) return 100;
+  if(w.indexOf(qt) === 0) return 85;
+  if(w.indexOf(qt) !== -1) return 70;
+  const max = fuzzyTolerance(qt.length);
+  if(max === 0 || w.length < 3) return 0;
+  const d = prefixDistance(qt, w, max);
+  return d <= max ? 55 - d * 6 : 0;
+}
+
+function fuzzyMatch(q, t){
+  if(!q) return 1;
+  if(!t) return 0;
+  if(t === q) return 100;
+  if(t.indexOf(q) === 0) return 90;
+  const words = t.split(' ');
+  for(let i = 0; i < words.length; i++){
+    if(words[i].indexOf(q) === 0) return 80;
+  }
+  if(t.indexOf(q) !== -1) return 70;
+
+  // Monisanainen haku: jokaisen hakusanan on löydyttävä jostain kohteen
+  // sanasta, mutta järjestyksellä ei ole väliä. Näin "dark night" löytää
+  // THE DARK KNIGHTin, vaikka nimi alkaa sanalla "the" ja sisältää virheen.
+  const qTokens = q.split(' ').filter(Boolean);
+  if(qTokens.length > 1){
+    let worst = 100;
+    for(let i = 0; i < qTokens.length; i++){
+      let bestTok = 0;
+      for(let j = 0; j < words.length; j++){
+        const s = tokenMatch(qTokens[i], words[j]);
+        if(s > bestTok) bestTok = s;
+      }
+      if(!bestTok) return 0;          // yksikin hakusana ilman osumaa → hylätään
+      if(bestTok < worst) worst = bestTok;
+    }
+    return Math.max(30, worst - 15);  // aina tarkkojen osumien alapuolelle
+  }
+
+  const max = fuzzyTolerance(q.length);
+  if(max === 0) return 0;
+
+  const d = prefixDistance(q, t, max);
+  if(d <= max) return 60 - d * 6;
+
+  // Kokeile vielä sana kerrallaan: "haimer" osuu sanaan "oppenheimer"
+  for(let i = 0; i < words.length; i++){
+    const dw = tokenMatch(q, words[i]);
+    if(dw) return Math.min(52, dw - 3);
+  }
+  return 0;
+}
+
+// Normalisoinnin välimuisti: sama nimi normalisoidaan vain kerran,
+// vaikka haku suoritettaisiin joka näppäinpainalluksella.
+const _normCache = new Map();
+function fuzzyNormCached(s){
+  let v = _normCache.get(s);
+  if(v === undefined){
+    v = fuzzyNorm(s);
+    if(_normCache.size > 4000) _normCache.clear();
+    _normCache.set(s, v);
+  }
+  return v;
+}
+
+window.fuzzyNorm = fuzzyNorm;
+window.fuzzyMatch = fuzzyMatch;
+window.fuzzyNormCached = fuzzyNormCached;
+
 // ── DUPLIKAATTITARKISTUS ──
 function normName(s){
   let t = String(s == null ? '' : s).toLowerCase()
@@ -635,16 +797,36 @@ window.dupChoose = function(choice){
   if(r) r(choice);
 };
 
+// ── JAKSOJEN EDISTYMINEN ──
+// Kuinka moni jakso on arvosteltu ja kuinka monta niitä on kaikkiaan.
+// Kokonaismäärä otetaan kausilistasta, mutta jos TMDB tietää sarjassa olevan
+// enemmän jaksoja kuin olet tuonut, käytetään sitä — muuten palkki näyttäisi
+// täydeltä vaikka puolet kausista puuttuisi vielä kokonaan.
+function episodeProgress(r){
+  const eps = (r.seasons || []).flatMap(s => s.episodes || []);
+  const rated = eps.filter(e => e.score != null).length;
+  const total = Math.max(eps.length, r.episodes_total || 0);
+  return { rated, total, pct: total ? Math.round(rated / total * 100) : 0 };
+}
+window.episodeProgress = episodeProgress;
+
+// Keskiarvo vain arvostelluista jaksoista.
+function ratedAvg(eps){
+  const scored = (eps || []).filter(e => e.score != null);
+  if(!scored.length) return null;
+  return Math.round(scored.reduce((a,e) => a + e.score, 0) / scored.length);
+}
+window.ratedAvg = ratedAvg;
+
 // ── PISTEYTYS ──
 function getReviewScore(r){
   if(r.tvType && r.tvType!=='kokonaisuus'){
     if(r.tvType==='jaksot'){
-      // Laske kaikki jaksot kaikista kausista
+      // Vain arvostellut jaksot lasketaan mukaan. Aiemmin myös pisteettömät
+      // jaksot (esim. TMDB:stä tuodut, vielä katsomattomat) painoivat
+      // keskiarvoa nollaan päin.
       const seasons = r.seasons||[];
-      const allEps = seasons.flatMap(s=>s.episodes||[]);
-      if(allEps.length===0) return null;
-      const sum = allEps.reduce((a,e)=>a+(e.score||0),0);
-      return Math.round(sum/allEps.length);
+      return ratedAvg(seasons.flatMap(s=>s.episodes||[]));
     }
     if(r.parts && r.parts.length>0){
       const sum = r.parts.reduce((a,p)=>a+(p.score||0),0);

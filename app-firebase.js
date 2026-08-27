@@ -851,10 +851,14 @@ window.doSignOut = async function(){
 onAuthStateChanged(auth, user => {
   if(user){
     // Kirjautunut — piilota login, lataa data
+    window.fbUserEmail = user.email || '';
+    window.fbUserUid = user.uid || '';
     document.getElementById('loginScreen').style.display = 'none';
     fbLoad();
   } else {
     // Ei kirjautunut — näytä login
+    window.fbUserEmail = '';
+    window.fbUserUid = '';
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('loginBtn').textContent = 'Kirjaudu sisään';
     document.getElementById('loginBtn').disabled = false;

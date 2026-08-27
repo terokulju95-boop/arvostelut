@@ -83,10 +83,29 @@ window.renderCards = function(){
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
   let reviews = [...appData.reviews];
   if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
-  if(q) reviews = reviews.filter(r=>
-    (r.name||'').toLowerCase().includes(q) ||
-    (r.year ? String(r.year).includes(q) : false)
-  );
+
+  // ── SUMEA HAKU ──
+  // matchScore pitää kirjaa siitä kuinka hyvin kukin osui, jotta parhaat
+  // osumat voidaan nostaa listan kärkeen. null = ei hakua käynnissä.
+  let matchScore = null;
+  let bestMatch = 0;
+  if(q){
+    const nq = fuzzyNormCached(q);
+    const digits = /^\d+$/.test(q.trim());
+    matchScore = new Map();
+    reviews = reviews.filter(r=>{
+      let m = fuzzyMatch(nq, fuzzyNormCached(plainName(r)));
+      // Vuosiluku: "2023" löytää kaikki vuoden 2023 teokset
+      if(digits && r.year && String(r.year).indexOf(q.trim()) !== -1){
+        m = Math.max(m, 75);
+      }
+      if(m > 0){
+        matchScore.set(r.id, m);
+        if(m > bestMatch) bestMatch = m;
+      }
+      return m > 0;
+    });
+  }
   if(activeGenreFilter) reviews = reviews.filter(r=>{
     const genres = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
     return genres.includes(activeGenreFilter);
@@ -104,16 +123,36 @@ window.renderCards = function(){
   if(activeDecadeFilter) reviews = reviews.filter(r=>r.year&&Math.floor(r.year/10)*10===activeDecadeFilter);
 
   reviews.sort((a,b)=>{
+    // Haun aikana osuvuus ratkaisee ensin, valittu järjestys vasta tasapelin.
+    if(matchScore){
+      const d = (matchScore.get(b.id)||0) - (matchScore.get(a.id)||0);
+      if(d) return d;
+    }
     if(sortMode==='uusin') return b.id-a.id;
     if(sortMode==='vanhin') return a.id-b.id;
     if(sortMode==='paras') return (getReviewScore(b)||0)-(getReviewScore(a)||0);
     return (getReviewScore(a)||0)-(getReviewScore(b)||0);
   });
 
+  // Kerro jos näytetään vain sumeita osumia — muuten vaikuttaa siltä
+  // että haku löysi jotain aivan muuta kuin mitä kirjoitit.
+  const noteEl = document.getElementById('searchNote');
+  if(noteEl){
+    if(matchScore && reviews.length && bestMatch < 70){
+      noteEl.innerHTML = `Ei tarkkoja osumia haulle <strong>${esc(q)}</strong> — näytetään samankaltaiset.`;
+      noteEl.style.display = 'block';
+    } else {
+      noteEl.style.display = 'none';
+      noteEl.innerHTML = '';
+    }
+  }
+
   const grid = document.getElementById('cardsGrid');
   if(!reviews.length){
     grid.className = 'cards-grid';
-    grid.innerHTML=`<div class="empty-state"><div class="empty-icon">🎬</div><div class="empty-title">Ei arvosteluja vielä</div></div>`;
+    grid.innerHTML = q
+      ? `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Ei osumia haulle “${esc(q)}”</div></div>`
+      : `<div class="empty-state"><div class="empty-icon">🎬</div><div class="empty-title">Ei arvosteluja vielä</div></div>`;
     return;
   }
 
@@ -151,14 +190,16 @@ window.renderCards = function(){
         } else {
           seasonHtml = seasons.map((s,si)=>{
             const eps = s.episodes||[];
-            const sAvg = eps.length ? Math.round(eps.reduce((a,e)=>a+(e.score||0),0)/eps.length) : null;
+            const sRated = eps.filter(e=>e.score!=null).length;
+            const sAvg = ratedAvg(eps);
             const sKey = `season-${r.id}-${si}`;
             const sCls = sAvg!==null ? scoreClass(sAvg) : '';
+            const sDone = eps.length>0 && sRated===eps.length;
             return `<div class="season-group">
               <div class="season-header" onclick="toggleSeason('${sKey}')">
                 <span class="season-arrow" id="arr-${sKey}">▶</span>
                 <span class="season-name">${esc(s.name)}</span>
-                <span class="season-count">${eps.length} jakso${eps.length!==1?'a':''}</span>
+                <span class="season-count${sDone?' is-done':''}">${sDone?'✓ ':''}${sRated}/${eps.length}</span>
                 ${sAvg!==null?`<span class="season-avg ${sCls}">${sAvg}</span>`:''}
                 <button class="season-del" onclick="event.stopPropagation();deleteSeason(${r.id},${si})">✕</button>
               </div>
@@ -204,8 +245,21 @@ window.renderCards = function(){
           </div>`;
         }
 
+        // Edistyminen: montako jaksoa arvosteltu kaikkiaan
+        const prog = episodeProgress(r);
+        const progHtml = prog.total ? `<div class="ep-progress${prog.rated>=prog.total?' is-complete':''}">
+          <div class="ep-progress-head">
+            <span>📺 ${prog.rated}/${prog.total} jaksoa arvosteltu</span>
+            <span class="ep-progress-pct">${prog.rated>=prog.total?'valmis ✓':prog.pct+' %'}</span>
+          </div>
+          <div class="ep-progress-track">
+            <div class="ep-progress-bar" style="width:${Math.min(100,prog.pct)}%"></div>
+          </div>
+        </div>` : '';
+
         partsHtml = `<div class="tv-parts">
           ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
+          ${progHtml}
           ${bestWorstHtml}
           ${seasonHtml}
           <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>

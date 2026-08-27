@@ -68,7 +68,8 @@
   <div class="toolbar">
     <div class="search-box">
       <span class="search-icon">🔍</span>
-      <input type="text" id="searchInput" placeholder="Hae nimellä..." oninput="renderCards()">
+      <input type="text" id="searchInput" placeholder="Hae nimellä (sietää kirjoitusvirheet)..." oninput="onSearchInput()" autocomplete="off">
+      <button type="button" class="search-clear" id="searchClear" onclick="clearSearch()" aria-label="Tyhjennä haku" style="display:none;">✕</button>
     </div>
     <button class="filter-btn" id="filterToggleBtn" onclick="toggleFilter()">⚡</button>
     <button class="sort-btn" onclick="cycleViewMode()" id="viewModeBtn" title="Näkymä">🗂️</button>
@@ -96,6 +97,8 @@
     <div class="filter-row" id="decadeFilters"></div>
     <button class="btn-secondary" id="clearFiltersBtn" style="width:100%;margin-top:14px;padding:11px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;" onclick="clearAllFilters()">✕ Tyhjennä suodattimet</button>
   </div>
+
+  <div class="search-note" id="searchNote" style="display:none;"></div>
 
   <div class="cards-grid" id="cardsGrid"></div>
 </div>
@@ -338,61 +341,92 @@
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-title">Asetukset</div>
-    <div class="form-group">
-      <label>Kategoriat</label>
-      <div class="cat-manage" id="catManageList"></div>
-      <div class="add-cat-row">
-        <input type="text" id="newCatInput" placeholder="Uusi kategoria...">
-        <button class="add-cat-btn" onclick="addCategory()">+</button>
+
+    <!-- VÄLILEHDET -->
+    <div class="settings-tabs" id="settingsTabs">
+      <button type="button" class="settings-tab" data-tab="ulkoasu"   onclick="setSettingsTab('ulkoasu')">🎨 Ulkoasu</button>
+      <button type="button" class="settings-tab" data-tab="pisteytys" onclick="setSettingsTab('pisteytys')">⭐ Pisteytys</button>
+      <button type="button" class="settings-tab" data-tab="data"      onclick="setSettingsTab('data')">🗂️ Data</button>
+      <button type="button" class="settings-tab" data-tab="tili"      onclick="setSettingsTab('tili')">👤 Tili</button>
+    </div>
+
+    <!-- ── ULKOASU ── -->
+    <div class="settings-pane" data-pane="ulkoasu">
+      <div class="form-group">
+        <label>Korostusväri</label>
+        <div class="accent-row" id="accentRow"></div>
       </div>
-    </div>
-    <div class="form-group" style="margin-top:18px;">
-      <label>Genret</label>
-      <div class="cat-manage" id="genreManageList"></div>
-      <div class="add-cat-row">
-        <input type="text" id="newGenreInput" placeholder="Uusi genre...">
-        <button class="add-cat-btn" onclick="addGenre()">+</button>
-      </div>
-    </div>
-    <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-      <label>TMDB-tunnus</label>
-      <div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
-    </div>
-    <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-      <label>Osa-arvioiden painotus</label>
-      <div id="weightRows"></div>
-      <div class="toggle-row-sub" style="margin-top:8px;">Kuinka paljon kukin ryhmä vaikuttaa laajennetun arvioinnin pisteeseen. 1,0 = normaali.</div>
-    </div>
-    <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-      <label>Vertailun tarkkuus</label>
-      <div class="precision-row" id="precisionRow"></div>
-      <div class="toggle-row-sub" style="margin-top:6px;">Montako kysymystä vertailu esittää enintään. Enemmän kysymyksiä = tarkempi piste.</div>
-    </div>
-    <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-      <label>Korostusväri</label>
-      <div class="accent-row" id="accentRow"></div>
-      <div class="toggle-row">
-        <div>
-          <div class="toggle-row-label">Julisteen väri korteissa</div>
-          <div class="toggle-row-sub">Poimii kortin reunaväriä julisteesta</div>
+      <div class="form-group">
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-row-label">Julisteen väri korteissa</div>
+            <div class="toggle-row-sub">Poimii kortin reunaväriä julisteesta</div>
+          </div>
+          <button type="button" class="toggle-switch" id="posterColorToggle" onclick="togglePosterColors()"></button>
         </div>
-        <button type="button" class="toggle-switch" id="posterColorToggle" onclick="togglePosterColors()"></button>
       </div>
     </div>
-    <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-      <label>Varmuuskopio</label>
-      <div id="backupInfo" style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px;"></div>
-      <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="downloadBackup()">⬇️ Lataa varmuuskopio</button>
-      <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="document.getElementById('restoreFileInput').click()">⬆️ Palauta tiedostosta</button>
-      <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none;" onchange="restoreBackup(this)">
-      <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="document.getElementById('restoreMetaInput').click()">⚙️ Palauta vain asetukset tiedostosta</button>
-      <input type="file" id="restoreMetaInput" accept="application/json,.json" style="display:none;" onchange="restoreMetaFile(this)">
-      <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="checkOldDoc()">🗄️ Tarkista vanha pilvikopio</button>
-      <div id="oldDocReport" style="font-size:12px;color:var(--muted);line-height:1.55;margin-top:10px;"></div>
+
+    <!-- ── PISTEYTYS ── -->
+    <div class="settings-pane" data-pane="pisteytys">
+      <div class="form-group">
+        <label>Osa-arvioiden painotus</label>
+        <div id="weightRows"></div>
+        <div class="toggle-row-sub" style="margin-top:8px;">Kuinka paljon kukin ryhmä vaikuttaa laajennetun arvioinnin pisteeseen. 1,0 = normaali.</div>
+      </div>
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Vertailun tarkkuus</label>
+        <div class="precision-row" id="precisionRow"></div>
+        <div class="toggle-row-sub" style="margin-top:6px;">Montako kysymystä vertailu esittää enintään. Enemmän kysymyksiä = tarkempi piste.</div>
+      </div>
     </div>
-    <div class="form-group" style="margin-top:24px;border-top:1px solid var(--border);padding-top:20px;">
-      <button class="btn-secondary" style="width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="doSignOut()">🚪 Kirjaudu ulos</button>
+
+    <!-- ── DATA ── -->
+    <div class="settings-pane" data-pane="data">
+      <div class="form-group">
+        <label>Kategoriat</label>
+        <div class="cat-manage" id="catManageList"></div>
+        <div class="add-cat-row">
+          <input type="text" id="newCatInput" placeholder="Uusi kategoria...">
+          <button class="add-cat-btn" onclick="addCategory()">+</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Genret</label>
+        <div class="cat-manage" id="genreManageList"></div>
+        <div class="add-cat-row">
+          <input type="text" id="newGenreInput" placeholder="Uusi genre...">
+          <button class="add-cat-btn" onclick="addGenre()">+</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>TMDB-tunnus</label>
+        <div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
+      </div>
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Varmuuskopio</label>
+        <div id="backupInfo" style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px;"></div>
+        <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="downloadBackup()">⬇️ Lataa varmuuskopio</button>
+        <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="document.getElementById('restoreFileInput').click()">⬆️ Palauta tiedostosta</button>
+        <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none;" onchange="restoreBackup(this)">
+        <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="document.getElementById('restoreMetaInput').click()">⚙️ Palauta vain asetukset tiedostosta</button>
+        <input type="file" id="restoreMetaInput" accept="application/json,.json" style="display:none;" onchange="restoreMetaFile(this)">
+        <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="checkOldDoc()">🗄️ Tarkista vanha pilvikopio</button>
+        <div id="oldDocReport" style="font-size:12px;color:var(--muted);line-height:1.55;margin-top:10px;"></div>
+      </div>
     </div>
+
+    <!-- ── TILI ── -->
+    <div class="settings-pane" data-pane="tili">
+      <div class="form-group">
+        <label>Kirjautunut käyttäjä</label>
+        <div id="accountInfo" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
+      </div>
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <button class="btn-secondary" style="width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="doSignOut()">🚪 Kirjaudu ulos</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
