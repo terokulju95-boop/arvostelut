@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-28.8';
+window.BUILD_VIEWS = '2026-08-28.9';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -96,9 +96,10 @@ window.renderCards = function(){
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
   let reviews = [...appData.reviews];
   if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
-  // Alalaji: 'all' = ei rajausta, '' = vain perus, muu = kyseinen alalaji
-  const sub = window.getActiveSub ? window.getActiveSub() : 'all';
-  if(activeCat && sub !== 'all' && subcatsFor(activeCat).length){
+  // Alalaji: '' = perus, muu = kyseinen alalaji. Kategoriassa jolla ei ole
+  // alalajeja rajausta ei tehdä lainkaan.
+  const sub = window.getActiveSub ? window.getActiveSub() : '';
+  if(activeCat && subcatsFor(activeCat).length){
     reviews = reviews.filter(r => subcatOf(r) === sub);
   }
 
@@ -168,7 +169,7 @@ window.renderCards = function(){
   const grid = document.getElementById('cardsGrid');
   if(!reviews.length){
     grid.className = 'cards-grid';
-    const subLabel = (sub === 'all' || !subcatsFor(activeCat).length) ? '' : (sub === '' ? 'Perus' : sub);
+    const subLabel = !subcatsFor(activeCat).length ? '' : (sub === '' ? 'Perus' : sub);
     grid.innerHTML = q
       ? `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Ei osumia haulle “${esc(q)}”</div></div>`
       : `<div class="empty-state"><div class="empty-icon">🎬</div><div class="empty-title">Ei arvosteluja${subLabel ? ` alalajissa “${esc(subLabel)}”` : ' vielä'}</div>
@@ -399,8 +400,8 @@ window.openAddModal = function(){
   // Uusi arvostelu perii sen alalajin jota parhaillaan selaat — jos katsot
   // Dokumentit-välilehteä, lisäät todennäköisesti dokumentin.
   // Tämä on populateFormCatin JÄLKEEN, koska se nollaa valitsimen.
-  const curSub = window.getActiveSub ? window.getActiveSub() : 'all';
-  populateFormSubcat(document.getElementById('formCat').value, curSub === 'all' ? '' : curSub);
+  const curSub = window.getActiveSub ? window.getActiveSub() : '';
+  populateFormSubcat(document.getElementById('formCat').value, curSub);
   buildScorePicker('scorePicker', 'selectedScore');
   window.toggleMark(null);
   document.getElementById('addModal').classList.add('open');

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-08-28.8';
+window.BUILD_CORE = '2026-08-28.9';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -53,7 +53,7 @@ function initApp(){
   if(!activeCat && appData.categories.length) activeCat = appData.categories[0];
   ensureSubcats();
   activeSub = loadSubChoice(activeCat);
-  if(activeSub !== 'all' && activeSub !== '' && !subcatsFor(activeCat).includes(activeSub)) activeSub = 'all';
+  if(activeSub !== '' && !subcatsFor(activeCat).includes(activeSub)) activeSub = '';
   ensureSettings();
   window.applyAccent(appData.settings.accent);
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
@@ -146,8 +146,8 @@ function subcatOf(r){
 }
 window.subcatOf = subcatOf;
 
-// Valittu alalaji per kategoria. 'all' = kaikki, '' = perus.
-let activeSub = 'all';
+// Valittu alalaji per kategoria. '' = perus, muu = alalajin nimi.
+let activeSub = '';
 const SUB_KEY = 'arvostelut_activeSub_v1';
 
 function loadSubChoice(cat){
@@ -155,10 +155,13 @@ function loadSubChoice(cat){
     const raw = localStorage.getItem(SUB_KEY);
     if(raw){
       const o = JSON.parse(raw);
-      if(o && Object.prototype.hasOwnProperty.call(o, cat)) return o[cat];
+      if(o && Object.prototype.hasOwnProperty.call(o, cat)){
+        // Vanha "kaikki"-valinta ei ole enää olemassa → Perus
+        return o[cat] === 'all' ? '' : o[cat];
+      }
     }
   } catch(e){}
-  return 'all';
+  return '';
 }
 
 function saveSubChoice(cat, val){
@@ -201,12 +204,11 @@ function renderSubTabs(){
     return;
   }
   const count = (val) => (appData.reviews || []).filter(r =>
-    r.category === activeCat && (val === 'all' || subcatOf(r) === val)
+    r.category === activeCat && subcatOf(r) === val
   ).length;
 
   const opts = [
-    { val: 'all', label: 'Kaikki' },
-    { val: '',    label: 'Perus'  },
+    { val: '', label: 'Perus' },
     ...subs.map(s => ({ val: s, label: s }))
   ];
   el.style.display = 'flex';
@@ -222,7 +224,7 @@ window.setActiveCat = function(cat){
   activeCat = cat;
   activeSub = loadSubChoice(cat);
   // Jos muistissa oleva alalaji on poistettu, palataan kaikkiin
-  if(activeSub !== 'all' && activeSub !== '' && !subcatsFor(cat).includes(activeSub)) activeSub = 'all';
+  if(activeSub !== '' && !subcatsFor(cat).includes(activeSub)) activeSub = '';
   activeGenreFilter = null;
   activeScoreFilter = null;
   activeMarkFilter = null;
