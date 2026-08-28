@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-08-28.7';
+window.BUILD_MODALS = '2026-08-28.8';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1006,7 +1006,7 @@ function renderSyncSummary(){
 
 window.openSyncQueue = function(){
   renderSyncQueue();
-  document.getElementById('syncQueueModal').classList.add('open');
+  window.openModalOnTop('syncQueueModal');
 };
 
 function renderSyncQueue(){
@@ -1171,7 +1171,7 @@ window.openMoveModal = function(preselectId){
   onMoveTargetCatChange();
 
   renderMoveList();
-  document.getElementById('moveModal').classList.add('open');
+  window.openModalOnTop('moveModal');
 };
 
 function subOptions(cat, includeAll){
@@ -1276,6 +1276,11 @@ window.runMove = async function(){
   _movePreselect = null;
   await window.fbSave();
   renderAll();
+  // Asetukset voivat olla auki taustalla — päivitä sen listat lukumäärineen
+  if(document.getElementById('settingsModal').classList.contains('open')){
+    safeRender('kategoriat', renderCatManage);
+    safeRender('alalajit', renderSubcatManage);
+  }
   if(window.showStatus) window.showStatus(`✅ ${moved} ${moved === 1 ? 'arvostelu siirretty' : 'arvostelua siirretty'}`, '#22c55e', 2500);
 };
 
@@ -1562,7 +1567,7 @@ window.openTranslateModal = function(reviewId){
   document.getElementById('trmSetup').style.display = 'block';
   document.getElementById('trmProgress').style.display = 'none';
   renderTranslateSetup(r);
-  document.getElementById('translateModal').classList.add('open');
+  window.openModalOnTop('translateModal');
 };
 
 function fmtNum(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -1780,7 +1785,7 @@ window.openSeasonImport = async function(reviewId){
 
     _seasonImport = { reviewId, tmdbId, seasons: list };
     renderSeasonImportList(r, list);
-    document.getElementById('seasonImportModal').classList.add('open');
+    window.openModalOnTop('seasonImportModal');
   } catch(e){
     overlay.classList.remove('open');
     alert('Virhe kausien haussa. Tarkista internetyhteys.');
@@ -2159,7 +2164,31 @@ window.onTmdbCatChange = function(cat) {
 
 window.closeModal = function(id){
   const el = document.getElementById(id);
-  if(el) el.classList.remove('open');
+  if(!el) return;
+  el.classList.remove('open');
+  // Nollaa mahdollinen päällekkäisyyttä varten asetettu kerros
+  if(el.dataset.stacked){ el.style.zIndex = ''; delete el.dataset.stacked; }
+};
+
+// Avaa modaalin varmasti kaikkien jo auki olevien päälle.
+// Modaalit ovat HTML:ssä eri järjestyksessä ja niillä on sama z-index,
+// joten esimerkiksi asetuksista avattu ikkuna jäisi muuten asetusten alle
+// — näkymättömiin, jolloin vaikuttaa siltä ettei nappi toimi lainkaan.
+window.openModalOnTop = function(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  let max = 1000;
+  document.querySelectorAll('.modal-overlay.open').forEach(m => {
+    if(m === el) return;
+    let z = parseInt(m.style.zIndex, 10);
+    if(isNaN(z)){
+      try { z = parseInt(getComputedStyle(m).zIndex, 10); } catch(e){ z = NaN; }
+    }
+    if(!isNaN(z) && z > max) max = z;
+  });
+  el.style.zIndex = String(max + 10);
+  el.dataset.stacked = '1';
+  el.classList.add('open');
 };
 
 window.closeModalIfOutside = function(e, id){
