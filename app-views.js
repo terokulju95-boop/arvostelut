@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-28.4';
+window.BUILD_VIEWS = '2026-08-28.5';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -40,11 +40,21 @@ window.cycleViewMode = function(){
   renderCards();
 };
 
+// Kategorian kuvake. Tunnistus nimen perusteella, jotta itse lisätyt
+// kategoriat saavat järkevän kuvakkeen ilman erillistä asetusta.
 function catEmoji(cat){
-  if(cat==='Elokuvat') return '🎬';
-  if(cat==='TV-sarjat') return '📺';
-  if(cat==='Ruuat') return '🍽️';
-  if(cat==='Juomat') return '🥤';
+  const c = String(cat || '').toLowerCase();
+  if(c.includes('elokuv') || c.includes('leffa')) return '🎬';
+  if(c.includes('sarj') || c.includes('tv')) return '📺';
+  if(c.includes('dokument')) return '🎥';
+  if(c.includes('anime')) return '🍥';
+  if(c.includes('kirj')) return '📚';
+  if(c.includes('peli')) return '🎮';
+  if(c.includes('ruo') || c.includes('ravinto')) return '🍽️';
+  if(c.includes('juom')) return '🥤';
+  if(c.includes('musi') || c.includes('albumi')) return '🎵';
+  if(c.includes('teatteri') || c.includes('näytelmä')) return '🎭';
+  if(c.includes('konsert') || c.includes('keikka')) return '🎤';
   return '⭐';
 }
 

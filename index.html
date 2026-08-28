@@ -217,27 +217,15 @@
     <div id="scorePredictionBox" style="display:none;"></div>
 
     <div class="form-group">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <label style="margin:0;">Lisätiedot</label>
-        <div style="display:flex;gap:6px;">
-          <button class="ai-btn" onclick="generateAIReview()">✨ AI-arvostelu</button>
-        </div>
-      </div>
+      <label>Lisätiedot</label>
       <div class="md-toolbar">
         <button type="button" class="md-btn" onclick="mdWrap('formNote','**','**')" title="Lihavointi">B</button>
         <button type="button" class="md-btn md-i" onclick="mdWrap('formNote','*','*')" title="Kursiivi">I</button>
         <button type="button" class="md-btn" onclick="mdWrap('formNote','~~','~~')" title="Yliviivaus">S̶</button>
         <button type="button" class="md-btn" onclick="mdBullet('formNote')" title="Luettelo">•</button>
       </div>
-      <textarea id="formNote" spellcheck="true" lang="fi" autocapitalize="sentences" placeholder="Kirjoita avainsanoja: hauska, surullinen, hyvät näyttälijät..."></textarea>
+      <textarea id="formNote" spellcheck="true" lang="fi" autocapitalize="sentences" placeholder="Omat ajatuksesi teoksesta..."></textarea>
       <div class="md-hint">**lihavointi** · *kursiivi* · ~~yliviivaus~~ · rivin alussa - tekee luettelon</div>
-      <div class="ai-result" id="aiResult">
-        <div id="aiResultText"></div>
-        <div class="ai-result-actions">
-          <button class="ai-keep-btn" onclick="keepOwnReview()">Pidän oman</button>
-          <button class="ai-use-btn" onclick="useAIReview()">✨ Käytä tätä</button>
-        </div>
-      </div>
     </div>
 
     <div class="form-group">
@@ -289,18 +277,8 @@
     </div>
     <div class="part-plot-box" id="partPlotBox" style="display:none;"></div>
     <div class="form-group">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <label style="margin:0;">Lisätiedot</label>
-        <button class="ai-btn" onclick="generateAIReviewPart()">✨ AI-arvostelu</button>
-      </div>
-      <textarea id="partNote" spellcheck="true" lang="fi" autocapitalize="sentences" placeholder="Kirjoita avainsanoja: hauska, surullinen, hyvät näyttälijät..."></textarea>
-      <div class="ai-result" id="aiResultPart">
-        <div id="aiResultPartText"></div>
-        <div class="ai-result-actions">
-          <button class="ai-keep-btn" onclick="keepOwnReviewPart()">Pidän oman</button>
-          <button class="ai-use-btn" onclick="useAIReviewPart()">✨ Käytä tätä</button>
-        </div>
-      </div>
+      <label>Lisätiedot</label>
+      <textarea id="partNote" spellcheck="true" lang="fi" autocapitalize="sentences" placeholder="Omat ajatuksesi jaksosta..."></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('partModal')">Peruuta</button>

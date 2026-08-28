@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-08-28.4';
+window.BUILD_MODALS = '2026-08-28.5';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1026,12 +1026,20 @@ window.refreshTmdbStatusInSettings = renderTmdbStatus;
 function renderCatManage(){
   const el = document.getElementById('catManageList');
   if(!el) return;
-  el.innerHTML = appData.categories.map((c,i)=>`
-    <div class="cat-row">
+  // Kaikki kategoriat ovat poistettavissa. Ainoa rajoitus on, ettei
+  // viimeistä kategoriaa voi poistaa — muuten sovellukseen ei jäisi
+  // yhtään paikkaa mihin arvostelun voisi tallentaa.
+  const last = appData.categories.length <= 1;
+  el.innerHTML = appData.categories.map((c,i)=>{
+    const count = appData.reviews.filter(r => r.category === c).length;
+    return `<div class="cat-row">
       <span class="cat-row-name">${esc(c)}</span>
-      ${!DEFAULT_CATS.includes(c)?`<button class="cat-del" onclick="deleteCat(${i})">Poista</button>`:'<span style="font-size:12px;color:var(--muted);">vakio</span>'}
-    </div>
-  `).join('');
+      <span class="cat-row-count">${count} kpl</span>
+      ${last
+        ? '<span style="font-size:12px;color:var(--muted);">viimeinen</span>'
+        : `<button class="cat-del" onclick="deleteCat(${i})">Poista</button>`}
+    </div>`;
+  }).join('');
 }
 
 window.addCategory = async function(){
@@ -1047,12 +1055,32 @@ window.addCategory = async function(){
 
 window.deleteCat = async function(i){
   const cat = appData.categories[i];
-  if(appData.reviews.some(r=>r.category===cat)){
-    alert('Poista ensin kaikki tämän kategorian arvostelut!'); return;
+  if(appData.categories.length <= 1){
+    alert('Viimeistä kategoriaa ei voi poistaa.'); return;
   }
-  if(!confirm(`Poistetaanko kategoria "${cat}"?`)) return;
+  const inCat = appData.reviews.filter(r => r.category === cat);
+
+  // Jos kategoriassa on arvosteluja, tarjotaan siirtoa toiseen kategoriaan
+  // sen sijaan että vaadittaisiin niiden poistamista ensin.
+  if(inCat.length){
+    const others = appData.categories.filter(c => c !== cat);
+    const list = others.map((c,n) => `${n+1}. ${c}`).join('\n');
+    const pick = prompt(
+      `Kategoriassa "${cat}" on ${inCat.length} ${inCat.length === 1 ? "arvostelu" : "arvostelua"}.\n\n` +
+      `Mihin kategoriaan ne siirretään?\nAnna numero, tai peruuta jos et halua poistaa.\n\n${list}`
+    );
+    if(pick === null) return;
+    const idx = parseInt(pick, 10) - 1;
+    if(isNaN(idx) || idx < 0 || idx >= others.length){ alert('Virheellinen valinta.'); return; }
+    const target = others[idx];
+    if(!confirm(`Siirretäänkö ${inCat.length} ${inCat.length === 1 ? "arvostelu" : "arvostelua"} kategoriaan "${target}" ja poistetaan "${cat}"?`)) return;
+    inCat.forEach(r => { r.category = target; });
+  } else {
+    if(!confirm(`Poistetaanko kategoria "${cat}"?`)) return;
+  }
+
   appData.categories.splice(i,1);
-  if(activeCat===cat) activeCat = appData.categories[0]||null;
+  if(activeCat === cat) activeCat = appData.categories[0] || null;
   renderCatManage();
   renderAll();
   await window.fbSave();
@@ -1535,113 +1563,6 @@ window.runSeasonImport = async function(){
   await window.fbSave();
   renderCards();
   setTimeout(() => overlay.classList.remove('open'), 2200);
-};
-
-// ── AI ARVOSTELU ──
-let aiGeneratedText = '';
-window.generateAIReview = function(){
-  const note = document.getElementById('formNote').value.trim();
-  const name = document.getElementById('formName').value.trim().split('\n')[0];
-  const cat = document.getElementById('formCat')?.value||'';
-  const genres = getSelectedGenres();
-  const score = selectedScore;
-
-  if(!note){ alert('Kirjoita ensin muutama avainsana lisätiedot-kenttään!'); return; }
-
-  const resultEl = document.getElementById('aiResult');
-  const textEl = document.getElementById('aiResultText');
-  resultEl.classList.add('open');
-  textEl.innerHTML = '<span style="color:var(--muted);">✨ Generoidaan...</span>';
-
-  // Analysoi avainsanat ja rakenna arvostelu älykkäästi
-  setTimeout(()=>{
-    aiGeneratedText = buildSmartReview(note, name, cat, genres, score);
-    textEl.innerHTML = aiGeneratedText.replace(/\n/g,'<br>');
-  }, 600);
-};
-
-function buildSmartReview(keywords, name, cat, genres, score){
-  const kw = keywords.toLowerCase();
-  const sentences = [];
-
-  // Sanakirja: avainsana -> lause joka käyttää sitä suoraan
-  const wordMap = [
-    { words:['hauska','nauratti','humoristinen'], fn: ()=>'Huumori on parhaimmillaan ja jakso naurattaa oikeissa kohdissa.' },
-    { words:['viihdyttävä','piristävä','kevyt'], fn: ()=>'Jakso on viihdyttävä — helppo katsottava ilman suurempia odotuksia.' },
-    { words:['tylsä','pitkästyttävä','kuiva'], fn: ()=>'Paikoin tempoa voisi kiristää, sillä jakso tuntuu venähtävän turhaan.' },
-    { words:['hyvä tarina','hyvä juoni','tarina on','juoni on'], fn: ()=>'Tarina on kirjoitettu hyvin ja pitää katsojan mukana alusta loppuun.' },
-    { words:['surullinen','koskettava','itketti','liikuttava'], fn: ()=>'Jakso on yllättävän koskettava ja herättää aitoja tunteita.' },
-    { words:['jännittävä','intensiivinen','vauhdikas'], fn: ()=>'Jännitys pysyy yllä läpi jakson eikä katse halua irrottautua ruudusta.' },
-    { words:['hyvät näyttälijät','näyttelijät','roolisuoritukset'], fn: ()=>'Näyttelijäsuoritukset ovat vahvoja ja henkilöhahmot tuntuvat aidoilta.' },
-    { words:['loppu on','loppu oli','lopetus'], fn: ()=>`Lopetus on jakson vahvin hetki — se jättää hyvän fiiliksen.` },
-    { words:['huono loppu','pettymys loppu'], fn: ()=>'Lopetus jättää toivomisen varaa ja tuntuu hieman hutiloidulta.' },
-    { words:['erinomainen','loistava','mahtava','upea','fantastinen'], fn: ()=>'Kokonaisuutena yksi sarjan vahvimmista jaksoista.' },
-    { words:['huono','pettymys','heikko','turha'], fn: ()=>'Jakso ei onnistu lunastamaan odotuksia ja jää sarjan heikompaan päähän.' },
-    { words:['raukkaus','liikaa raukkaus','seksijuttuja'], fn: ()=>'Käsikirjoituksessa on turhan paljon asiaan kuulumatonta täytettä.' },
-    { words:['hahmo','hahmonkehitys','kehitys'], fn: ()=>'Hahmojen kehitys on hienosti kirjoitettu ja tuntuu luontevalta.' },
-    { words:['dramaattinen','raskas','synkkä'], fn: ()=>'Jakso on tunnelataukseltaan raskas mutta se sopii sarjan sävyyn.' },
-  ];
-
-  // Kerää lauseet jotka osuvat käyttäjän sanoihin
-  const usedSentences = new Set();
-  wordMap.forEach(({words, fn})=>{
-    if(words.some(w=>kw.includes(w))){
-      const s = fn();
-      if(!usedSentences.has(s)){ usedSentences.add(s); sentences.push(s); }
-    }
-  });
-
-  // Jos ei löydy yhtään osumaa, käytä yleistä aloitusta
-  if(sentences.length === 0){
-    const title = name || 'Tämä jakso';
-    sentences.push(`${title} on tasapainoinen kokemus — ei huippu eikä pohja.`);
-  }
-
-  // Lopuksi pisteisiin perustuva yhteenveto JOS pisteet on annettu
-  if(score!=null){
-    if(score>=85) sentences.push(`Pisteytys ${score}/100 kertoo kaiken — ehdottomasti sarjan parhaimmistoa.`);
-    else if(score>=70) sentences.push(`Vahva jakso, ${score} pistettä ansaitusti.`);
-    else if(score>=50) sentences.push(`Kohtuullinen jakso ${score} pisteellä — ei täydellinen mutta toimiva.`);
-    else sentences.push(`${score} pistettä kuvastaa hyvin jakson tasoa — jää sarjan heikommaksi hetkeksi.`);
-  }
-
-  return sentences.join(' ');
-}
-
-let savedOwnReview = '';
-window.keepOwnReview = function(){
-  document.getElementById('aiResult').classList.remove('open');
-  aiGeneratedText = '';
-};
-window.useAIReview = function(){
-  const noteEl = document.getElementById('formNote');
-  if(noteEl){ savedOwnReview = noteEl.value; noteEl.value = aiGeneratedText; }
-  document.getElementById('aiResult').classList.remove('open');
-};
-
-// AI jakso-modalissa
-let aiGeneratedTextPart = '';
-window.generateAIReviewPart = function(){
-  const note = document.getElementById('partNote').value.trim();
-  const name = document.getElementById('partName').value.trim();
-  if(!note){ alert('Kirjoita ensin muutama avainsana lisätiedot-kenttään!'); return; }
-  const resultEl = document.getElementById('aiResultPart');
-  const textEl = document.getElementById('aiResultPartText');
-  resultEl.classList.add('open');
-  textEl.innerHTML = '<span style="color:var(--muted);">✨ Generoidaan...</span>';
-  setTimeout(()=>{
-    aiGeneratedTextPart = buildSmartReview(note, name, 'TV-sarjat', [], selectedPartScore);
-    textEl.innerHTML = aiGeneratedTextPart.replace(/\n/g,'<br>');
-  }, 600);
-};
-window.keepOwnReviewPart = function(){
-  document.getElementById('aiResultPart').classList.remove('open');
-  aiGeneratedTextPart = '';
-};
-window.useAIReviewPart = function(){
-  const noteEl = document.getElementById('partNote');
-  if(noteEl){ noteEl.value = aiGeneratedTextPart; }
-  document.getElementById('aiResultPart').classList.remove('open');
 };
 
 // ── KONFETTI ──
