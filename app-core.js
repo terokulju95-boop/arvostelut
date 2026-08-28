@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-08-28.6';
+window.BUILD_CORE = '2026-08-28.7';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -51,6 +51,9 @@ let selectedPartScore = null;
 
 function initApp(){
   if(!activeCat && appData.categories.length) activeCat = appData.categories[0];
+  ensureSubcats();
+  activeSub = loadSubChoice(activeCat);
+  if(activeSub !== 'all' && activeSub !== '' && !subcatsFor(activeCat).includes(activeSub)) activeSub = 'all';
   ensureSettings();
   window.applyAccent(appData.settings.accent);
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
@@ -87,6 +90,8 @@ window.setView = function(view){
   });
   const showCats = view==='reviews';
   document.getElementById('catTabs').style.display = showCats?'':'none';
+  const stb = document.getElementById('subTabs');
+  if(stb && !showCats){ stb.style.display = 'none'; }
   const disc = document.getElementById('discoverView');
   if(disc) disc.style.display = view==='discover' ? 'block' : 'none';
   const grid = document.getElementById('cardsGrid');
@@ -112,6 +117,69 @@ window.fabClick = function(){
   else window.openAddModal();
 };
 
+// ══ ALALAJIT ══
+// Kategorian sisäinen jako, esimerkiksi Elokuvat → Perus / Dokumentit.
+// Arvostelussa kenttä on `subcat`: tyhjä tai puuttuva tarkoittaa "Perus",
+// joten vanhat arvostelut toimivat sellaisenaan ilman migraatiota.
+const DEFAULT_SUBCATS = { 'Elokuvat': ['Dokumentit'], 'TV-sarjat': ['Dokumentit'] };
+
+function ensureSubcats(){
+  if(!appData.subcats || typeof appData.subcats !== 'object'){
+    appData.subcats = JSON.parse(JSON.stringify(DEFAULT_SUBCATS));
+  }
+  return appData.subcats;
+}
+window.ensureSubcats = ensureSubcats;
+
+// Kategorian alalajit listana (tyhjä = kategorialla ei ole jakoa)
+function subcatsFor(cat){
+  const all = ensureSubcats();
+  const list = all[cat];
+  return Array.isArray(list) ? list.filter(Boolean) : [];
+}
+window.subcatsFor = subcatsFor;
+
+// Arvostelun alalaji normalisoituna. '' = Perus.
+function subcatOf(r){
+  const v = String((r && r.subcat) || '').trim();
+  return v;
+}
+window.subcatOf = subcatOf;
+
+// Valittu alalaji per kategoria. 'all' = kaikki, '' = perus.
+let activeSub = 'all';
+const SUB_KEY = 'arvostelut_activeSub_v1';
+
+function loadSubChoice(cat){
+  try{
+    const raw = localStorage.getItem(SUB_KEY);
+    if(raw){
+      const o = JSON.parse(raw);
+      if(o && Object.prototype.hasOwnProperty.call(o, cat)) return o[cat];
+    }
+  } catch(e){}
+  return 'all';
+}
+
+function saveSubChoice(cat, val){
+  try{
+    let o = {};
+    const raw = localStorage.getItem(SUB_KEY);
+    if(raw) o = JSON.parse(raw) || {};
+    o[cat] = val;
+    localStorage.setItem(SUB_KEY, JSON.stringify(o));
+  } catch(e){}
+}
+
+window.getActiveSub = function(){ return activeSub; };
+
+window.setActiveSub = function(val){
+  activeSub = val;
+  saveSubChoice(activeCat, val);
+  renderSubTabs();
+  renderCards();
+};
+
 // ── KATEGORIA TABS ──
 function renderCatTabs(){
   const tabs = document.getElementById('catTabs');
@@ -119,10 +187,42 @@ function renderCatTabs(){
   tabs.innerHTML = appData.categories.map(c=>`
     <button class="cat-tab ${c===activeCat?'active':''}" onclick="setActiveCat('${escJs(c)}')">${esc(c)}</button>
   `).join('');
+  renderSubTabs();
 }
+
+// Alalajirivi näkyy vain jos aktiivisella kategorialla on alalajeja.
+function renderSubTabs(){
+  const el = document.getElementById('subTabs');
+  if(!el) return;
+  const subs = subcatsFor(activeCat);
+  if(!subs.length || currentView !== 'reviews'){
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  const count = (val) => (appData.reviews || []).filter(r =>
+    r.category === activeCat && (val === 'all' || subcatOf(r) === val)
+  ).length;
+
+  const opts = [
+    { val: 'all', label: 'Kaikki' },
+    { val: '',    label: 'Perus'  },
+    ...subs.map(s => ({ val: s, label: s }))
+  ];
+  el.style.display = 'flex';
+  el.innerHTML = opts.map(o => `
+    <button class="sub-tab ${o.val === activeSub ? 'active' : ''}" onclick="setActiveSub('${escJs(o.val)}')">
+      ${esc(o.label)}<span class="sub-tab-count">${count(o.val)}</span>
+    </button>
+  `).join('');
+}
+window.renderSubTabs = renderSubTabs;
 
 window.setActiveCat = function(cat){
   activeCat = cat;
+  activeSub = loadSubChoice(cat);
+  // Jos muistissa oleva alalaji on poistettu, palataan kaikkiin
+  if(activeSub !== 'all' && activeSub !== '' && !subcatsFor(cat).includes(activeSub)) activeSub = 'all';
   activeGenreFilter = null;
   activeScoreFilter = null;
   activeMarkFilter = null;

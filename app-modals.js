@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-08-28.6';
+window.BUILD_MODALS = '2026-08-28.7';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1073,11 +1073,218 @@ window.retrySyncQueue = async function(){
   }
 };
 
+// ── ALALAJIEN HALLINTA ──
+function renderSubcatCatSelect(){
+  const sel = document.getElementById('subcatCatSelect');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = (appData.categories || []).map(c =>
+    `<option value="${esc(c)}" ${c === prev ? 'selected' : ''}>${esc(c)}</option>`
+  ).join('');
+  if(!sel.value && appData.categories.length) sel.value = appData.categories[0];
+}
+
+function renderSubcatManage(){
+  renderSubcatCatSelect();
+  const cat = document.getElementById('subcatCatSelect')?.value;
+  const el = document.getElementById('subcatManageList');
+  if(!el || !cat) return;
+  const subs = subcatsFor(cat);
+  if(!subs.length){
+    el.innerHTML = `<div class="cat-row" style="opacity:0.6;"><span class="cat-row-name">Ei alalajeja — kaikki näkyy yhtenä listana</span></div>`;
+    return;
+  }
+  el.innerHTML = subs.map((sc, i) => {
+    const n = (appData.reviews || []).filter(r => r.category === cat && subcatOf(r) === sc).length;
+    return `<div class="cat-row">
+      <span class="cat-row-name">${esc(sc)}</span>
+      <span class="cat-row-count">${n} kpl</span>
+      <button class="cat-del" onclick="deleteSubcat(${i})">Poista</button>
+    </div>`;
+  }).join('');
+}
+window.renderSubcatManage = renderSubcatManage;
+
+window.addSubcat = async function(){
+  const cat = document.getElementById('subcatCatSelect')?.value;
+  const inp = document.getElementById('newSubcatInput');
+  const val = (inp?.value || '').trim();
+  if(!cat || !val) return;
+  if(val.toLowerCase() === 'perus'){ alert('"Perus" on varattu nimi — se tarkoittaa arvosteluja ilman alalajia.'); return; }
+  const subs = ensureSubcats();
+  if(!Array.isArray(subs[cat])) subs[cat] = [];
+  if(subs[cat].includes(val)){ alert('Alalaji on jo olemassa.'); return; }
+  subs[cat].push(val);
+  inp.value = '';
+  renderSubcatManage();
+  renderAll();
+  await window.fbSave();
+};
+
+window.deleteSubcat = async function(i){
+  const cat = document.getElementById('subcatCatSelect')?.value;
+  if(!cat) return;
+  const subs = ensureSubcats();
+  const name = (subs[cat] || [])[i];
+  if(!name) return;
+  const n = (appData.reviews || []).filter(r => r.category === cat && subcatOf(r) === name).length;
+  const msg = n
+    ? `Poistetaanko alalaji "${name}"? ${n} ${n === 1 ? 'arvostelu siirtyy' : 'arvostelua siirtyy'} takaisin Perus-listaan. Arvosteluja ei poisteta.`
+    : `Poistetaanko alalaji "${name}"?`;
+  if(!confirm(msg)) return;
+  subs[cat].splice(i, 1);
+  if(n) (appData.reviews || []).forEach(r => { if(r.category === cat && subcatOf(r) === name) r.subcat = ''; });
+  renderSubcatManage();
+  renderAll();
+  await window.fbSave();
+};
+
+// ── SIIRTOTYÖKALU ──
+// Sekä yksittäisen arvostelun siirtoon (lukumodaalista) että
+// joukkosiirtoon (asetuksista).
+let _movePreselect = null;
+
+window.openMoveModal = function(preselectId){
+  _movePreselect = preselectId != null ? preselectId : null;
+  const r = preselectId != null ? appData.reviews.find(x => x.id === preselectId) : null;
+
+  const srcGroup = document.getElementById('moveSourceGroup');
+  const info = document.getElementById('moveInfo');
+
+  // Yksittäistä arvostelua siirrettäessä lähdevalitsimia ei tarvita
+  if(r){
+    srcGroup.style.display = 'none';
+    info.innerHTML = `<div class="si-info">Siirretään <strong>${esc(plainName(r))}</strong><br>
+      Nyt: ${esc(r.category)}${subcatOf(r) ? ' · ' + esc(subcatOf(r)) : ' · Perus'}</div>`;
+  } else {
+    srcGroup.style.display = 'block';
+    info.innerHTML = `<div class="si-info">Valitse arvostelut ja kohde. Pisteet, muistiinpanot ja jaksotiedot säilyvät ennallaan.</div>`;
+    const sc = document.getElementById('moveSourceCat');
+    sc.innerHTML = (appData.categories || []).map(c =>
+      `<option value="${esc(c)}" ${c === activeCat ? 'selected' : ''}>${esc(c)}</option>`).join('');
+    renderMoveSourceSub();
+  }
+
+  const tc = document.getElementById('moveTargetCat');
+  tc.innerHTML = (appData.categories || []).map(c =>
+    `<option value="${esc(c)}" ${r && c === r.category ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  onMoveTargetCatChange();
+
+  renderMoveList();
+  document.getElementById('moveModal').classList.add('open');
+};
+
+function subOptions(cat, includeAll){
+  const subs = subcatsFor(cat);
+  const opts = [];
+  if(includeAll) opts.push({ v:'__all', l:'Kaikki alalajit' });
+  opts.push({ v:'', l: subs.length ? 'Perus' : '(ei alalajeja)' });
+  subs.forEach(s => opts.push({ v:s, l:s }));
+  return opts;
+}
+
+function renderMoveSourceSub(){
+  const cat = document.getElementById('moveSourceCat')?.value;
+  const sel = document.getElementById('moveSourceSub');
+  if(!sel || !cat) return;
+  sel.innerHTML = subOptions(cat, true).map(o =>
+    `<option value="${esc(o.v)}">${esc(o.l)}</option>`).join('');
+  sel.style.display = subcatsFor(cat).length ? 'block' : 'none';
+}
+
+window.onMoveTargetCatChange = function(){
+  const cat = document.getElementById('moveTargetCat')?.value;
+  const sel = document.getElementById('moveTargetSub');
+  if(!sel || !cat) return;
+  const subs = subcatsFor(cat);
+  sel.innerHTML = subOptions(cat, false).map(o =>
+    `<option value="${esc(o.v)}">${esc(o.l)}</option>`).join('');
+  sel.style.display = subs.length ? 'block' : 'none';
+  // Esivalitse siirrettävän nykyinen alalaji jos se löytyy kohteesta
+  if(_movePreselect != null){
+    const r = appData.reviews.find(x => x.id === _movePreselect);
+    if(r && subs.includes(subcatOf(r))) sel.value = subcatOf(r);
+  }
+};
+
+window.onMoveSourceCatChange = function(){
+  renderMoveSourceSub();
+  renderMoveList();
+};
+
+window.renderMoveList = function(){
+  const host = document.getElementById('moveList');
+  if(!host) return;
+
+  if(_movePreselect != null){
+    const r = appData.reviews.find(x => x.id === _movePreselect);
+    host.innerHTML = r
+      ? `<input type="checkbox" class="mv-check" data-id="${r.id}" checked style="display:none;">`
+      : '';
+    document.querySelector('.mv-tools').style.display = 'none';
+    return;
+  }
+  document.querySelector('.mv-tools').style.display = 'flex';
+
+  const cat = document.getElementById('moveSourceCat')?.value;
+  const sub = document.getElementById('moveSourceSub')?.value;
+  let list = (appData.reviews || []).filter(r => r.category === cat);
+  if(sub !== '__all' && subcatsFor(cat).length) list = list.filter(r => subcatOf(r) === sub);
+  list.sort((a,b) => plainName(a).localeCompare(plainName(b), 'fi'));
+
+  if(!list.length){
+    host.innerHTML = `<div class="mv-empty">Ei arvosteluja tällä valinnalla.</div>`;
+    return;
+  }
+  host.innerHTML = list.map(r => {
+    const sc = subcatOf(r);
+    return `<label class="si-row">
+      <input type="checkbox" class="mv-check" data-id="${r.id}">
+      <span class="si-name">${esc(plainName(r))}${r.year ? ` <span class="si-count">${r.year}</span>` : ''}</span>
+      <span class="si-badge">${sc ? esc(sc) : 'Perus'}</span>
+    </label>`;
+  }).join('');
+};
+
+window.moveSelectAll = function(on){
+  document.querySelectorAll('#moveList .mv-check').forEach(c => { c.checked = !!on; });
+};
+
+window.runMove = async function(){
+  const ids = [...document.querySelectorAll('#moveList .mv-check')]
+    .filter(c => c.checked).map(c => Number(c.dataset.id));
+  if(!ids.length){ alert('Valitse ainakin yksi arvostelu.'); return; }
+
+  const tCat = document.getElementById('moveTargetCat').value;
+  const tSubEl = document.getElementById('moveTargetSub');
+  const tSub = subcatsFor(tCat).length ? String(tSubEl.value || '') : '';
+
+  let moved = 0;
+  ids.forEach(id => {
+    const r = appData.reviews.find(x => x.id === id);
+    if(!r) return;
+    const changedCat = r.category !== tCat;
+    r.category = tCat;
+    r.subcat = tSub;
+    // Kategorian vaihtuessa genrelista voi olla epäkelpo uudessa
+    // kategoriassa, mutta sitä ei hävitetä — käyttäjä voi korjata itse.
+    if(changedCat && tCat !== 'TV-sarjat' && r.tvType) r.tvType = '';
+    moved++;
+  });
+
+  closeModal('moveModal');
+  _movePreselect = null;
+  await window.fbSave();
+  renderAll();
+  if(window.showStatus) window.showStatus(`✅ ${moved} ${moved === 1 ? 'arvostelu siirretty' : 'arvostelua siirretty'}`, '#22c55e', 2500);
+};
+
 window.openSettings = function(){
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   GENRES = [...appData.genres];
   safeRender('versiotarkistus', renderBuildCheck);
   safeRender('kategoriat', renderCatManage);
+  safeRender('alalajit', renderSubcatManage);
   safeRender('genret', renderGenreManage);
   safeRender('korostusväri', renderAccentRow);
   safeRender('tarkkuus', renderPrecisionRow);
@@ -1293,6 +1500,7 @@ window.openReadModal = function(id){
     extraRows.push(`<div class="read-section"><div class="read-label">📡 Tuotantotila</div>
       <div class="read-value">${st.icon} ${esc(st.fi)}${r.seasons_total ? ` · ${r.seasons_total} kautta` : ''}</div>${extra}</div>`);
   }
+  if(subcatOf(r)) extraRows.push(`<div class="read-section"><div class="read-label">📂 Alalaji</div><div class="read-value">${esc(subcatOf(r))}</div></div>`);
   if(r.country) extraRows.push(`<div class="read-section"><div class="read-label">🌍 Maa</div><div class="read-value">${esc(r.country)}</div></div>`);
   if(r.tmdb_score) extraRows.push(`<div class="read-section"><div class="read-label">⭐ TMDB-arvosana</div><div class="read-value">${r.tmdb_score}/10</div></div>`);
 
@@ -1334,6 +1542,8 @@ window.openReadModal = function(id){
     }
   }
   document.getElementById('readEditBtn').setAttribute('onclick', `closeModal('readModal'); editReviewWithFlip(${id})`);
+  const mv = document.getElementById('readMoveBtn');
+  if(mv) mv.setAttribute('onclick', `closeModal('readModal'); setTimeout(()=>openMoveModal(${id}), 250)`);
   document.getElementById('readModal').classList.add('open');
 };
 

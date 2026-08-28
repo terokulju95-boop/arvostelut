@@ -65,6 +65,9 @@
   <!-- KATEGORIATABS -->
   <div class="cat-tabs" id="catTabs"></div>
 
+  <!-- ALALAJIT (näkyy vain jos kategorialla on alalajeja) -->
+  <div class="sub-tabs" id="subTabs" style="display:none;"></div>
+
   <!-- TOOLBAR -->
   <div class="toolbar">
     <div class="search-box">
@@ -158,6 +161,12 @@
     <div class="form-group">
       <label>Kategoria</label>
       <select id="formCat" onchange="onCatChange()"></select>
+    </div>
+
+    <!-- Alalaji (näkyy vain jos kategorialla on alalajeja) -->
+    <div class="form-group" id="subcatSection" style="display:none;">
+      <label>Alalaji</label>
+      <select id="formSubcat"></select>
     </div>
 
     <!-- TV-sarjan tyyppi -->
@@ -338,6 +347,38 @@
   </div>
 </div>
 
+<!-- SIIRRÄ ARVOSTELUJA -->
+<div class="modal-overlay" id="moveModal" onclick="closeModalIfOutside(event,'moveModal')">
+  <div class="modal-sheet" style="max-width:460px;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📂 Siirrä arvosteluja</div>
+    <div id="moveInfo"></div>
+
+    <div class="form-group" id="moveSourceGroup">
+      <label>Näytä kategoriasta</label>
+      <select id="moveSourceCat" onchange="onMoveSourceCatChange()"></select>
+      <select id="moveSourceSub" onchange="renderMoveList()" style="margin-top:8px;"></select>
+    </div>
+
+    <div class="mv-tools">
+      <button type="button" class="si-tool" onclick="moveSelectAll(true)">Valitse kaikki</button>
+      <button type="button" class="si-tool" onclick="moveSelectAll(false)">Tyhjennä</button>
+    </div>
+    <div id="moveList"></div>
+
+    <div class="form-group" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+      <label>Siirrä kohteeseen</label>
+      <select id="moveTargetCat" onchange="onMoveTargetCatChange()"></select>
+      <select id="moveTargetSub" style="margin-top:8px;"></select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('moveModal')">Peruuta</button>
+      <button class="btn-primary" id="moveBtn" onclick="runMove()">Siirrä valitut</button>
+    </div>
+  </div>
+</div>
+
 <!-- TALLENNUSJONO -->
 <div class="modal-overlay" id="syncQueueModal" onclick="closeModalIfOutside(event,'syncQueueModal')">
   <div class="modal-sheet" style="max-width:460px;">
@@ -400,6 +441,7 @@
     <div id="readModalContent"></div>
     <div class="modal-actions" style="margin-top:8px;">
       <button class="btn-secondary" onclick="closeModal('readModal')">Sulje</button>
+      <button class="btn-secondary" id="readMoveBtn" onclick="">📂 Siirrä</button>
       <button class="btn-primary" id="readEditBtn" onclick="">✏️ Muokkaa</button>
     </div>
   </div>
@@ -473,6 +515,18 @@
         <label>TMDB-tunnus</label>
         <div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
       </div>
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Alalajit</label>
+        <div class="toggle-row-sub" style="margin-bottom:10px;">Kategorian sisäinen jako, esimerkiksi Elokuvat → Perus / Dokumentit. Alalajivalitsin näkyy arvostelulistan yläpuolella vain niissä kategorioissa joilla on alalajeja.</div>
+        <select id="subcatCatSelect" onchange="renderSubcatManage()"></select>
+        <div class="cat-manage" id="subcatManageList" style="margin-top:10px;"></div>
+        <div class="add-cat-row">
+          <input type="text" id="newSubcatInput" placeholder="Uusi alalaji...">
+          <button class="add-cat-btn" onclick="addSubcat()">+</button>
+        </div>
+        <button class="btn-secondary" style="width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;" onclick="openMoveModal()">📂 Siirrä arvosteluja</button>
+      </div>
+
       <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
         <label>Tallennuksen tila</label>
         <div id="syncSummary" style="font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:10px;"></div>

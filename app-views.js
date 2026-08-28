@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-28.6';
+window.BUILD_VIEWS = '2026-08-28.7';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -96,6 +96,11 @@ window.renderCards = function(){
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
   let reviews = [...appData.reviews];
   if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
+  // Alalaji: 'all' = ei rajausta, '' = vain perus, muu = kyseinen alalaji
+  const sub = window.getActiveSub ? window.getActiveSub() : 'all';
+  if(activeCat && sub !== 'all' && subcatsFor(activeCat).length){
+    reviews = reviews.filter(r => subcatOf(r) === sub);
+  }
 
   // ── SUMEA HAKU ──
   // matchScore pitää kirjaa siitä kuinka hyvin kukin osui, jotta parhaat
@@ -163,9 +168,11 @@ window.renderCards = function(){
   const grid = document.getElementById('cardsGrid');
   if(!reviews.length){
     grid.className = 'cards-grid';
+    const subLabel = (sub === 'all' || !subcatsFor(activeCat).length) ? '' : (sub === '' ? 'Perus' : sub);
     grid.innerHTML = q
       ? `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Ei osumia haulle “${esc(q)}”</div></div>`
-      : `<div class="empty-state"><div class="empty-icon">🎬</div><div class="empty-title">Ei arvosteluja vielä</div></div>`;
+      : `<div class="empty-state"><div class="empty-icon">🎬</div><div class="empty-title">Ei arvosteluja${subLabel ? ` alalajissa “${esc(subLabel)}”` : ' vielä'}</div>
+         ${subLabel ? '<div class="empty-sub">Vaihda alalajia yltä nähdäksesi muut.</div>' : ''}</div>`;
     return;
   }
 
@@ -326,6 +333,7 @@ window.renderCards = function(){
       </div>
       <div class="card-meta">
         <span class="meta-chip">${esc(r.category)}</span>
+        ${subcatOf(r) ? `<span class="meta-chip subcat-chip">${esc(subcatOf(r))}</span>` : ''}
         ${(()=>{
           const genres = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
           return genres.map(g=>`<span class="meta-chip">${esc(g)}</span>`).join('');
@@ -381,11 +389,18 @@ window.openAddModal = function(){
   document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
   document.getElementById('tvTypeSection').style.display = 'none';
+  // Uusi arvostelu perii sen alalajin jota parhaillaan selaat — jos katsot
+  // Dokumentit-välilehteä, lisäät todennäköisesti dokumentin.
   const si=document.getElementById('scoreInput'); if(si) si.value='';
   const prev=document.getElementById('scorePreview'); if(prev) prev.textContent='';
   const pb=document.getElementById('scorePredictionBox'); if(pb) pb.style.display='none';
   const scb=document.getElementById('scoreContextBox'); if(scb){ scb.style.display='none'; scb.innerHTML=''; }
   populateFormCat();
+  // Uusi arvostelu perii sen alalajin jota parhaillaan selaat — jos katsot
+  // Dokumentit-välilehteä, lisäät todennäköisesti dokumentin.
+  // Tämä on populateFormCatin JÄLKEEN, koska se nollaa valitsimen.
+  const curSub = window.getActiveSub ? window.getActiveSub() : 'all';
+  populateFormSubcat(document.getElementById('formCat').value, curSub === 'all' ? '' : curSub);
   buildScorePicker('scorePicker', 'selectedScore');
   window.toggleMark(null);
   document.getElementById('addModal').classList.add('open');
@@ -407,7 +422,9 @@ window.editReview = function(id){
   document.getElementById('formDate').value = r.date ? r.date.split('T')[0] : new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
   populateFormCat(r.category);
+  populateFormSubcat(r.category, subcatOf(r));
   window.onCatChange(r.genre);
+  populateFormSubcat(r.category, subcatOf(r));
   if(r.category==='TV-sarjat') selectTvTypeByValue(r.tvType||'kokonaisuus');
   buildScorePicker('scorePicker', 'selectedScore');
   window.toggleMark(r.mark||null);
@@ -420,10 +437,32 @@ function populateFormCat(selected){
   window.onCatChange();
 }
 
+// Alalajivalitsin. Näkyy vain jos kategorialla on alalajeja määritelty.
+// Säilyttää valinnan jos sama alalaji löytyy myös uudesta kategoriasta.
+function populateFormSubcat(cat, preselect){
+  const sec = document.getElementById('subcatSection');
+  const sel = document.getElementById('formSubcat');
+  if(!sec || !sel) return;
+  const subs = subcatsFor(cat);
+  if(!subs.length){
+    sec.style.display = 'none';
+    sel.innerHTML = '<option value=""></option>';
+    return;
+  }
+  const want = preselect !== undefined ? preselect : sel.value;
+  sec.style.display = 'block';
+  const opts = [{ v:'', l:'Perus' }, ...subs.map(x => ({ v:x, l:x }))];
+  sel.innerHTML = opts.map(o =>
+    `<option value="${esc(o.v)}" ${o.v === want ? 'selected' : ''}>${esc(o.l)}</option>`
+  ).join('');
+}
+window.populateFormSubcat = populateFormSubcat;
+
 window.onCatChange = function(preselectedGenre){
   const cat = document.getElementById('formCat').value;
   const isTv = cat==='TV-sarjat';
   const hasGenre = GENRE_CATS.includes(cat);
+  populateFormSubcat(cat);
   document.getElementById('tvTypeSection').style.display = isTv?'block':'none';
   document.getElementById('genreSection').style.display = hasGenre?'block':'none';
   setTimeout(window.updateScorePrediction, 50);
@@ -1141,6 +1180,13 @@ window.toggleMark = function(mark){
   if(nBtn){ nBtn.className = 'mark-btn'; nBtn.style.opacity = mark===null?'1':'0.5'; }
 };
 
+// Lomakkeen alalaji. Jos kategorialla ei ole alalajeja, arvo on aina tyhjä.
+function readFormSubcat(cat){
+  if(!subcatsFor(cat).length) return '';
+  const el = document.getElementById('formSubcat');
+  return el ? String(el.value || '') : '';
+}
+
 window.saveReview = async function(){
   let name = document.getElementById('formName').value.trim();
   const yearEl = document.getElementById('formYear');
@@ -1184,6 +1230,7 @@ window.saveReview = async function(){
     const r = appData.reviews.find(x=>x.id===editingId);
     if(r){
       r.name=name; r.year=year; r.category=cat;
+      r.subcat = readFormSubcat(cat);
       r.genre=GENRE_CATS.includes(cat)?getSelectedGenres():[];
       r.tvType=isTv?selectedTvType:'';
       r.score=needsScore?selectedScore:null;
@@ -1199,6 +1246,7 @@ window.saveReview = async function(){
       id: Date.now(),
       date: (document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z',
       name, year, category:cat,
+      subcat: readFormSubcat(cat),
       genre: GENRE_CATS.includes(cat)?getSelectedGenres():[],
       tvType: isTv?selectedTvType:'',
       score: needsScore?selectedScore:null,
@@ -1688,9 +1736,24 @@ window.renderTop = function(){
   let html = topControlsHtml();
   let anySection = false;
 
-  appData.categories.forEach(cat=>{
+  // Alalajit saavat omat osionsa, jotta dokumentit eivät kilpaile
+  // fiktion kanssa samassa listassa.
+  const groups = [];
+  appData.categories.forEach(cat => {
+    const subs = subcatsFor(cat);
+    if(subs.length){
+      groups.push({ cat, sub: '',  label: cat });
+      subs.forEach(sc => groups.push({ cat, sub: sc, label: `${cat} · ${sc}` }));
+    } else {
+      groups.push({ cat, sub: null, label: cat });
+    }
+  });
+
+  groups.forEach(g=>{
+    const cat = g.label;
     let pool = appData.reviews
-      .filter(r=>r.category===cat)
+      .filter(r=>r.category===g.cat)
+      .filter(r=> g.sub === null ? true : subcatOf(r) === g.sub)
       .map(r=>({...r, finalScore: getReviewScore(r)}))
       .filter(r=>r.finalScore!==null);
 
@@ -1712,7 +1775,7 @@ window.renderTop = function(){
     const rest = reviews.slice(1);
     const hasPoster = !!top.poster;
     const heroStyle = hasPoster ? `style="background-image:url('https://image.tmdb.org/t/p/w500${top.poster}')"` : '';
-    const heroAttrs = hasPoster ? '' : `data-icon="${topHeroIcon(cat)}"`;
+    const heroAttrs = hasPoster ? '' : `data-icon="${topHeroIcon(g.cat)}"`;
 
     html += `<div class="top-section">
       <div class="top-section-title">🏆 ${esc(cat)}${topGenreFilter?` · ${esc(topGenreFilter)}`:''}</div>
