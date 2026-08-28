@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-08-28.5';
+window.BUILD_MODALS = '2026-08-28.6';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -941,6 +941,7 @@ const BUILD_FILES = [
   ['app-core.js',     'BUILD_CORE',     true],
   ['app-views.js',    'BUILD_VIEWS',    true],
   ['app-modals.js',   'BUILD_MODALS',   true],
+  ['app-discover.js', 'BUILD_DISCOVER', true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
 
@@ -983,6 +984,95 @@ function safeRender(label, fn){
   catch(e){ console.error('Asetusten osa epäonnistui:', label, e); }
 }
 
+// ── TALLENNUSJONO ──
+// Näyttää mitkä muutokset odottavat pilveen pääsyä ja miksi.
+// Firestore yrittää itsestään, mutta jos jono jumittuu, tästä pääsee
+// käynnistämään yrityksen käsin.
+function renderSyncSummary(){
+  const el = document.getElementById('syncSummary');
+  if(!el) return;
+  if(!window.fbSyncState){ el.textContent = 'Tallennustilaa ei saatavilla.'; return; }
+  const st = window.fbSyncState();
+  const online = navigator.onLine !== false;
+  if(st.pending === 0 && !st.meta && !st.queueStuck){
+    el.innerHTML = `✅ Kaikki muutokset on tallennettu pilveen.<br>${online ? '🌐 Yhteys kunnossa' : '📴 Ei verkkoyhteyttä'}`;
+  } else {
+    const n = st.pending;
+    el.innerHTML = `⚠️ ${n} ${n === 1 ? 'muutos' : 'muutosta'} odottaa tallennusta${st.meta ? ' (myös asetukset)' : ''}.<br>`
+      + `${online ? '🌐 Yhteys kunnossa' : '📴 Ei verkkoyhteyttä — jono lähtee kun verkko palaa'}`
+      + (st.queueStuck ? '<br>⏳ Jono ei ole liikkunut — kokeile uudelleenyritystä' : '');
+  }
+}
+
+window.openSyncQueue = function(){
+  renderSyncQueue();
+  document.getElementById('syncQueueModal').classList.add('open');
+};
+
+function renderSyncQueue(){
+  const el = document.getElementById('sqBody');
+  if(!el) return;
+  if(!window.fbPendingList){
+    el.innerHTML = '<div class="sq-empty">Tallennustietoja ei ole saatavilla.</div>';
+    return;
+  }
+  const st = window.fbPendingList();
+  const online = st.online;
+
+  const head = `<div class="sq-status ${st.rows.length || st.meta ? 'sq-warn' : 'sq-ok'}">
+    <div class="sq-status-title">${st.rows.length || st.meta
+      ? `⚠️ ${st.rows.length} ${st.rows.length === 1 ? 'kohde' : 'kohdetta'} odottaa`
+      : '✅ Kaikki tallennettu pilveen'}</div>
+    <div class="sq-status-sub">
+      ${online ? '🌐 Verkkoyhteys kunnossa' : '📴 Ei verkkoyhteyttä'}
+      · 💾 välimuisti: ${esc(st.cacheMode || 'tuntematon')}
+      ${st.queueStuck ? '<br>⏳ Jono ei ole liikkunut tässä istunnossa.' : ''}
+      ${st.meta ? '<br>⚙️ Myös asetukset odottavat tallennusta.' : ''}
+    </div>
+  </div>`;
+
+  if(!st.rows.length && !st.meta){
+    el.innerHTML = head + `<div class="sq-empty">Ei mitään jonossa. Tiedot ovat turvassa pilvessä.</div>`;
+    const btn = document.getElementById('sqRetryBtn');
+    if(btn){ btn.textContent = '🔄 Tallenna varmuuden vuoksi'; btn.disabled = false; }
+    return;
+  }
+
+  const rows = st.rows.map(r => `<div class="sq-row">
+    <span class="sq-kind sq-kind-${r.kind === 'poisto' ? 'del' : 'set'}">${r.kind === 'poisto' ? '🗑️' : '💾'}</span>
+    <span class="sq-name">${esc(r.name)}</span>
+    <span class="sq-src">${esc(r.source)}</span>
+  </div>`).join('');
+
+  el.innerHTML = head
+    + `<div class="sq-list">${rows}</div>`
+    + `<div class="sq-hint">Muutokset ovat tallessa myös laitteellasi. Älä tyhjennä selaustietoja ennen kuin jono on tyhjä — ja ota tarvittaessa varmuuskopio Data-välilehdeltä.</div>`;
+
+  const btn = document.getElementById('sqRetryBtn');
+  if(btn){ btn.textContent = '🔄 Yritä uudelleen'; btn.disabled = false; }
+}
+
+window.retrySyncQueue = async function(){
+  const btn = document.getElementById('sqRetryBtn');
+  const el = document.getElementById('sqBody');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Yritetään...'; }
+  if(el) el.innerHTML = `<div class="sq-status sq-warn"><div class="sq-status-title">⏳ Yhdistetään uudelleen</div>
+    <div class="sq-status-sub">Verkkoyhteys nollataan ja muutokset lähetetään uudelleen.</div></div>`;
+
+  let st = null;
+  try {
+    st = window.fbRetryPending ? await window.fbRetryPending() : null;
+  } catch(e){
+    console.error('Uudelleenyritys epäonnistui:', e);
+  }
+  renderSyncQueue();
+  renderSyncSummary();
+  if(st && st.pending === 0 && !st.queueStuck){
+    const b = document.getElementById('sqBody');
+    if(b) b.insertAdjacentHTML('afterbegin', '<div class="sq-flash">✅ Kaikki meni läpi.</div>');
+  }
+};
+
 window.openSettings = function(){
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   GENRES = [...appData.genres];
@@ -996,6 +1086,7 @@ window.openSettings = function(){
   safeRender('tmdb-tila', renderTmdbStatus);
   safeRender('varmuuskopio', renderBackupInfo);
   safeRender('tili', renderAccountInfo);
+  safeRender('tallennustila', renderSyncSummary);
   safeRender('käännösasetukset', renderTranslateSettings);
   _oldDocReport = null;
   const odr = document.getElementById('oldDocReport');
@@ -1183,6 +1274,24 @@ window.openReadModal = function(id){
     </div>`);
   } else if(r.episodes_total){
     extraRows.push(`<div class="read-section"><div class="read-label">📺 Jaksoja</div><div class="read-value">${r.episodes_total}</div></div>`);
+  }
+  const st = tvStatusInfo(r.tv_status);
+  if(st){
+    let extra = '';
+    if(r.next_air && r.next_air.date){
+      const d = new Date(r.next_air.date + 'T00:00:00');
+      const days = Math.ceil((d - new Date()) / 86400000);
+      const when = days > 1 ? `${days} päivän päästä` : (days === 1 ? 'huomenna' : (days === 0 ? 'tänään' : ''));
+      extra = `<div style="font-size:12px;color:var(--muted);margin-top:4px;">
+        Seuraava jakso K${r.next_air.season}J${r.next_air.episode} ${esc(r.next_air.date)}${when ? ' · ' + when : ''}
+      </div>`;
+    } else if(r.tv_status === 'Ended' && r.last_air_date){
+      extra = `<div style="font-size:12px;color:var(--muted);margin-top:4px;">Viimeinen jakso ${esc(r.last_air_date)}</div>`;
+    } else if((r.tv_status === 'Canceled' || r.tv_status === 'Cancelled') && r.last_air_date){
+      extra = `<div style="font-size:12px;color:var(--muted);margin-top:4px;">Peruttu — viimeinen jakso ${esc(r.last_air_date)}</div>`;
+    }
+    extraRows.push(`<div class="read-section"><div class="read-label">📡 Tuotantotila</div>
+      <div class="read-value">${st.icon} ${esc(st.fi)}${r.seasons_total ? ` · ${r.seasons_total} kautta` : ''}</div>${extra}</div>`);
   }
   if(r.country) extraRows.push(`<div class="read-section"><div class="read-label">🌍 Maa</div><div class="read-value">${esc(r.country)}</div></div>`);
   if(r.tmdb_score) extraRows.push(`<div class="read-section"><div class="read-label">⭐ TMDB-arvosana</div><div class="read-value">${r.tmdb_score}/10</div></div>`);
@@ -1771,7 +1880,13 @@ window.fillFromTmdb = async function(idx) {
     progBar.style.width = '50%';
 
     // Tallenna pending TMDB-data
-    window._tmdbPending = { poster, director, runtime, episodes_total, country: countryStr, cast, tmdb_score, tmdb_id: tmdbId, plot: overview || null };
+    const tf = extractTmdbFields(detail, isTv);
+    window._tmdbPending = Object.assign({}, tf, {
+      poster, director, runtime, episodes_total,
+      country: countryStr, cast, tmdb_score,
+      tmdb_id: tmdbId, plot: overview || null,
+      tmdb_checked: new Date().toISOString().slice(0,10)
+    });
 
     // Jos TV-sarja — hae kaudet ja jaksot yhteisellä logiikalla
     const tvType = document.querySelector('.tv-type-opt.selected')?.dataset?.type;

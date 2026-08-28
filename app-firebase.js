@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-08-28.5';
+window.BUILD_FIREBASE = '2026-08-28.6';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -17,7 +17,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/fireba
 import {
   getFirestore, doc, getDoc, getDocFromServer, setDoc, collection,
   getDocsFromServer, query, limit,
-  onSnapshot, writeBatch, updateDoc, waitForPendingWrites
+  onSnapshot, writeBatch, updateDoc, waitForPendingWrites,
+  enableNetwork, disableNetwork
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 const FIRESTORE_URL = "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
@@ -159,7 +160,10 @@ function ensureSyncBar(){
   btn.style.cssText =
     'flex:0 0 auto;background:#fff;color:#991b1b;border:none;border-radius:9px;' +
     'padding:8px 11px;font-size:12px;font-weight:700;cursor:pointer;';
-  btn.onclick = () => { if(window.downloadBackup) window.downloadBackup(); };
+  btn.onclick = (e) => { e.stopPropagation(); if(window.downloadBackup) window.downloadBackup(); };
+  // Palkista pääsee suoraan jonon tarkasteluun
+  el.style.cursor = 'pointer';
+  el.onclick = () => { if(window.openSyncQueue) window.openSyncQueue(); };
 
   el.appendChild(txt);
   el.appendChild(btn);
@@ -199,6 +203,80 @@ window.fbSyncState = function(){
   const ids = new Set(pendingWrites.keys());
   cacheQueuedIds.forEach(id => ids.add(id));
   return { pending: ids.size, meta: pendingMeta !== null, queueStuck };
+};
+
+// Yksityiskohtainen lista tallennusjonosta asetuksia varten.
+// Kertoo mitkä arvostelut odottavat ja mistä syystä.
+window.fbPendingList = function(){
+  const rows = [];
+  // plainName tulee app-core.js:stä. Moduuli ajetaan sen jälkeen, mutta
+  // varmistetaan silti ettei puuttuva funktio kaada koko näkymää.
+  const nameOf = (r) => {
+    if(!r) return '(tuntematon)';
+    try { return window.plainName ? window.plainName(r) : String(r.name || '(nimetön)'); }
+    catch(e){ return String(r.name || '(nimetön)'); }
+  };
+  const byId = new Map();
+  (appData.reviews || []).forEach(r => { if(r && r.id != null) byId.set(String(r.id), r); });
+
+  pendingWrites.forEach((val, id) => {
+    const r = byId.get(id);
+    rows.push({
+      id,
+      name: val === DEL_MARK ? '(poistettu arvostelu)' : nameOf(r),
+      kind: val === DEL_MARK ? 'poisto' : 'tallennus',
+      source: 'tämä istunto'
+    });
+  });
+
+  cacheQueuedIds.forEach(id => {
+    if(pendingWrites.has(id)) return;
+    const r = byId.get(String(id));
+    rows.push({
+      id: String(id),
+      name: nameOf(r),
+      kind: 'tallennus',
+      source: 'aiempi istunto'
+    });
+  });
+
+  return {
+    rows,
+    meta: pendingMeta !== null,
+    queueStuck,
+    online: navigator.onLine !== false,
+    cacheMode: window._fbCacheMode
+  };
+};
+
+// Käsin käynnistettävä uudelleenyritys.
+// Firestoren oma jono yrittää itsestään, mutta jos yhteys on jäänyt
+// puolittaiseen tilaan, verkon katkaisu ja avaus herättää sen. Lisäksi
+// tyhjennämme oman jonokirjanpitomme, jotta fbSave lähettää tiedot
+// uudelleen eikä ohita niitä "jo jonossa" -tarkistuksessa.
+window.fbRetryPending = async function(){
+  if(!db) await initDb();
+  try{
+    await disableNetwork(db);
+    await new Promise(r => setTimeout(r, 300));
+    await enableNetwork(db);
+  } catch(e){ /* verkkotempun epäonnistuminen ei saa estää tallennusta */ }
+
+  pendingWrites.clear();
+  cacheQueuedIds.clear();
+  pendingMeta = null;
+  queueStuck = false;
+  updateSyncBanner();
+
+  await window.fbSave();
+
+  // Odota kuittausta lyhyen aikaa, jotta käyttäjä näkee tuloksen heti
+  try{
+    const res = await withTimeout(waitForPendingWrites(db), 8000);
+    if(res && res.timedOut) queueStuck = true;
+  } catch(e){}
+  updateSyncBanner();
+  return window.fbSyncState();
 };
 
 // Käynnistyksessä: onko edellisistä istunnoista jäänyt kuittaamattomia

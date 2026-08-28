@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-08-28.5';
+window.BUILD_CORE = '2026-08-28.6';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -74,17 +74,25 @@ function renderAll(){
   if(currentView==='reviews') renderCards();
   else if(currentView==='top') renderTop();
   else if(currentView==='budget') renderBudget();
+  // Löydä-näkymä ei renderöi mitään itsestään: tulokset syntyvät vasta
+  // kun käyttäjä painaa nappia, eivätkä ne katoa muuta näkymää päivitettäessä.
 }
 
 // ── NÄKYMÄ ──
 window.setView = function(view){
   currentView = view;
-  ['reviews','top','budget'].forEach(v=>{
+  ['reviews','top','discover','budget'].forEach(v=>{
     const el = document.getElementById('viewTab'+v.charAt(0).toUpperCase()+v.slice(1));
     if(el) el.classList.toggle('active', v===view);
   });
   const showCats = view==='reviews';
   document.getElementById('catTabs').style.display = showCats?'':'none';
+  const disc = document.getElementById('discoverView');
+  if(disc) disc.style.display = view==='discover' ? 'block' : 'none';
+  const grid = document.getElementById('cardsGrid');
+  if(grid) grid.style.display = view==='discover' ? 'none' : '';
+  const fab = document.getElementById('fab');
+  if(fab) fab.style.display = view==='discover' ? 'none' : '';
   const tb = document.querySelector('.toolbar');
   if(tb) tb.style.display = view==='reviews'?'':'none';
   // Sulje suodatinpaneeli näkymää vaihdettaessa.
@@ -100,6 +108,7 @@ window.setView = function(view){
 
 window.fabClick = function(){
   if(currentView==='budget') window.budgetFabClick();
+  else if(currentView==='discover') return;
   else window.openAddModal();
 };
 
@@ -1185,6 +1194,84 @@ function findSeasonByNumber(r, sNum){
   return null;
 }
 window.findSeasonByNumber = findSeasonByNumber;
+
+// ── TMDB-KENTTIEN POIMINTA ──
+// Yksi yhteinen paikka sille, mitä TMDB:n vastauksesta otetaan talteen.
+// Tallennamme myös henkilöiden ID:t (ei pelkkiä nimiä), koska suositusten
+// hakeminen nimellä on epätarkkaa: samannimisiä ihmisiä on useita.
+function extractTmdbFields(detail, isTv){
+  const out = {};
+  out.tmdb_type    = isTv ? 'tv' : 'movie';
+  out.poster       = detail.poster_path || null;
+  out.backdrop     = detail.backdrop_path || null;
+  out.plot         = detail.overview || null;
+  out.tmdb_score   = detail.vote_average ? Math.round(detail.vote_average * 10) / 10 : null;
+  out.genre_ids    = (detail.genres || []).map(g => g.id);
+  out.country      = (detail.production_countries && detail.production_countries[0]
+                        ? detail.production_countries[0].iso_3166_1
+                        : (detail.origin_country && detail.origin_country[0]) || null);
+
+  const cast = (detail.credits && detail.credits.cast) || [];
+  out.cast     = cast.slice(0, 5).map(a => a.name);
+  out.cast_ids = cast.slice(0, 5).map(a => a.id);
+
+  if(isTv){
+    const creators = detail.created_by || [];
+    out.director     = creators.length ? creators[0].name : null;
+    out.director_id  = creators.length ? creators[0].id : null;
+    out.episodes_total = detail.number_of_episodes || null;
+    out.seasons_total  = detail.number_of_seasons || null;
+
+    // Tuotantotila. TMDB palauttaa englanniksi myös fi-FI-kyselyllä,
+    // joten käännös tehdään itse.
+    out.tv_status   = detail.status || null;
+    out.tv_in_prod  = !!detail.in_production;
+    out.last_air_date = detail.last_air_date || null;
+
+    const nxt = detail.next_episode_to_air;
+    out.next_air = nxt ? {
+      date: nxt.air_date || null,
+      season: nxt.season_number || null,
+      episode: nxt.episode_number || null,
+      name: nxt.name || null
+    } : null;
+
+    const last = detail.last_episode_to_air;
+    out.last_air = last ? {
+      date: last.air_date || null,
+      season: last.season_number || null,
+      episode: last.episode_number || null
+    } : null;
+  } else {
+    const crew = (detail.credits && detail.credits.crew) || [];
+    const dir = crew.find(c => c.job === 'Director');
+    out.director    = dir ? dir.name : null;
+    out.director_id = dir ? dir.id : null;
+    out.runtime     = detail.runtime || null;
+    out.collection  = detail.belongs_to_collection
+      ? { id: detail.belongs_to_collection.id, name: detail.belongs_to_collection.name }
+      : null;
+  }
+  return out;
+}
+window.extractTmdbFields = extractTmdbFields;
+
+// Tuotantotilan suomennos ja väri.
+const TV_STATUS_MAP = {
+  'Returning Series': { fi: 'Jatkuu',        icon: '🟢', cls: 'ok'   },
+  'Ended':            { fi: 'Päättynyt',     icon: '🔵', cls: 'done' },
+  'Canceled':         { fi: 'Peruttu',       icon: '🔴', cls: 'bad'  },
+  'Cancelled':        { fi: 'Peruttu',       icon: '🔴', cls: 'bad'  },
+  'In Production':    { fi: 'Tuotannossa',   icon: '🟡', cls: 'wip'  },
+  'Post Production':  { fi: 'Jälkituotannossa', icon: '🟡', cls: 'wip' },
+  'Planned':          { fi: 'Suunnitteilla', icon: '⚪', cls: 'wip'  },
+  'Pilot':            { fi: 'Pilotti',       icon: '⚪', cls: 'wip'  }
+};
+function tvStatusInfo(status){
+  if(!status) return null;
+  return TV_STATUS_MAP[status] || { fi: status, icon: '⚪', cls: 'wip' };
+}
+window.tvStatusInfo = tvStatusInfo;
 
 // ── DUPLIKAATTITARKISTUS ──
 function normName(s){

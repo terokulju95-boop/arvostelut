@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-28.5';
+window.BUILD_VIEWS = '2026-08-28.6';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -331,6 +331,11 @@ window.renderCards = function(){
           return genres.map(g=>`<span class="meta-chip">${esc(g)}</span>`).join('');
         })()}
         ${isTvParts?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
+        ${(()=>{
+          const st = tvStatusInfo(r.tv_status);
+          if(!st) return '';
+          return `<span class="meta-chip status-chip status-${st.cls}">${st.icon} ${esc(st.fi)}</span>`;
+        })()}
         ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
         ${r.mark==='skull'?'<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>':''}
       </div>
@@ -1288,15 +1293,26 @@ window.updateTmdbData = async function(id) {
     r.tmdb_score = detail.vote_average ? Math.round(detail.vote_average * 10) / 10 : r.tmdb_score;
     r.tmdb_id = tmdbId;
     r.country = (detail.production_countries?.[0]?.iso_3166_1 || detail.origin_country?.[0] || r.country || null);
-    r.cast = (detail.credits?.cast || []).slice(0, 5).map(a => a.name);
     r.plot = detail.overview || r.plot || null;
+
+    // Yhteinen kenttäpoiminta: tuotantotila, henkilö-ID:t, seuraava jakso
+    const tf = extractTmdbFields(detail, isTv);
+    r.tmdb_type = tf.tmdb_type;
+    if(tf.cast.length){ r.cast = tf.cast; r.cast_ids = tf.cast_ids; }
+    if(tf.director){ r.director = tf.director; r.director_id = tf.director_id; }
+    if(tf.genre_ids && tf.genre_ids.length) r.genre_ids = tf.genre_ids;
+    if(tf.backdrop) r.backdrop = tf.backdrop;
     if (!isTv) {
-      const dir = (detail.credits?.crew || []).find(c => c.job === 'Director');
-      r.director = dir ? dir.name : r.director;
-      r.runtime = detail.runtime || r.runtime;
+      r.runtime = tf.runtime || r.runtime;
+      if(tf.collection) r.collection = tf.collection;
     } else {
-      const creators = detail.created_by || [];
-      r.director = creators.length ? creators[0].name : r.director;
+      r.tv_status     = tf.tv_status || r.tv_status || null;
+      r.tv_in_prod    = tf.tv_in_prod;
+      r.seasons_total = tf.seasons_total || r.seasons_total || null;
+      r.last_air_date = tf.last_air_date || r.last_air_date || null;
+      r.next_air      = tf.next_air;
+      r.last_air      = tf.last_air || r.last_air || null;
+      r.tmdb_checked  = new Date().toISOString().slice(0,10);
       r.episodes_total = detail.number_of_episodes || r.episodes_total;
     }
 

@@ -58,6 +58,7 @@
   <div class="view-tabs">
     <button class="view-tab active" id="viewTabReviews" onclick="setView('reviews')">⭐ Arvostelut</button>
     <button class="view-tab" id="viewTabTop" onclick="setView('top')">🏆 Top-lista</button>
+    <button class="view-tab" id="viewTabDiscover" onclick="setView('discover')">🔮 Löydä</button>
     <button class="view-tab" id="viewTabBudget" onclick="setView('budget')">💰 Budjetti</button>
   </div>
 
@@ -101,6 +102,40 @@
   <div class="search-note" id="searchNote" style="display:none;"></div>
 
   <div class="cards-grid" id="cardsGrid"></div>
+
+  <!-- LÖYDÄ-NÄKYMÄ -->
+  <div class="discover" id="discoverView" style="display:none;">
+    <div class="disc-intro">
+      Ehdotukset lasketaan omista arvosteluistasi. Mitään ei haeta ennen kuin painat nappia,
+      eivätkä ehdotukset näy muualla sovelluksessa.
+    </div>
+
+    <div class="disc-actions">
+      <button class="disc-btn disc-btn-main" onclick="runDiscover('new-seasons')">
+        <span class="disc-btn-icon">📺</span>
+        <span class="disc-btn-text"><strong>Uutta seuraamissasi sarjoissa</strong>
+        <span>Tarkistaa onko uusia kausia tai jaksoja ilmestynyt</span></span>
+      </button>
+      <button class="disc-btn disc-btn-main" onclick="runDiscover('people')">
+        <span class="disc-btn-icon">🎬</span>
+        <span class="disc-btn-text"><strong>Ohjaajien ja näyttelijöiden mukaan</strong>
+        <span>Teoksia tekijöiltä joista olet pitänyt</span></span>
+      </button>
+      <button class="disc-btn disc-btn-main" onclick="runDiscover('similar')">
+        <span class="disc-btn-icon">✨</span>
+        <span class="disc-btn-text"><strong>Samankaltaisia suosikkiesi kanssa</strong>
+        <span>TMDB:n suositukset parhaiten pisteyttämillesi</span></span>
+      </button>
+      <button class="disc-btn disc-btn-main" onclick="runDiscover('collections')">
+        <span class="disc-btn-icon">🎞️</span>
+        <span class="disc-btn-text"><strong>Puuttuvat osat sarjoista</strong>
+        <span>Elokuvasarjat joista olet nähnyt vain osan</span></span>
+      </button>
+    </div>
+
+    <div class="disc-status" id="discStatus" style="display:none;"></div>
+    <div id="discResults"></div>
+  </div>
 </div>
 
 <!-- FAB -->
@@ -303,6 +338,19 @@
   </div>
 </div>
 
+<!-- TALLENNUSJONO -->
+<div class="modal-overlay" id="syncQueueModal" onclick="closeModalIfOutside(event,'syncQueueModal')">
+  <div class="modal-sheet" style="max-width:460px;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">☁️ Tallennuksen tila</div>
+    <div id="sqBody"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('syncQueueModal')">Sulje</button>
+      <button class="btn-primary" id="sqRetryBtn" onclick="retrySyncQueue()">🔄 Yritä uudelleen</button>
+    </div>
+  </div>
+</div>
+
 <!-- KÄÄNNÖS SUOMEKSI -->
 <div class="modal-overlay" id="translateModal" onclick="closeModalIfOutside(event,'translateModal')">
   <div class="modal-sheet" style="max-width:460px;">
@@ -425,6 +473,12 @@
         <label>TMDB-tunnus</label>
         <div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
       </div>
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Tallennuksen tila</label>
+        <div id="syncSummary" style="font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:10px;"></div>
+        <button class="btn-secondary" style="width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;" onclick="openSyncQueue()">☁️ Näytä tallennusjono</button>
+      </div>
+
       <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
         <label>Jaksotiedot ja käännökset</label>
         <div class="toggle-row-sub" style="margin-bottom:10px;">Tuonti ei käännä mitään automaattisesti: TMDB:n suomi käytetään aina kun se on olemassa, muuten englanti. Kääntäminen käynnistetään käsin sarjakortin 🌐-napista. Nämä valinnat kertovat mitä silloin käännetään.</div>
@@ -575,6 +629,7 @@
 <script src="app-core.js"></script>
 <script src="app-views.js"></script>
 <script src="app-modals.js"></script>
+<script src="app-discover.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 </body>
