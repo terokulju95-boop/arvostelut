@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-08-28.10';
+window.BUILD_CORE = '2026-08-28.11';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -122,11 +122,28 @@ window.fabClick = function(){
 // Kategorian sisäinen jako, esimerkiksi Elokuvat → Perus / Dokumentit.
 // Arvostelussa kenttä on `subcat`: tyhjä tai puuttuva tarkoittaa "Perus",
 // joten vanhat arvostelut toimivat sellaisenaan ilman migraatiota.
-const DEFAULT_SUBCATS = { 'Elokuvat': ['Dokumentit'], 'TV-sarjat': ['Dokumentit'] };
+const DEFAULT_SUBCATS = {
+  'Elokuvat':  ['Dokumentit', 'Animaatiot'],
+  'TV-sarjat': ['Dokumentit', 'Animaatiot']
+};
+
+// Uusien oletusalalajien lisäys vanhaan dataan ajetaan kerran.
+// Merkki tallentuu subcats-objektiin, joten poistetut alalajit eivät
+// palaa takaisin seuraavalla latauksella.
+const SUBCAT_SEED = 1;   // 1 = Animaatiot
 
 function ensureSubcats(){
   if(!appData.subcats || typeof appData.subcats !== 'object'){
     appData.subcats = JSON.parse(JSON.stringify(DEFAULT_SUBCATS));
+    appData.subcats._seed = SUBCAT_SEED;
+    return appData.subcats;
+  }
+  if((Number(appData.subcats._seed) || 0) < 1){
+    ['Elokuvat','TV-sarjat'].forEach(c => {
+      if(!Array.isArray(appData.subcats[c])) appData.subcats[c] = [];
+      if(!appData.subcats[c].includes('Animaatiot')) appData.subcats[c].push('Animaatiot');
+    });
+    appData.subcats._seed = 1;
   }
   return appData.subcats;
 }
@@ -134,11 +151,30 @@ window.ensureSubcats = ensureSubcats;
 
 // Kategorian alalajit listana (tyhjä = kategorialla ei ole jakoa)
 function subcatsFor(cat){
+  if(!cat || String(cat).charAt(0) === '_') return [];
   const all = ensureSubcats();
   const list = all[cat];
   return Array.isArray(list) ? list.filter(Boolean) : [];
 }
 window.subcatsFor = subcatsFor;
+
+// ── VERTAILURYHMÄ ──
+// Kategoria JA alalaji yhdessä muodostavat ryhmän, jonka sisällä
+// arvosteluja verrataan toisiinsa. Perusleffat, dokumentit ja
+// animaatiot ovat siis eri ryhmiä, eivätkä ne kohtaa vertailussa,
+// pistejakaumassa, ennusteessa eivätkä lähimmissä arvosteluissa.
+function sameGroup(r, cat, sub){
+  return r && r.category === cat && subcatOf(r) === (sub || '');
+}
+window.sameGroup = sameGroup;
+
+// Ryhmän nimi käyttöliittymään. Jos kategorialla ei ole alalajeja,
+// pelkkä kategorian nimi riittää.
+function groupLabel(cat, sub){
+  if(!subcatsFor(cat).length) return cat;
+  return cat + ' · ' + (sub || 'Perus');
+}
+window.groupLabel = groupLabel;
 
 // Arvostelun alalaji normalisoituna. '' = Perus.
 function subcatOf(r){

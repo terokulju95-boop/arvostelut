@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-28.10';
+window.BUILD_VIEWS = '2026-08-28.11';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -550,12 +550,15 @@ window.updateScorePreview = function(){
 
 function getScoreContextPool(){
   const cat = document.getElementById('formCat')?.value;
-  if(!cat) return { cat:null, pool:[] };
+  if(!cat) return { cat:null, label:null, pool:[] };
+  // Sama ryhmäraja kuin vertailussa: dokumentit ja animaatiot eivät
+  // sekoitu perusleffojen jakaumaan eivätkä lähimpiin arvosteluihin.
+  const sub = readFormSubcat(cat);
   const pool = appData.reviews
-    .filter(r => r.category === cat && r.id !== editingId)
+    .filter(r => sameGroup(r, cat, sub) && r.id !== editingId)
     .map(r => ({ name:(r.name||'').split('\n')[0].trim(), s:getReviewScore(r) }))
     .filter(r => r.s != null);
-  return { cat, pool };
+  return { cat, label: groupLabel(cat, sub), pool };
 }
 
 function buildScoreHistogram(pool, current){
@@ -588,35 +591,111 @@ function buildScoreHistogram(pool, current){
   </svg>`;
 }
 
+// ── LÄHIMMÄT ARVOSTELUSI ──
+// Ikkuna omaan paremmuusjärjestykseen: keskisivulla kolme parempaa ja
+// kolme huonompaa, taaksepäin kuusi parempaa, eteenpäin kuusi huonompaa.
+// Yhteensä 18 riviä kolmella sivulla, jotta uuden pisteen sijoituksesta
+// näkee kokonaiskuvan eikä vain lähintä naapuria.
+const NB_PER_PAGE = 6;
+let neighborPage = 0;
+let neighborLastScore = null;
+
+// Sivu p alkaa kohdasta pos-3 + p*6. Negatiivista alkua ei rajata
+// nollaan, koska silloin sivut menisivät päällekkäin.
+function neighborSlice(sorted, pos, p){
+  const start = pos - (NB_PER_PAGE / 2) + p * NB_PER_PAGE;
+  const to = start + NB_PER_PAGE;
+  if(to <= 0 || start >= sorted.length) return { rows: [], start };
+  return { rows: sorted.slice(Math.max(0, start), to), start: Math.max(0, start) };
+}
+
+window.setNeighborPage = function(p){
+  neighborPage = Math.max(-1, Math.min(1, p));
+  window.updateScoreContext(true);
+};
+
 function buildScoreNeighbors(pool, current){
   if(current == null || !pool.length) return '';
-  const near = pool.slice()
-    .sort((a,b)=> Math.abs(a.s-current)-Math.abs(b.s-current) || b.s-a.s)
-    .slice(0,3);
-  const rows = near.map(r=>{
+
+  // Paremmuusjärjestys, paras ensin
+  const sorted = pool.slice().sort((a,b) => b.s - a.s);
+  const pos = sorted.filter(r => r.s > current).length;   // uuden pisteen sijoitus
+  const total = sorted.length + 1;
+
+  const { rows, start } = neighborSlice(sorted, pos, neighborPage);
+  if(!rows.length && neighborPage !== 0){
+    neighborPage = 0;
+    return buildScoreNeighbors(pool, current);
+  }
+
+  const line = (r, rank) => {
     const d = r.s - current;
-    const diff = d===0 ? 'sama' : (d>0 ? '+'+d : String(d));
+    const diff = d === 0 ? 'sama' : (d > 0 ? '+' + d : String(d));
     return `<div class="score-neighbor">
+      <span class="score-neighbor-rank">${rank}.</span>
       <span class="score-neighbor-name">${esc(r.name || '–')}</span>
       <span class="score-neighbor-diff">${diff}</span>
       <span class="score-neighbor-score ${scoreClass(r.s)}">${r.s}</span>
     </div>`;
-  }).join('');
-  const better = pool.filter(r=>r.s > current).length;
+  };
+
+  // Keskisivulle merkitään mihin kohtaan uusi piste asettuu
+  const html = [];
+  rows.forEach((r, i) => {
+    const idx = start + i;
+    if(neighborPage === 0 && idx === pos){
+      html.push(`<div class="score-neighbor is-you">
+        <span class="score-neighbor-rank">${pos + 1}.</span>
+        <span class="score-neighbor-name">Tämä arvostelu</span>
+        <span class="score-neighbor-diff"></span>
+        <span class="score-neighbor-score ${scoreClass(current)}">${current}</span>
+      </div>`);
+    }
+    // Rivin sijoitus: uuden pisteen jälkeen tulevat siirtyvät yhdellä
+    html.push(line(r, idx < pos ? idx + 1 : idx + 2));
+  });
+  if(neighborPage === 0 && pos >= start + rows.length){
+    html.push(`<div class="score-neighbor is-you">
+      <span class="score-neighbor-rank">${pos + 1}.</span>
+      <span class="score-neighbor-name">Tämä arvostelu</span>
+      <span class="score-neighbor-diff"></span>
+      <span class="score-neighbor-score ${scoreClass(current)}">${current}</span>
+    </div>`);
+  }
+
+  const canBack = neighborSlice(sorted, pos, neighborPage - 1).rows.length > 0 && neighborPage > -1;
+  const canFwd  = neighborSlice(sorted, pos, neighborPage + 1).rows.length > 0 && neighborPage < 1;
+  const first = start + 1;
+  const last  = start + rows.length;
+  const pageName = neighborPage === -1 ? 'Paremmat' : (neighborPage === 1 ? 'Heikommat' : 'Lähimmät');
+
   return `<div class="score-neighbors">
-      <div class="score-neighbors-label">Lähimmät arvostelusi</div>
-      ${rows}
+      <div class="score-neighbors-head">
+        <span class="score-neighbors-label">${pageName} arvostelusi</span>
+        <span class="score-neighbors-page">sijat ${first}–${last} / ${total}</span>
+      </div>
+      ${html.join('')}
+      <div class="nb-nav">
+        <button type="button" class="nb-btn" ${canBack?'':'disabled'} onclick="setNeighborPage(${neighborPage - 1})">↑ Paremmat</button>
+        <span class="nb-dots">
+          <i class="${neighborPage===-1?'on':''}"></i><i class="${neighborPage===0?'on':''}"></i><i class="${neighborPage===1?'on':''}"></i>
+        </span>
+        <button type="button" class="nb-btn" ${canFwd?'':'disabled'} onclick="setNeighborPage(${neighborPage + 1})">Heikommat ↓</button>
+      </div>
     </div>
-    <div class="score-rank">Sijoitus tällä pisteellä: <strong>${better+1}.</strong> / ${pool.length+1}</div>`;
+    <div class="score-rank">Sijoitus tällä pisteellä: <strong>${pos + 1}.</strong> / ${total}</div>`;
 }
 
-window.updateScoreContext = function(){
+window.updateScoreContext = function(keepPage){
   const box = document.getElementById('scoreContextBox');
   if(!box) return;
-  const { cat, pool } = getScoreContextPool();
+  const { cat, label, pool } = getScoreContextPool();
   if(!cat || pool.length < 3){ box.style.display='none'; box.innerHTML=''; return; }
 
   const cur = (typeof selectedScore === 'number') ? selectedScore : null;
+  // Pisteen vaihtuminen palauttaa keskisivulle; sivunavigointi ei
+  if(!keepPage && cur !== neighborLastScore){ neighborPage = 0; }
+  neighborLastScore = cur;
   const avg = Math.round(pool.reduce((a,r)=>a+r.s,0)/pool.length);
 
   // Pisteinflaation huomautus: yli 60 % arvosteluista 80 pisteen yläpuolella
@@ -628,7 +707,7 @@ window.updateScoreContext = function(){
   box.style.display = 'block';
   box.innerHTML = `<div class="score-context">
     <div class="score-context-head">
-      <span>📊 Jakauma · ${esc(cat)}</span>
+      <span>📊 Jakauma · ${esc(label || cat)}</span>
       <span>${pool.length} kpl · ka ${avg}</span>
     </div>
     ${buildScoreHistogram(pool, cur)}
@@ -643,8 +722,9 @@ window.updateScorePrediction = function(){
   const cat = document.getElementById('formCat')?.value;
   const genres = getSelectedGenres();
   if(!cat){ box.style.display='none'; return; }
-  // Laske keskiarvo saman kategorian arvosteluista
-  let pool = appData.reviews.filter(r=>r.category===cat && r.score!=null);
+  // Keskiarvo lasketaan samasta ryhmästä, ei koko kategoriasta
+  const sub = readFormSubcat(cat);
+  let pool = appData.reviews.filter(r=>sameGroup(r, cat, sub) && r.score!=null);
   // Jos genrejä valittu, suosi niitä
   let genrePool = genres.length ? pool.filter(r=>{
     const rg = Array.isArray(r.genre)?r.genre:(r.genre?[r.genre]:[]);
@@ -653,7 +733,7 @@ window.updateScorePrediction = function(){
   const usePool = genrePool.length >= 3 ? genrePool : pool;
   if(usePool.length < 2){ box.style.display='none'; return; }
   const avg = Math.round(usePool.reduce((a,r)=>a+(r.score||0),0)/usePool.length);
-  const genreLabel = genrePool.length>=3 ? genres.join(', ') : cat;
+  const genreLabel = genrePool.length>=3 ? genres.join(', ') : groupLabel(cat, sub);
   const cls = 'color:var(--sc-' + scoreBand(avg) + ')';
   box.style.display='block';
   box.innerHTML = `<div class="score-prediction">
@@ -665,17 +745,19 @@ window.updateScorePrediction = function(){
 // ── VERTAILEVA PISTEYTYS ──
 let compareState = null;
 
-function getScoredReviewsByCategory(cat, excludeId){
+function getScoredReviewsByGroup(cat, sub, excludeId){
   return appData.reviews
-    .filter(r => r.category === cat && r.id !== excludeId)
+    .filter(r => sameGroup(r, cat, sub) && r.id !== excludeId)
     .map(r => ({...r, finalScore: getReviewScore(r)}))
     .filter(r => r.finalScore != null);
 }
 
-// Palauttaa vertailukelpoiset arvostelut: suositaan samaa genreä (esim. komedia vs. komedia),
-// eikä sekoiteta esim. kauhua dokumenttiin. Jos samaa genreä ei löydy tarpeeksi, käytetään koko kategoriaa.
-function getComparisonCandidates(cat, genres, excludeId){
-  const all = getScoredReviewsByCategory(cat, excludeId);
+// Palauttaa vertailukelpoiset arvostelut. Alalaji on KOVA raja: perusleffa
+// ei kohtaa dokumenttia eikä animaatiota, koska niitä arvostellaan eri
+// mittapuulla. Genre on sen sisällä pehmeä suositus — jos samaa genreä ei
+// löydy tarpeeksi, käytetään koko ryhmää mutta ei koskaan toista ryhmää.
+function getComparisonCandidates(cat, sub, genres, excludeId){
+  const all = getScoredReviewsByGroup(cat, sub, excludeId);
   if(!genres || !genres.length) return { list: all, genreFiltered: false };
   const filtered = all.filter(r=>{
     const rg = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
@@ -690,8 +772,9 @@ window.updateCompareButtonVisibility = function(){
   if(!btn) return;
   const cat = document.getElementById('formCat')?.value;
   if(!ratingsEligible(cat)){ btn.style.display = 'none'; return; }
+  const sub = readFormSubcat(cat);
   const genres = getSelectedGenres();
-  const { list } = getComparisonCandidates(cat, genres, editingId);
+  const { list } = getComparisonCandidates(cat, sub, genres, editingId);
   btn.style.display = list.length >= 2 ? 'block' : 'none';
 };
 
@@ -700,11 +783,15 @@ window.openCompareTune = function(){
   if(!cat) return;
   const name = document.getElementById('formName').value.trim();
   if(!name){ alert('Anna ensin nimi!'); return; }
+  const sub = readFormSubcat(cat);
   const genres = getSelectedGenres();
-  const { list, genreFiltered } = getComparisonCandidates(cat, genres, editingId);
+  const { list, genreFiltered } = getComparisonCandidates(cat, sub, genres, editingId);
   const candidates = list.slice().sort((a,b)=>a.finalScore-b.finalScore);
   if(candidates.length < 2){
-    alert('Tarvitset vähintään kaksi aiempaa arvioitua samantyylistä ' + (cat==='TV-sarjat'?'sarjaa':'elokuvaa') + ' vertailua varten.');
+    // Vertailu ei putoa takaisin koko kategoriaan, koska silloin
+    // animaatio joutuisi perusleffaa vastaan.
+    alert('Tarvitset vähintään kaksi aiempaa pisteytettyä teosta ryhmässä '
+      + groupLabel(cat, sub) + ' vertailua varten.');
     return;
   }
   const poster = window._tmdbPending?.poster || (editingId ? appData.reviews.find(r=>r.id===editingId)?.poster : null) || null;
@@ -712,6 +799,7 @@ window.openCompareTune = function(){
   compareState = {
     mode: 'tune',
     category: cat,
+    subcat: sub,
     genreFiltered,
     candidates,
     loIdx: -1,
@@ -917,8 +1005,13 @@ window.openRerank = function(id){
   const own = (!r.tvType || r.tvType === 'kokonaisuus') ? r.score : null;
   if(own == null){ alert('Tämä toimii vain arvosteluille joilla on oma piste.'); return; }
   const genres = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
-  const { list, genreFiltered } = getComparisonCandidates(r.category, genres, r.id);
-  if(list.length < 2){ alert('Tarvitset vähintään kaksi muuta arvostelua vertailua varten.'); return; }
+  const rSub = subcatOf(r);
+  const { list, genreFiltered } = getComparisonCandidates(r.category, rSub, genres, r.id);
+  if(list.length < 2){
+    alert('Tarvitset vähintään kaksi muuta pisteytettyä teosta ryhmässä '
+      + groupLabel(r.category, rSub) + ' vertailua varten.');
+    return;
+  }
   const candidates = list.slice().sort((a,b)=>a.finalScore-b.finalScore);
 
   closeModal('readModal');
@@ -927,6 +1020,7 @@ window.openRerank = function(id){
     reviewId: id,
     oldScore: own,
     category: r.category,
+    subcat: rSub,
     genreFiltered,
     candidates,
     loIdx: -1,
@@ -1745,7 +1839,9 @@ window.renderTop = function(){
   appData.categories.forEach(cat => {
     const subs = subcatsFor(cat);
     if(subs.length){
-      groups.push({ cat, sub: '',  label: cat });
+      // Perusosio nimetään erikseen, jotta otsikko ei näytä siltä kuin
+      // se sisältäisi myös dokumentit ja animaatiot.
+      groups.push({ cat, sub: '',  label: `${cat} · Perus` });
       subs.forEach(sc => groups.push({ cat, sub: sc, label: `${cat} · ${sc}` }));
     } else {
       groups.push({ cat, sub: null, label: cat });

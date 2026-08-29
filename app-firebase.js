@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-08-28.10';
+window.BUILD_FIREBASE = '2026-08-28.11';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -369,6 +369,9 @@ function metaObject(){
   return {
     categories: cats,
     genres:     gens,
+    // Alalajit puuttuivat metasta kokonaan, joten itse luodut alalajit
+    // katosivat aina seuraavassa latauksessa ja palautuivat oletuksiin.
+    subcats:    appData.subcats || {},
     budget:     appData.budget || { monthlyPrice: 26.90, periods: [] },
     settings:   appData.settings || {},
     schema:     SCHEMA
@@ -381,6 +384,7 @@ function assembleAppData(meta, reviews){
   return {
     categories: (Array.isArray(m.categories) && m.categories.length) ? m.categories : [...DEFAULT_CATS],
     genres:     (Array.isArray(m.genres) && m.genres.length) ? m.genres : [...DEFAULT_GENRES],
+    subcats:    (m.subcats && typeof m.subcats === 'object') ? m.subcats : null,
     budget:     m.budget || { monthlyPrice: 26.90, periods: [] },
     settings:   m.settings || {},
     reviews:    reviews
@@ -607,6 +611,7 @@ window.fbOldDocReport = async function(){
     oldMeta: {
       categories: Array.isArray(old.categories) ? old.categories : [],
       genres:     Array.isArray(old.genres) ? old.genres : [],
+      subcats:    (old.subcats && typeof old.subcats === 'object') ? old.subcats : null,
       budget:     old.budget || null,
       settings:   old.settings || {}
     }
@@ -622,6 +627,7 @@ window.fbRestoreMeta = async function(src){
 
   if(Array.isArray(src.categories) && src.categories.length) appData.categories = [...src.categories];
   if(Array.isArray(src.genres) && src.genres.length)         appData.genres     = [...src.genres];
+  if(src.subcats && typeof src.subcats === 'object') appData.subcats = src.subcats;
   if(src.budget)   appData.budget   = src.budget;
   if(src.settings) appData.settings = src.settings;
 
@@ -913,6 +919,7 @@ function startMetaListener(){
     const m = snap.data();
     appData.categories = m.categories || appData.categories;
     appData.genres     = m.genres || appData.genres;
+    if(m.subcats && typeof m.subcats === 'object') appData.subcats = m.subcats;
     appData.budget     = m.budget || appData.budget;
     appData.settings   = m.settings || appData.settings;
     // Täydennä oletusasetukset ENNEN vertailuarvon laskentaa, muutoin
