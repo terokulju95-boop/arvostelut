@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-08-28.9';
+window.BUILD_MODALS = '2026-08-28.10';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -942,6 +942,8 @@ const BUILD_FILES = [
   ['app-views.js',    'BUILD_VIEWS',    true],
   ['app-modals.js',   'BUILD_MODALS',   true],
   ['app-discover.js', 'BUILD_DISCOVER', true],
+  ['app-theme.js',     'BUILD_THEME',    true],
+  ['app-tmdb-bulk.js', 'BUILD_BULK',     true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
 
@@ -980,6 +982,9 @@ window.forceReload = function(){
 
 // Suorittaa renderöinnin niin, ettei yhden osan virhe estä modaalin avautumista.
 function safeRender(label, fn){
+  // Puuttuva funktio tarkoittaa että jokin tiedosto on vanhaa versiota.
+  // Versiovaroitus kertoo siitä erikseen — tässä vain ohitetaan.
+  if(typeof fn !== 'function') return;
   try { fn(); }
   catch(e){ console.error('Asetusten osa epäonnistui:', label, e); }
 }
@@ -1291,7 +1296,13 @@ window.openSettings = function(){
   safeRender('kategoriat', renderCatManage);
   safeRender('alalajit', renderSubcatManage);
   safeRender('genret', renderGenreManage);
+  safeRender('teema', window.renderThemeSettings);
   safeRender('korostusväri', renderAccentRow);
+  safeRender('pisterajat', window.renderScoreBandSettings);
+  safeRender('tmdb-tunnus', window.renderTokenSettings);
+  safeRender('tmdb-laskuri', window.renderTmdbCalls);
+  safeRender('suorituskyky', window.renderPerfInfo);
+  safeRender('testitila', window.renderSandboxSettings);
   safeRender('tarkkuus', renderPrecisionRow);
   safeRender('painotukset', renderWeightRows);
   safeRender('julistevärit', updatePosterColorToggle);
@@ -1317,9 +1328,11 @@ function renderTmdbStatus(){
   else if(st.ok === false) statusLine = `❌ Ongelma: ${st.message||'Tuntematon virhe'}`;
   else statusLine = '⏳ Tarkistetaan...';
   const checkedAt = st.checkedAt ? new Date(st.checkedAt).toLocaleString('fi-FI') : '–';
+  const custom = !!String((appData.settings && appData.settings.tmdbToken) || '').trim();
   box.innerHTML = `
     <div>${statusLine}</div>
-    <div style="margin-top:6px;">📅 Myönnetty: ${issued}</div>
+    <div style="margin-top:6px;">🔑 Lähde: ${custom ? 'asetuksiin tallennettu oma tunnus' : 'koodin oletustunnus'}</div>
+    <div>📅 Myönnetty: ${issued}</div>
     <div>🕓 Viimeksi tarkistettu: ${checkedAt}</div>
     <div style="margin-top:8px;font-size:11px;opacity:0.8;">TMDB:n lukutunnuksilla ei ole kiinteää vanhenemispäivää — sovellus testaa toimivuuden oikealla API-kutsulla joka kerta kun sovellus käynnistetään.</div>
   `;
@@ -1469,7 +1482,7 @@ window.openReadModal = function(id){
   const score = getReviewScore(r);
   const genres = Array.isArray(r.genre)?r.genre:(r.genre?[r.genre]:[]);
   const dateStr = r.date ? new Date(r.date).toLocaleDateString('fi-FI') : '';
-  const cls = score!=null?(score>=70?'high':score>=40?'mid':'low'):'mid';
+  const cls = score!=null?scoreBand(score):'mid';
 
   const extraRows = [];
   if(r.director) extraRows.push(`<div class="read-section"><div class="read-label">🎬 Ohjaaja</div><div class="read-value">${esc(r.director)}</div></div>`);
@@ -1981,7 +1994,7 @@ async function searchTmdb(query) {
 
   try {
     const url = `https://api.themoviedb.org/3/search/${searchType}?query=${encodeURIComponent(query)}&language=fi-FI&page=1`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } });
+    const res = await window.tmdbFetch(url, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } });
     const data = await res.json();
     spinner.style.display = 'none';
     const items = (data.results || []).slice(0, 6).filter(i => i.media_type !== 'person');
@@ -2042,7 +2055,7 @@ window.fillFromTmdb = async function(idx) {
     const lang = 'fi-FI';
     // Hae täydet tiedot
     const detailUrl = `https://api.themoviedb.org/3/${isTv?'tv':'movie'}/${tmdbId}?language=${lang}&append_to_response=credits`;
-    const detailRes = await fetch(detailUrl, { headers: { Authorization: `Bearer ${token}` } });
+    const detailRes = await window.tmdbFetch(detailUrl, { headers: { Authorization: `Bearer ${token}` } });
     const detail = await detailRes.json();
     progBar.style.width = '30%';
 

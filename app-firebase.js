@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-08-28.9';
+window.BUILD_FIREBASE = '2026-08-28.10';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -109,8 +109,11 @@ let pendingMeta = null;             // JSON
 let queueStuck = false;             // edellisistä istunnoista jäänyt jono ei liiku
 let syncWarnShown = false;
 
-// TMDB token
-window.tmdbToken = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyYjhkODg4ZjdkMGZkNmRlNzE4MjIxNTM2NWYzZTlmMSIsIm5iZiI6MTc3NDkwNDg1Ny42MjIwMDAyLCJzdWIiOiI2OWNhZTYxOWIwMGYyNWRlZmJjZTNjY2YiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.EGIEIkcAl8J5FloGkTmahs_L3PQ6WTIuRsV3KLg4t2g";
+// TMDB token — TÄMÄ ON VAIN OLETUS.
+// Asetuksiin tallennettu tunnus (settings.tmdbToken) korvaa tämän
+// heti kun asetukset on ladattu pilvestä. Katso syncTmdbToken().
+window.tmdbTokenDefault = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyYjhkODg4ZjdkMGZkNmRlNzE4MjIxNTM2NWYzZTlmMSIsIm5iZiI6MTc3NDkwNDg1Ny42MjIwMDAyLCJzdWIiOiI2OWNhZTYxOWIwMGYyNWRlZmJjZTNjY2YiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.EGIEIkcAl8J5FloGkTmahs_L3PQ6WTIuRsV3KLg4t2g";
+window.tmdbToken = window.tmdbTokenDefault;
 
 function showStatus(msg, color, duration){
   const el = document.getElementById('saveStatus');
@@ -308,29 +311,44 @@ function decodeJwtPayload(token){
     return JSON.parse(atob(payload));
   } catch(e){ return null; }
 }
-const tmdbPayload = decodeJwtPayload(window.tmdbToken);
-window.tmdbTokenIssuedAt = (tmdbPayload && tmdbPayload.nbf) ? new Date(tmdbPayload.nbf * 1000).toISOString() : null;
+function tmdbIssuedAt(token){
+  const p = decodeJwtPayload(token);
+  return (p && p.nbf) ? new Date(p.nbf * 1000).toISOString() : null;
+}
+window.tmdbIssuedAt = tmdbIssuedAt;
+window.tmdbTokenIssuedAt = tmdbIssuedAt(window.tmdbToken);
 window._tmdbTokenStatus = { ok: null, checkedAt: null, message: '' };
 
-async function checkTmdbTokenStartup(){
+// Testaa annetun (tai nykyisen) tunnuksen oikealla API-kutsulla.
+// Palauttaa { ok, message } jotta asetusten "Testaa"-nappi voi
+// kokeilla uutta tunnusta ENNEN kuin se otetaan käyttöön.
+window.tmdbTestToken = async function(token){
+  const t = token || window.tmdbToken;
+  if(!t) return { ok:false, message:'Tunnus puuttuu' };
   try{
+    if(window.tmdbNote) window.tmdbNote('/authentication');
     const res = await fetch('https://api.themoviedb.org/3/authentication', {
-      headers: { Authorization: `Bearer ${window.tmdbToken}` }
+      headers: { Authorization: `Bearer ${t}` }
     });
     const data = await res.json().catch(()=>({}));
-    if(res.ok && data.success){
-      window._tmdbTokenStatus = { ok:true, checkedAt: new Date().toISOString(), message:'Toimii normaalisti' };
-    } else {
-      window._tmdbTokenStatus = { ok:false, checkedAt: new Date().toISOString(), message: data.status_message || `Virhe (HTTP ${res.status})` };
-      window.showStatus('⚠️ TMDB-tunnus ei toimi — katso Asetukset', '#dc2626', 6000);
-    }
+    if(res.ok && data.success) return { ok:true, message:'Toimii normaalisti' };
+    return { ok:false, message: data.status_message || `Virhe (HTTP ${res.status})` };
   } catch(e){
-    window._tmdbTokenStatus = { ok:false, checkedAt: new Date().toISOString(), message: 'Verkkovirhe tunnuksen tarkistuksessa' };
+    return { ok:false, message:'Verkkovirhe tunnuksen tarkistuksessa' };
+  }
+};
+
+async function checkTmdbTokenStartup(){
+  const r = await window.tmdbTestToken();
+  window._tmdbTokenStatus = { ok:r.ok, checkedAt: new Date().toISOString(), message: r.message };
+  if(!r.ok && r.message !== 'Verkkovirhe tunnuksen tarkistuksessa'){
+    window.showStatus('⚠️ TMDB-tunnus ei toimi — katso Asetukset', '#dc2626', 6000);
   }
   if(document.getElementById('settingsModal')?.classList.contains('open') && window.refreshTmdbStatusInSettings){
     window.refreshTmdbStatusInSettings();
   }
 }
+window.recheckTmdbToken = checkTmdbTokenStartup;
 checkTmdbTokenStartup();
 
 // ── APUFUNKTIOT ──
@@ -405,6 +423,13 @@ function releaseChunk(chunk){
 }
 
 window.fbSave = async function(){
+  // TESTITILA: mitään ei kirjoiteta pilveen eikä paikalliseen
+  // varmuuskopioon. Muutokset elävät vain muistissa ja katoavat
+  // kun testitila suljetaan.
+  if(window._sandbox){
+    if(window.sandboxTouched) window.sandboxTouched();
+    return;
+  }
   // TÄRKEÄ: paikallinen varmuuskopio kirjoitetaan ENNEN isSaving-tarkistusta.
   // Aiemmin se oli tarkistuksen jälkeen, jolloin jumiin jäänyt tallennus
   // esti myös varmuuskopion syntymisen.
@@ -771,6 +796,14 @@ async function fbLoad(){
   startMetaListener();
   if(!reviewListenerReady) startReviewListener();   // esim. yhteysvirheen jälkeen
 
+  // Latausaika suorituskykytietoja varten
+  window._loadFinishedAt = Date.now();
+
+  // Julisteiden polut talteen kirjautumisruudun kollaasia varten.
+  // Kirjautumisruudulla ei ole vielä yhteyttä pilveen, joten kuvat
+  // otetaan edellisen käynnin listasta.
+  try{ if(window.cacheLoginPosters) window.cacheLoginPosters(); } catch(e){}
+
   // Muistutus näytetään vasta kun näkymä on ehtinyt piirtyä
   setTimeout(() => {
     try{ if(window.maybeShowBackupReminder) window.maybeShowBackupReminder(); } catch(e){}
@@ -809,6 +842,9 @@ function startReviewListener(){
     const timer = setTimeout(finishFirst, 8000);
 
     onSnapshot(REVIEWS, snap => {
+      // Testitilassa muistissa oleva data on tarkoituksella "väärää" —
+      // pilvestä tuleva päivitys pyyhkisi kokeilut kesken kaiken.
+      if(window._sandbox && !first) return;
       if(first){
         clearTimeout(timer);
         appData.reviews = snap.docs.map(d => d.data()).filter(Boolean);
@@ -869,6 +905,7 @@ function startMetaListener(){
   metaListenerReady = true;
 
   onSnapshot(META_DOC, snap => {
+    if(window._sandbox) return;
     if(snap.metadata.hasPendingWrites) return;
     // Palvelimelta tullut tilannekuva — vasta nyt metaa saa kirjoittaa
     if(!snap.metadata.fromCache) metaTrusted = true;
@@ -884,6 +921,9 @@ function startMetaListener(){
     lastSavedMeta = JSON.stringify(metaObject());
     if(typeof GENRES !== 'undefined') GENRES = [...(appData.genres||[])];
     if(appData.settings && appData.settings.accent && window.applyAccent) window.applyAccent(appData.settings.accent);
+    // Teema voi muuttua toiselta laitteelta — päivitetään sekin
+    if(window.applyTheme) window.applyTheme();
+    if(window.renderThemeSettings) window.renderThemeSettings();
     renderAll();
   }, err => { metaListenerReady = false; });
 }

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-28.9';
+window.BUILD_VIEWS = '2026-08-28.10';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -132,8 +132,8 @@ window.renderCards = function(){
   if(activeScoreFilter){
     reviews = reviews.filter(r=>{
       const s=getReviewScore(r); if(s===null) return false;
-      if(activeScoreFilter==='high') return s>=70;
-      if(activeScoreFilter==='mid') return s>=40&&s<70;
+      if(activeScoreFilter==='high') return scoreBand(s)==='high';
+      if(activeScoreFilter==='mid') return scoreBand(s)==='mid';
       return s<40;
     });
   }
@@ -315,7 +315,7 @@ window.renderCards = function(){
       }
     }
 
-    const scoreCardCls = score!==null ? (score>=70?'score-high-card':score>=40?'score-mid-card':'score-low-card') : '';
+    const scoreCardCls = score!==null ? ('score-'+scoreBand(score)+'-card') : '';
     const favCls = r.mark==='heart' ? 'is-favorite' : '';
     const posterBg = r.poster ? `<div class="card-poster-bg" style="background-image:url('https://image.tmdb.org/t/p/w200${r.poster}')"></div>` : '';
     const extraInfo = [];
@@ -536,7 +536,9 @@ window.updateScorePreview = function(){
       prev.textContent='';
     } else {
       const s = selectedScore;
-      prev.textContent = s>=80?'🟢 Erinomainen':s>=60?'🟡 Hyvä':s>=40?'🟠 Kohtalainen':'🔴 Heikko';
+      const _b = scoreBands();
+      const _exc = Math.round(_b.high + (100 - _b.high) * 0.35);   // selvästi hyvän yläpuolella
+      prev.textContent = s>=_exc?'🟢 Erinomainen':s>=_b.high?'🟢 Hyvä':s>=_b.mid?'🟠 Kohtalainen':'🔴 Heikko';
     }
   }
   if(window.updateScoreContext) window.updateScoreContext();
@@ -567,7 +569,7 @@ function buildScoreHistogram(pool, current){
     const h = n ? Math.max(4, Math.round(n/max*36)) : 1.5;
     const x = i*slot + 3.5, y = 48 - h;
     const mid = i*10 + 5;
-    const fill = mid>=70 ? '#4ade80' : mid>=40 ? '#e8b84b' : '#ff6b6b';
+    const fill = 'var(--sc-' + scoreBand(mid) + ')';
     const op = curBucket === -1 ? 0.6 : (i===curBucket ? 1 : 0.35);
     const count = (i===curBucket && n) ? `<text x="${x+bw/2}" y="${y-4}" text-anchor="middle" font-size="9" fill="var(--muted)">${n}</text>` : '';
     return `<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="2" fill="${fill}" opacity="${op}"/>${count}`;
@@ -652,7 +654,7 @@ window.updateScorePrediction = function(){
   if(usePool.length < 2){ box.style.display='none'; return; }
   const avg = Math.round(usePool.reduce((a,r)=>a+(r.score||0),0)/usePool.length);
   const genreLabel = genrePool.length>=3 ? genres.join(', ') : cat;
-  const cls = avg>=70?'color:#4ade80':avg>=40?'color:#e8b84b':'color:#ff6b6b';
+  const cls = 'color:var(--sc-' + scoreBand(avg) + ')';
   box.style.display='block';
   box.innerHTML = `<div class="score-prediction">
     <span class="score-prediction-icon">🎯</span>
@@ -1302,7 +1304,7 @@ window.updateTmdbData = async function(id) {
     const lang = 'fi-FI';
     const searchType = isTv ? 'tv' : 'movie';
     const searchUrl = `https://api.themoviedb.org/3/search/${searchType}?query=${encodeURIComponent(searchName)}&language=${lang}&page=1`;
-    const searchRes = await fetch(searchUrl, { headers: { Authorization: `Bearer ${token}` } });
+    const searchRes = await window.tmdbFetch(searchUrl, { headers: { Authorization: `Bearer ${token}` } });
     const searchData = await searchRes.json();
     const results = searchData.results || [];
     if (!results.length) {
@@ -1331,7 +1333,7 @@ window.updateTmdbData = async function(id) {
     const tmdbId = chosen.id;
     subEl.textContent = 'Haetaan tiedot...';
     const detailUrl = `https://api.themoviedb.org/3/${searchType}/${tmdbId}?language=${lang}&append_to_response=credits`;
-    const detailRes = await fetch(detailUrl, { headers: { Authorization: `Bearer ${token}` } });
+    const detailRes = await window.tmdbFetch(detailUrl, { headers: { Authorization: `Bearer ${token}` } });
     const detail = await detailRes.json();
     progBar.style.width = '40%';
 

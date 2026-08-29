@@ -21,8 +21,15 @@
 
 <div id="saveStatus"></div>
 
+<!-- TESTITILAN PALKKI -->
+<div id="sandboxBar">
+  <span class="sb-text" id="sandboxBarText">🧪 Testitila — muutoksia ei tallenneta</span>
+  <button type="button" onclick="stopSandbox()">Poistu</button>
+</div>
+
 <!-- LOGIN -->
 <div id="loginScreen">
+  <div id="loginCollage"></div>
   <div class="login-logo">★ ARVOSTELUT</div>
   <div class="login-sub">Kirjaudu sisään jatkaaksesi</div>
   <div class="login-card">
@@ -146,7 +153,26 @@
 
 <!-- TMDB LATAUS -->
 <div class="tmdb-loading-overlay" id="tmdbLoadingOverlay">
-  <div class="tmdb-loading-spinner"></div>
+  <div class="reel-wrap">
+    <!-- Filmikela: kehä, viisi reikää ja napa. Pyörii CSS:llä. -->
+    <svg class="reel" viewBox="0 0 100 100" aria-hidden="true">
+      <circle class="reel-body" cx="50" cy="50" r="42"></circle>
+      <circle class="reel-hub" cx="50" cy="50" r="7"></circle>
+      <circle class="reel-hole" cx="50" cy="24" r="8.5"></circle>
+      <circle class="reel-hole" cx="74.7" cy="42" r="8.5"></circle>
+      <circle class="reel-hole" cx="65.3" cy="71" r="8.5"></circle>
+      <circle class="reel-hole" cx="34.7" cy="71" r="8.5"></circle>
+      <circle class="reel-hole" cx="25.3" cy="42" r="8.5"></circle>
+    </svg>
+    <div class="filmstrip">
+      <div class="filmstrip-inner">
+        <span class="film-frame"></span><span class="film-frame"></span>
+        <span class="film-frame"></span><span class="film-frame"></span>
+        <span class="film-frame"></span><span class="film-frame"></span>
+        <span class="film-frame"></span><span class="film-frame"></span>
+      </div>
+    </div>
+  </div>
   <div class="tmdb-loading-title">Haetaan TMDB:stä</div>
   <div class="tmdb-loading-sub" id="tmdbLoadingSub">Ladataan tietoja...</div>
   <div class="tmdb-progress"><div class="tmdb-progress-bar" id="tmdbProgressBar"></div></div>
@@ -155,7 +181,7 @@
 <!-- LISÄÄ/MUOKKAA MODAL -->
 <div class="modal-overlay" id="addModal" onclick="closeModalIfOutside(event,'addModal')">
   <div class="modal-sheet">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title" id="modalTitle">Lisää arvostelu</div>
 
     <div class="form-group">
@@ -287,7 +313,7 @@
 <!-- TV OSA MODAL -->
 <div class="modal-overlay" id="partModal" onclick="closeModalIfOutside(event,'partModal')">
   <div class="modal-sheet">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title" id="partModalTitle">Lisää jakso</div>
     <!-- Kausi-valinta (vain jaksottain) -->
     <div id="partSeasonSelectRow" style="display:none;" class="form-group">
@@ -334,7 +360,7 @@
 <!-- KAUSI MODAL -->
 <div class="modal-overlay" id="seasonModal" onclick="closeModalIfOutside(event,'seasonModal')">
   <div class="modal-sheet">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title" id="seasonModalTitle">Lisää kausi</div>
     <div class="form-group">
       <label>Kauden nimi *</label>
@@ -350,7 +376,7 @@
 <!-- SIIRRÄ ARVOSTELUJA -->
 <div class="modal-overlay" id="moveModal" onclick="closeModalIfOutside(event,'moveModal')">
   <div class="modal-sheet" style="max-width:460px;">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title">📂 Siirrä arvosteluja</div>
     <div id="moveInfo"></div>
 
@@ -382,7 +408,7 @@
 <!-- TALLENNUSJONO -->
 <div class="modal-overlay" id="syncQueueModal" onclick="closeModalIfOutside(event,'syncQueueModal')">
   <div class="modal-sheet" style="max-width:460px;">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title">☁️ Tallennuksen tila</div>
     <div id="sqBody"></div>
     <div class="modal-actions">
@@ -395,7 +421,7 @@
 <!-- KÄÄNNÖS SUOMEKSI -->
 <div class="modal-overlay" id="translateModal" onclick="closeModalIfOutside(event,'translateModal')">
   <div class="modal-sheet" style="max-width:460px;">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title">🌐 Käännä suomeksi</div>
 
     <div id="trmSetup">
@@ -419,7 +445,7 @@
 <!-- KAUSIEN TUONTI TMDB:STÄ -->
 <div class="modal-overlay" id="seasonImportModal" onclick="closeModalIfOutside(event,'seasonImportModal')">
   <div class="modal-sheet" style="max-width:460px;">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title">📥 Tuo kaudet TMDB:stä</div>
     <div id="seasonImportInfo"></div>
     <div class="si-tools">
@@ -437,7 +463,7 @@
 <!-- LUKU-MODAALI -->
 <div class="modal-overlay" id="readModal" onclick="closeModalIfOutside(event,'readModal')">
   <div class="modal-sheet">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div id="readModalContent"></div>
     <div class="modal-actions" style="margin-top:8px;">
       <button class="btn-secondary" onclick="closeModal('readModal')">Sulje</button>
@@ -450,7 +476,7 @@
 <!-- ASETUKSET MODAL -->
 <div class="modal-overlay" id="settingsModal" onclick="closeModalIfOutside(event,'settingsModal')">
   <div class="modal-sheet">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title">Asetukset</div>
     <div class="build-warning" id="buildWarning" style="display:none;"></div>
 
@@ -465,6 +491,16 @@
     <!-- ── ULKOASU ── -->
     <div class="settings-pane" data-pane="ulkoasu">
       <div class="form-group">
+        <label>Teema</label>
+        <div class="theme-mode-row" id="themeModeRow"></div>
+        <div class="theme-note" id="themeNote"></div>
+      </div>
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Väripaketti</label>
+        <div class="theme-pack-row" id="themePackRow"></div>
+        <div class="toggle-row-sub">Paketti vaihtaa taustat, tekstit ja pistevärit kerralla. Se asettaa myös korostusvärin, jonka voit vaihtaa jälkikäteen alta.</div>
+      </div>
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
         <label>Korostusväri</label>
         <div class="accent-row" id="accentRow"></div>
       </div>
@@ -482,6 +518,26 @@
     <!-- ── PISTEYTYS ── -->
     <div class="settings-pane" data-pane="pisteytys">
       <div class="form-group">
+        <label>Pisteluokkien rajat</label>
+        <div class="thr-preview" id="thrPreview"></div>
+        <div class="thr-row">
+          <span class="thr-label">🟢 Hyvä alkaa</span>
+          <input type="range" class="thr-slider" id="thrHigh" min="2" max="100" step="1"
+            oninput="setScoreBand('high', this.value, true)"
+            onchange="setScoreBand('high', this.value, false)">
+          <span class="thr-val" id="thrHighVal">70</span>
+        </div>
+        <div class="thr-row">
+          <span class="thr-label">🟠 Keskitaso alkaa</span>
+          <input type="range" class="thr-slider" id="thrMid" min="0" max="99" step="1"
+            oninput="setScoreBand('mid', this.value, true)"
+            onchange="setScoreBand('mid', this.value, false)">
+          <span class="thr-val" id="thrMidVal">40</span>
+        </div>
+        <div class="toggle-row-sub" style="margin-top:8px;">Rajat vaikuttavat kaikkiin väreihin: korttien reunoihin, arvosanarenkaisiin, Top-listaan ja arvosanasuodattimeen. Jos käytät asteikon yläpäätä tiiviisti, nosta rajoja.</div>
+        <button type="button" class="thr-reset" onclick="resetScoreBands()">↩️ Palauta oletukset (70 / 40)</button>
+      </div>
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
         <label>Osa-arvioiden painotus</label>
         <div id="weightRows"></div>
         <div class="toggle-row-sub" style="margin-top:8px;">Kuinka paljon kukin ryhmä vaikuttaa laajennetun arvioinnin pisteeseen. 1,0 = normaali.</div>
@@ -514,6 +570,27 @@
       <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
         <label>TMDB-tunnus</label>
         <div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
+        <label style="margin-top:14px;">Oma lukutunnus (Read Access Token)</label>
+        <textarea class="token-input" id="tmdbTokenInput" rows="3" spellcheck="false" autocapitalize="off" autocorrect="off"
+          placeholder="Jätä tyhjäksi jos haluat käyttää oletusta"></textarea>
+        <div class="token-row">
+          <button type="button" class="btn-secondary" onclick="testTmdbTokenInput()">🧪 Testaa</button>
+          <button type="button" class="btn-primary" onclick="saveTmdbToken()">Tallenna</button>
+        </div>
+        <button type="button" class="thr-reset" onclick="clearTmdbToken()">↩️ Palauta oletustunnus</button>
+        <div class="token-state" id="tmdbTokenState"></div>
+        <div class="toggle-row-sub" style="margin-top:8px;">Tunnuksen saa osoitteesta themoviedb.org → Settings → API → API Read Access Token. Se tallennetaan vain omaan pilveesi, ei koodiin.</div>
+      </div>
+
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>TMDB-kutsut</label>
+        <div id="tmdbCallsBox"></div>
+      </div>
+
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Tietojen massapäivitys</label>
+        <div class="toggle-row-sub" style="margin-bottom:10px;">Käy läpi kaikki elokuvat ja sarjat, kertoo miltä puuttuu julisteita, ohjaajia, kestoja tai tuotantotiloja, ja näyttää tarkalleen mitä muuttuisi ennen kuin mitään tallennetaan.</div>
+        <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="openBulkTmdb()">🔄 Etsi puuttuvat tiedot</button>
       </div>
       <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
         <label>Alalajit</label>
@@ -579,6 +656,16 @@
         <div id="accountInfo" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
       </div>
       <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Suorituskyky ja tilankäyttö</label>
+        <div id="perfBox"></div>
+      </div>
+
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Testitila</label>
+        <div id="sandboxBox"></div>
+      </div>
+
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
         <button class="btn-secondary" style="width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="doSignOut()">🚪 Kirjaudu ulos</button>
       </div>
     </div>
@@ -586,10 +673,19 @@
   </div>
 </div>
 
+<!-- TMDB-MASSAPÄIVITYS -->
+<div class="modal-overlay" id="bulkTmdbModal" onclick="closeModalIfOutside(event,'bulkTmdbModal')">
+  <div class="modal-sheet" style="max-width:520px;">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div class="modal-title">🔄 Tietojen massapäivitys</div>
+    <div id="bulkBody"></div>
+  </div>
+</div>
+
 <!-- DUPLIKAATTIVAROITUS -->
 <div class="modal-overlay" id="dupModal" onclick="closeModalIfOutside(event,'dupModal')" style="z-index:1100;">
   <div class="modal-sheet" style="max-width:420px;">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title">🔁 Olet arvostellut tämän jo</div>
     <div style="font-size:13px;color:var(--muted);line-height:1.5;">Löysin samannimisen arvostelun samasta kategoriasta.</div>
     <div id="dupBoxArea"></div>
@@ -602,7 +698,7 @@
 <!-- VERTAILEVA PISTEYTYS -->
 <div class="modal-overlay" id="compareModal" onclick="closeModalIfOutside(event,'compareModal')">
   <div class="modal-sheet" style="max-width:420px;">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title" id="compareModalTitle">⚖️ Kumpi oli parempi?</div>
     <div class="compare-round-label" id="compareModalSub"></div>
     <div class="compare-duel" id="compareDuelArea"></div>
@@ -615,7 +711,7 @@
 <!-- BUDJETTI: KUUKAUSIHINNAN MUOKKAUS -->
 <div class="modal-overlay" id="budgetPriceModal" onclick="closeModalIfOutside(event,'budgetPriceModal')">
   <div class="modal-sheet">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title">💳 Kuukausitilauksen hinta</div>
     <div class="form-group">
       <label>Hinta / kuukausi (€)</label>
@@ -632,7 +728,7 @@
 <!-- BUDJETTI: KUUKAUDEN ALOITUS / UUSIMINEN / MUOKKAUS -->
 <div class="modal-overlay" id="budgetPeriodModal" onclick="closeModalIfOutside(event,'budgetPeriodModal')">
   <div class="modal-sheet">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title" id="budgetPeriodModalTitle">Uusi kuukausi</div>
     <div id="budgetPeriodHint" style="font-size:13px;color:var(--muted);margin:-6px 0 14px;"></div>
     <div class="form-group">
@@ -657,7 +753,7 @@
 <!-- BUDJETTI: ELOKUVAKÄYNNIN LISÄYS -->
 <div class="modal-overlay" id="budgetVisitModal" onclick="closeModalIfOutside(event,'budgetVisitModal')">
   <div class="modal-sheet">
-    <div class="modal-handle"></div>
+    <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title" id="budgetVisitModalTitle">🎬 Lisää elokuvakäynti</div>
     <div class="form-group">
       <label>Elokuvan nimi *</label>
@@ -681,9 +777,11 @@
 <!-- Latausjärjestys on merkitsevä: app-core.js määrittelee muuttujat
      joita kaksi muuta käyttävät. Firebase on moduuli ja ajetaan viimeisenä. -->
 <script src="app-core.js"></script>
+<script src="app-theme.js"></script>
 <script src="app-views.js"></script>
 <script src="app-modals.js"></script>
 <script src="app-discover.js"></script>
+<script src="app-tmdb-bulk.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 </body>

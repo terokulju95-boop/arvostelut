@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-08-28.9';
+window.BUILD_CORE = '2026-08-28.10';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -56,6 +56,7 @@ function initApp(){
   if(activeSub !== '' && !subcatsFor(activeCat).includes(activeSub)) activeSub = '';
   ensureSettings();
   window.applyAccent(appData.settings.accent);
+  if(window.applyTheme) window.applyTheme();
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   if(!appData.budget) appData.budget = { monthlyPrice: 26.90, periods: [] };
   if(appData.budget.monthlyPrice == null) appData.budget.monthlyPrice = 26.90;
@@ -385,7 +386,7 @@ window.cycleSort = function(){
 // ── ARVOSANA-RENGAS ──
 function buildRing(score){
   const r = 38, c = 2*Math.PI*r;
-  const cls = score>=70?'high':score>=40?'mid':'low';
+  const cls = scoreBand(score);
   const uid = 'ring-'+Math.random().toString(36).slice(2,7);
   // Rengas alkaa tyhjänä, animoituu JS:llä
   setTimeout(()=>{
@@ -484,6 +485,14 @@ function ensureSettings(){
   if(appData.settings.translatePlots == null) appData.settings.translatePlots = true;
   if(appData.settings.translateNames == null) appData.settings.translateNames = false;
   if(appData.settings.translateEmail == null) appData.settings.translateEmail = '';
+  // Teema. themeMode koskee perustilaa, themePack ohittaa sen kokonaan.
+  if(!appData.settings.themeMode) appData.settings.themeMode = 'dark';
+  if(!appData.settings.themePack) appData.settings.themePack = 'perus';
+  // Pisteluokkien rajat. high = tästä ylöspäin vihreä, mid = tästä ylöspäin keltainen.
+  if(!appData.settings.scoreBands) appData.settings.scoreBands = { high: 70, mid: 40 };
+  if(typeof appData.settings.tmdbToken !== 'string') appData.settings.tmdbToken = '';
+  // Asetuksiin tallennettu TMDB-tunnus voittaa koodissa olevan oletuksen.
+  if(window.syncTmdbToken) window.syncTmdbToken();
   return appData.settings;
 }
 
@@ -878,12 +887,85 @@ function isGenericEpName(name, num){
 }
 window.isGenericEpName = isGenericEpName;
 
+// ── TMDB-KUTSUJEN LASKURI ──
+// Jokainen TMDB-kutsu kulkee tästä läpi, jotta asetuksista näkee
+// paljonko kiintiötä on kulunut. Laskurit ovat paikallisia
+// (localStorage) — ne kuvaavat tätä laitetta, eivät tiliä.
+const TMDB_COUNT_KEY = 'arvostelut_tmdbCalls_v1';
+const TMDB_COUNT_DAYS = 14;
+
+function tmdbCountLoad(){
+  try{
+    const o = JSON.parse(localStorage.getItem(TMDB_COUNT_KEY) || '{}');
+    if(!o.days || typeof o.days !== 'object') o.days = {};
+    if(typeof o.total !== 'number') o.total = 0;
+    if(!o.kinds || typeof o.kinds !== 'object') o.kinds = {};
+    return o;
+  } catch(e){ return { days:{}, total:0, kinds:{} }; }
+}
+
+function tmdbCountSave(o){
+  // Vanhat päivät karsitaan, jottei avain kasva loputtomiin
+  const keep = Object.keys(o.days).sort().slice(-TMDB_COUNT_DAYS);
+  const days = {};
+  keep.forEach(k => days[k] = o.days[k]);
+  o.days = days;
+  try{ localStorage.setItem(TMDB_COUNT_KEY, JSON.stringify(o)); } catch(e){}
+}
+
+// Päättelee kutsun tyypin polusta, jotta näkee mihin kiintiö kuluu
+function tmdbKind(path){
+  const p = String(path || '');
+  if(p.indexOf('/search/') === 0) return 'haku';
+  if(/\/season\/\d+/.test(p))    return 'kaudet';
+  if(/^\/(movie|tv)\/\d+\/(recommendations|similar)/.test(p)) return 'suositukset';
+  if(/^\/(person|collection)\//.test(p)) return 'löydä';
+  if(/^\/(movie|tv)\/\d+/.test(p))  return 'tiedot';
+  if(p.indexOf('/authentication') === 0) return 'tarkistus';
+  return 'muu';
+}
+
+function tmdbNote(path){
+  const o = tmdbCountLoad();
+  const d = new Date().toISOString().slice(0,10);
+  o.days[d] = (o.days[d] || 0) + 1;
+  o.total += 1;
+  const k = tmdbKind(path);
+  o.kinds[k] = (o.kinds[k] || 0) + 1;
+  o.lastAt = new Date().toISOString();
+  tmdbCountSave(o);
+}
+window.tmdbNote = tmdbNote;
+
+window.tmdbCallStats = function(){
+  const o = tmdbCountLoad();
+  const today = new Date().toISOString().slice(0,10);
+  const days = [];
+  for(let i = 6; i >= 0; i--){
+    const d = new Date(Date.now() - i*86400000).toISOString().slice(0,10);
+    days.push({ date: d, n: o.days[d] || 0 });
+  }
+  return {
+    today: o.days[today] || 0,
+    week: days.reduce((a,x) => a + x.n, 0),
+    total: o.total,
+    days,
+    kinds: o.kinds || {},
+    lastAt: o.lastAt || null
+  };
+};
+
+window.tmdbResetCalls = function(){
+  try{ localStorage.removeItem(TMDB_COUNT_KEY); } catch(e){}
+};
+
 // Yksi TMDB-kutsu. Palauttaa null virheen sattuessa, ei heitä poikkeusta,
 // jotta yhden kauden epäonnistuminen ei kaada koko tuontia.
 async function tmdbGet(path){
   const token = window.tmdbToken;
   if(!token) return null;
   try{
+    tmdbNote(path);
     const res = await fetch(`https://api.themoviedb.org/3${path}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -894,6 +976,17 @@ async function tmdbGet(path){
   }
 }
 window.tmdbGet = tmdbGet;
+
+// Sama laskuri myös niille kutsuille jotka rakentavat oman URL:nsa.
+window.tmdbFetch = function(url, opts){
+  try{
+    const i = String(url).indexOf('/3');
+    tmdbNote(i > -1 ? String(url).slice(i + 2).split('?')[0] : '');
+  } catch(e){}
+  const o = opts || {};
+  if(!o.headers) o.headers = { Authorization: `Bearer ${window.tmdbToken}` };
+  return fetch(url, o);
+};
 
 // Hakee yhden kauden AINA sekä suomeksi että englanniksi ja yhdistää
 // parhaat palat jakso kerrallaan. Näin puolittain käännetty kausi
@@ -1472,7 +1565,34 @@ function getReviewScore(r){
   return r.score!=null?r.score:null;
 }
 
-function scoreClass(s){ return s>=70?'score-high':s>=40?'score-mid':'score-low'; }
+// ── PISTELUOKAT ──
+// Rajat ovat asetus, eivät vakio. Yksi paikka päättää minkä värinen
+// mikäkin luku on, jotta kortit, renkaat ja Top-lista pysyvät samassa
+// linjassa myös silloin kun rajoja siirtää.
+function scoreBands(){
+  const s = (appData.settings && appData.settings.scoreBands) || {};
+  // HUOM: Number(null) === 0 ja Number('') === 0, joten pelkkä isFinite
+  // hyväksyisi puuttuvan arvon nollaksi ja värjäisi koko listan uusiksi.
+  const num = (v, oletus) => {
+    if(v === null || v === undefined || v === '') return oletus;
+    const n = Number(v);
+    return isFinite(n) ? n : oletus;
+  };
+  let high = num(s.high, 70), mid = num(s.mid, 40);
+  high = Math.max(1, Math.min(100, Math.round(high)));
+  mid  = Math.max(0, Math.min(high - 1, Math.round(mid)));   // mid jää aina highin alle
+  return { high, mid };
+}
+window.scoreBands = scoreBands;
+
+// 'high' | 'mid' | 'low'
+function scoreBand(s){
+  const b = scoreBands();
+  return s >= b.high ? 'high' : (s >= b.mid ? 'mid' : 'low');
+}
+window.scoreBand = scoreBand;
+
+function scoreClass(s){ return 'score-' + scoreBand(s); }
 function catType(cat){
   if(cat==='TV-sarjat') return 'tv';
   if(cat==='Ruuat') return 'ruoka';
