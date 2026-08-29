@@ -491,6 +491,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .rating-dim-row{margin-bottom:14px;}
 .rating-dim-row:last-child{margin-bottom:0;}
 .rating-dim-label{font-size:13px;font-weight:600;margin-bottom:6px;}
+.rating-dim-hint{display:block;font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;line-height:1.35;}
+.ratings-orphan{background:var(--acc-08);border:1px solid var(--acc-30);border-radius:11px;padding:11px 13px;font-size:12px;color:var(--text);line-height:1.55;margin-bottom:10px;}
+.ratings-orphan strong{color:var(--accent);}
+.weight-count{display:inline-block;font-size:10px;font-weight:600;color:var(--muted);background:var(--tint-07);border-radius:99px;padding:1px 6px;margin-left:6px;}
 .rating-dim-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
 .rating-opt{padding:8px 3px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:10.5px;line-height:1.25;font-weight:600;color:var(--muted);cursor:pointer;text-align:center;font-family:'DM Sans',sans-serif;}
 .rating-opt.active{background:var(--acc-15);border-color:var(--accent);color:var(--accent);}

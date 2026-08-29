@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-08-28.11';
+window.BUILD_MODALS = '2026-08-28.12';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1553,7 +1553,7 @@ window.openReadModal = function(id){
   const rrHost = document.getElementById('readModalContent');
   const ownScore = (!r.tvType || r.tvType === 'kokonaisuus') ? r.score : null;
   if(ownScore != null && ratingsEligible(r.category)){
-    const cand = getComparisonCandidates(r.category, Array.isArray(r.genre)?r.genre:(r.genre?[r.genre]:[]), r.id);
+    const cand = getComparisonCandidates(r.category, subcatOf(r), Array.isArray(r.genre)?r.genre:(r.genre?[r.genre]:[]), r.id);
     if(cand.list.length >= 2){
       rrHost.insertAdjacentHTML('beforeend',
         `<button type="button" class="rerank-btn" onclick="openRerank(${id})">⚖️ Tarkista sijoitus</button>`);

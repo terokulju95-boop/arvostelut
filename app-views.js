@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-28.11';
+window.BUILD_VIEWS = '2026-08-28.12';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -482,6 +482,14 @@ window.onCatChange = function(preselectedGenre){
       <button type="button" class="genre-chip${preArr.includes(g)?' genre-chip-active':''}" onclick="toggleGenreChip(this,'${escJs(g)}')">${esc(g)}</button>
     `).join('');
   }
+};
+
+// Alalajin vaihto vaihtaa kysymyssarjan, vertailujoukon ja pistekontekstin
+window.onSubcatChange = function(){
+  window.updateRatingsGridVisibility();
+  window.updateCompareButtonVisibility();
+  window.updateScorePrediction();
+  window.updateScoreContext();
 };
 
 window.toggleGenreChip = function(el, genre){
@@ -1089,30 +1097,126 @@ const RATING_LEVELS = [
   {v:6,label:'Erinomainen'}
 ];
 
-const RATING_GROUPS = [
-  {id:'tech', label:'🎬 Tekninen toteutus'},
-  {id:'story', label:'📖 Tarina & maailma'},
-  {id:'cast', label:'🎭 Näyttelijät & tunne'}
-];
+// ══ LAAJENNETTU ARVIOINTI ══
+// Kysymyssarja valitaan ALALAJIN mukaan, koska animaatiota ja dokumenttia
+// ei arvioida samoilla mittareilla kuin näyteltyä elokuvaa. Sarja on sama
+// elokuvalle ja sarjalle: avain on pelkkä alalaji, ei kategoria.
+//
+// Ryhmätunnisteet ovat uniikkeja sarjojen välillä, jotta painokertoimet
+// eivät sekoitu keskenään. Perus-sarjan tunnisteet (tech/story/cast)
+// säilyvät ennallaan, joten vanhat painotukset pysyvät voimassa.
 
-const DIMENSION_DEFS = [
-  {id:'kuvaus', label:'🎥 Kuvaus', group:'tech'},
-  {id:'valaistus', label:'💡 Valaistus', group:'tech'},
-  {id:'aanet', label:'🔊 Äänet', group:'tech'},
-  {id:'musiikki', label:'🎵 Musiikki', group:'tech'},
-  {id:'leikkaus', label:'✂️ Leikkaus/tempo', group:'tech'},
-  {id:'puvustus', label:'👗 Puvustus/lavastus', group:'tech'},
-  {id:'tarina', label:'📖 Tarina', group:'story'},
-  {id:'loppuratkaisu', label:'🏁 Loppuratkaisu', group:'story'},
-  {id:'kerronta', label:'🎬 Kerronta', group:'story'},
-  {id:'hahmokehitys', label:'🌱 Hahmokehitys', group:'story'},
-  {id:'dialogi', label:'💬 Dialogi', group:'story'},
-  {id:'omaperaisyys', label:'✨ Omaperäisyys', group:'story'},
-  {id:'maailmanrakennus', label:'🌍 Maailmanrakennus', group:'story'},
-  {id:'genrelupaus', label:'🎯 Genrelupaus', group:'story', dynamic:true},
-  {id:'nayttelijat', label:'🎭 Näyttelijät', group:'cast'},
-  {id:'tunnevaikutus', label:'❤️ Tunnevaikutus', group:'cast'}
-];
+const RATING_SETS = {
+  '': {
+    label: 'Perus',
+    groups: [
+      {id:'tech',  label:'🎬 Tekninen toteutus'},
+      {id:'story', label:'📖 Tarina & maailma'},
+      {id:'cast',  label:'🎭 Näyttelijät & tunne'}
+    ],
+    dims: [
+      {id:'kuvaus',           label:'🎥 Kuvaus',            group:'tech'},
+      {id:'valaistus',        label:'💡 Valaistus',         group:'tech'},
+      {id:'aanet',            label:'🔊 Äänet',             group:'tech'},
+      {id:'musiikki',         label:'🎵 Musiikki',          group:'tech'},
+      {id:'leikkaus',         label:'✂️ Leikkaus/tempo',    group:'tech'},
+      {id:'puvustus',         label:'👗 Puvustus/lavastus', group:'tech'},
+      {id:'tarina',           label:'📖 Tarina',            group:'story'},
+      {id:'loppuratkaisu',    label:'🏁 Loppuratkaisu',     group:'story'},
+      {id:'kerronta',         label:'🎬 Kerronta',          group:'story'},
+      {id:'hahmokehitys',     label:'🌱 Hahmokehitys',      group:'story'},
+      {id:'dialogi',          label:'💬 Dialogi',           group:'story'},
+      {id:'omaperaisyys',     label:'✨ Omaperäisyys',      group:'story'},
+      {id:'maailmanrakennus', label:'🌍 Maailmanrakennus',  group:'story'},
+      {id:'genrelupaus',      label:'🎯 Genrelupaus',       group:'story', dynamic:true},
+      {id:'nayttelijat',      label:'🎭 Näyttelijät',       group:'cast'},
+      {id:'tunnevaikutus',    label:'❤️ Tunnevaikutus',     group:'cast'}
+    ]
+  },
+
+  'Animaatiot': {
+    label: 'Animaatiot',
+    groups: [
+      {id:'anim_visual', label:'🎨 Animaatio ja ilme'},
+      {id:'anim_audio',  label:'🔊 Ääni'},
+      {id:'anim_story',  label:'📖 Tarina ja maailma'},
+      {id:'anim_feel',   label:'❤️ Kokonaisvaikutelma'}
+    ],
+    dims: [
+      {id:'anim_sujuvuus',    label:'🎞️ Animaation sujuvuus', group:'anim_visual', hint:'liikkeen paino ja ajoitus'},
+      {id:'anim_taidetyyli',  label:'🖌️ Taidetyyli',          group:'anim_visual', hint:'oma kädenjälki vai geneerinen'},
+      {id:'anim_hahmodesign', label:'👤 Hahmosuunnittelu',    group:'anim_visual', hint:'erottuvatko hahmot, kertooko ulkonäkö luonteesta'},
+      {id:'anim_taustat',     label:'🏞️ Taustat ja värimaailma', group:'anim_visual', hint:'ympäristöt ja paletti'},
+      {id:'anim_ilmeet',      label:'😀 Ilmeet ja eleet',     group:'anim_visual', hint:'animoitu näytteleminen'},
+      {id:'anim_aaninayttely',label:'🎙️ Ääninäyttely',        group:'anim_audio',  hint:'sopivatko äänet hahmoihin'},
+      {id:'musiikki',         label:'🎵 Musiikki',            group:'anim_audio'},
+      {id:'aanet',            label:'🔊 Äänet ja äänimaailma', group:'anim_audio', hint:'efektit, iskujen paino, ambienssi'},
+      {id:'tarina',           label:'📖 Tarina',              group:'anim_story'},
+      {id:'kerronta',         label:'🎬 Kerronta',            group:'anim_story'},
+      {id:'loppuratkaisu',    label:'🏁 Loppuratkaisu',       group:'anim_story'},
+      {id:'dialogi',          label:'💬 Dialogi',             group:'anim_story'},
+      {id:'maailmanrakennus', label:'🌍 Maailmanrakennus',    group:'anim_story'},
+      {id:'omaperaisyys',     label:'✨ Omaperäisyys',        group:'anim_story'},
+      {id:'tunnevaikutus',    label:'❤️ Tunnevaikutus',       group:'anim_feel'},
+      {id:'genrelupaus',      label:'🎯 Genrelupaus',         group:'anim_feel', dynamic:true}
+    ]
+  },
+
+  'Dokumentit': {
+    label: 'Dokumentit',
+    groups: [
+      {id:'doc_craft',  label:'🎥 Toteutus'},
+      {id:'doc_trust',  label:'🔍 Sisältö ja luotettavuus'},
+      {id:'doc_narr',   label:'🎬 Kerronta'},
+      {id:'doc_impact', label:'❤️ Vaikutus'}
+    ],
+    dims: [
+      {id:'kuvaus',           label:'🎥 Kuvaus',              group:'doc_craft', hint:'kuvan laatu ja pääsy aiheen lähelle'},
+      {id:'leikkaus',         label:'✂️ Leikkaus ja rytmi',   group:'doc_craft', hint:'pysyykö ote vai venyykö'},
+      {id:'doc_arkisto',      label:'🗂️ Arkisto ja kuvitus',  group:'doc_craft', hint:'arkistomateriaali, rekonstruktiot, grafiikat'},
+      {id:'doc_kertoja',      label:'🎙️ Kertojaääni ja äänityö', group:'doc_craft', hint:'selostuksen sävy ja selkeys'},
+      {id:'musiikki',         label:'🎵 Musiikki',            group:'doc_craft', hint:'tukeeko vai ohjaileeko liikaa'},
+      {id:'doc_aihe',         label:'💡 Aihe',                group:'doc_trust', hint:'kuinka kiinnostava tai tärkeä'},
+      {id:'doc_uusitieto',    label:'📚 Uusi tieto',          group:'doc_trust', hint:'opitko jotain mitä et tiennyt'},
+      {id:'doc_syvyys',       label:'🔬 Syvyys',              group:'doc_trust', hint:'pintaa syvemmälle vai otsikkotasolle'},
+      {id:'doc_tasapuoli',    label:'⚖️ Tasapuolisuus',       group:'doc_trust', hint:'kuullaanko eri näkökulmia'},
+      {id:'doc_lahteet',      label:'🔎 Lähdekritiikki',      group:'doc_trust', hint:'perustuvatko väitteet johonkin'},
+      {id:'doc_argumentti',   label:'🧩 Argumentin rakenne',  group:'doc_trust', hint:'kulkeeko päättely loogisesti'},
+      {id:'kerronta',         label:'🎬 Kerronta ja rakenne', group:'doc_narr'},
+      {id:'doc_haastateltavat',label:'🎤 Haastateltavat',     group:'doc_narr',  hint:'kiinnostavia ja uskottavia'},
+      {id:'doc_johtopaatos',  label:'🏁 Johtopäätös',         group:'doc_narr',  hint:'tyydyttävä loppu vai lässähdys'},
+      {id:'tunnevaikutus',    label:'❤️ Tunnevaikutus',       group:'doc_impact'},
+      {id:'doc_jalkivaikutus',label:'🌍 Jälkivaikutus',       group:'doc_impact', hint:'muuttiko ajatteluasi, jäikö mieleen'}
+    ]
+  }
+};
+
+// Tuntematon alalaji käyttää perussarjaa, jotta uusi alalaji ei jää
+// ilman laajennettua arviointia.
+function ratingSetKey(sub){
+  const k = String(sub || '');
+  return RATING_SETS[k] ? k : '';
+}
+window.ratingSetKey = ratingSetKey;
+
+function ratingSet(sub){ return RATING_SETS[ratingSetKey(sub)]; }
+window.ratingSet = ratingSet;
+
+// Lomakkeen kysymyssarja tulee valitusta kategoriasta ja alalajista
+function formRatingSub(){
+  const cat = document.getElementById('formCat')?.value || '';
+  return readFormSubcat(cat);
+}
+window.formRatingSub = formRatingSub;
+
+// Osa-arviot, jotka eivät kuulu tähän kysymyssarjaan. Näitä ei poisteta
+// eikä lasketa mukaan pisteeseen — ne ovat vanhan sarjan vastauksia,
+// jotka jäävät talteen jos arvostelu on siirretty toiseen alalajiin.
+function orphanRatings(stateObj, sub){
+  const known = new Set(ratingSet(sub).dims.map(d => d.id));
+  return Object.keys(stateObj || {}).filter(k => !known.has(k) && stateObj[k] != null);
+}
+window.orphanRatings = orphanRatings;
 
 function genreLupausLabel(){
   const genres = getSelectedGenres();
@@ -1127,9 +1231,9 @@ function groupWeight(groupId){
   return Math.max(0.5, Math.min(2, v));   // vioittunut arvo rajataan, ei ohiteta
 }
 
-function computeRatingsScore(stateObj){
+function computeRatingsScore(stateObj, sub){
   let sum = 0, wsum = 0;
-  DIMENSION_DEFS.forEach(d=>{
+  ratingSet(sub).dims.forEach(d=>{
     const v = stateObj[d.id];
     if(v == null) return;
     const w = groupWeight(d.group);
@@ -1142,20 +1246,38 @@ function computeRatingsScore(stateObj){
   return Math.round((avg-1)/(maxLevel-1)*100);
 }
 
+// Painotukset säädetään sarja kerrallaan. Ryhmätunnisteet ovat uniikkeja,
+// joten dokumenttien luotettavuuspaino ei vaikuta perus­elokuviin.
+let weightSetKey = '';
+
+window.setWeightSet = function(key){
+  weightSetKey = RATING_SETS[key] ? key : '';
+  window.renderWeightRows();
+};
+
 window.renderWeightRows = function(){
   const el = document.getElementById('weightRows');
   if(!el) return;
   ensureSettings();
-  el.innerHTML = RATING_GROUPS.map(g=>{
+  const set = ratingSet(weightSetKey);
+
+  const tabs = Object.keys(RATING_SETS).map(k =>
+    `<button type="button" class="filter-chip ${k===weightSetKey?'active':''}" onclick="setWeightSet('${escJs(k)}')">${esc(RATING_SETS[k].label)}</button>`
+  ).join('');
+
+  const rows = set.groups.map(g=>{
     const v = groupWeight(g.id);
+    const n = set.dims.filter(d=>d.group===g.id).length;
     return `<div class="weight-row">
-      <span class="weight-label">${g.label}</span>
+      <span class="weight-label">${g.label}<span class="weight-count">${n}</span></span>
       <input type="range" class="weight-slider" min="0.5" max="2" step="0.1" value="${v}"
         oninput="setGroupWeight('${g.id}', this.value, true)"
         onchange="setGroupWeight('${g.id}', this.value, false)">
       <span class="weight-val" id="weightVal-${g.id}">${v.toFixed(1).replace('.', ',')}</span>
     </div>`;
   }).join('');
+
+  el.innerHTML = `<div class="bulk-scope">${tabs}</div>${rows}`;
 };
 
 window.setGroupWeight = async function(groupId, value, liveOnly){
@@ -1174,16 +1296,30 @@ let ratingsGroupOpenState = {};
 function renderRatingsGrid(containerId, stateObj, onChangeFnName){
   const el = document.getElementById(containerId);
   if(!el) return;
-  el.innerHTML = RATING_GROUPS.map((g, gi)=>{
+  const sub = formRatingSub();
+  const set = ratingSet(sub);
+
+  // Vanhan kysymyssarjan vastaukset säilyvät koskemattomina. Niitä ei
+  // lasketa pisteeseen, mutta niistä kerrotaan jottei tyhjä ruudukko
+  // näytä siltä kuin arviot olisivat kadonneet.
+  const orphans = orphanRatings(stateObj, sub);
+  const notice = orphans.length ? `<div class="ratings-orphan">
+      📦 Tässä arvostelussa on <strong>${orphans.length}</strong> osa-arviota
+      aiemmasta kysymyssarjasta. Ne on tallessa eikä niitä poisteta, mutta
+      ne eivät kuulu ${esc(set.label)}-sarjaan eivätkä vaikuta pisteeseen.
+      Täytä alla olevat silloin kun ehdit.
+    </div>` : '';
+
+  el.innerHTML = notice + set.groups.map((g, gi)=>{
     const key = containerId+'|'+g.id;
     if(!(key in ratingsGroupOpenState)) ratingsGroupOpenState[key] = (gi===0);
     const isOpen = ratingsGroupOpenState[key];
-    const dims = DIMENSION_DEFS.filter(d=>d.group===g.id);
+    const dims = set.dims.filter(d=>d.group===g.id);
     const answered = dims.filter(d=>stateObj[d.id]!=null).length;
     const rowsHtml = dims.map(d=>{
       const label = d.dynamic ? genreLupausLabel() : d.label;
       return `<div class="rating-dim-row">
-        <div class="rating-dim-label">${label}</div>
+        <div class="rating-dim-label">${label}${d.hint?`<span class="rating-dim-hint">${esc(d.hint)}</span>`:''}</div>
         <div class="rating-dim-opts">
           ${RATING_LEVELS.map(l=>`<button type="button" class="rating-opt${stateObj[d.id]===l.v?' active':''}" onclick="${onChangeFnName}('${d.id}',${l.v})">${l.label}</button>`).join('')}
         </div>
@@ -1230,7 +1366,7 @@ window.onMainRatingChange = function(dim, val){
   if(selectedRatings[dim] === val) delete selectedRatings[dim];
   else selectedRatings[dim] = val;
   renderRatingsGrid('mainRatingsGrid', selectedRatings, 'onMainRatingChange');
-  window._ratingsSuggestedScore = computeRatingsScore(selectedRatings);
+  window._ratingsSuggestedScore = computeRatingsScore(selectedRatings, formRatingSub());
   applyCombinedSuggestedScore();
 };
 
@@ -1260,7 +1396,7 @@ window.onPartRatingChange = function(dim, val){
   if(selectedPartRatings[dim] === val) delete selectedPartRatings[dim];
   else selectedPartRatings[dim] = val;
   renderRatingsGrid('partRatingsGrid', selectedPartRatings, 'onPartRatingChange');
-  const score = computeRatingsScore(selectedPartRatings);
+  const score = computeRatingsScore(selectedPartRatings, formRatingSub());
   if(score != null){
     const inp = document.getElementById('partScoreInput');
     if(inp){ inp.value = score; selectedPartScore = score; }
