@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · lisätoiminnot ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_EXTRAS = '2026-08-31.14';
+window.BUILD_EXTRAS = '2026-08-31.15';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä toisistaan riippumatonta osaa:
 //   1. Pull-to-refresh

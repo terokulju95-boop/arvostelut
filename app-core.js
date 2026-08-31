@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-08-31.14';
+window.BUILD_CORE = '2026-08-31.15';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -590,11 +590,16 @@ window.posterUrl = function(r, size){
 
 window.hasPoster = function(r){ return !!(r && (r.posterCustom || r.poster)); };
 
-// CSS:n url() sietää huonosti heittomerkkejä ja sulkeita. Data-URL:ssa
-// niitä ei esiinny, mutta kaksoislainaus on silti turvallisin.
+// CSS:n url() sijoitetaan style="..." -attribuutin sisään, joten arvo EI saa
+// sisältää kaksoislainausmerkkiä — se katkaisisi attribuutin ja juliste
+// jäisi kokonaan pois. Siksi yksinkertaiset lainausmerkit ja varmuuden
+// vuoksi prosenttikoodaus molemmille lainausmerkeille ja suluille.
 window.posterCss = function(r, size){
   const u = window.posterUrl(r, size);
-  return u ? `url("${u.replace(/"/g, '%22')}")` : '';
+  if(!u) return '';
+  const safe = u.replace(/'/g, '%27').replace(/"/g, '%22')
+                .replace(/\(/g, '%28').replace(/\)/g, '%29');
+  return `url('${safe}')`;
 };
 
 // ── JULISTEESTA POIMITTU VÄRI ──

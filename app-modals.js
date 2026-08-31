@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-08-31.14';
+window.BUILD_MODALS = '2026-08-31.15';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -2113,7 +2113,12 @@ window.fillFromTmdb = async function(idx) {
     const yearEl = document.getElementById('formYear');
     if (yearEl) yearEl.value = year || '';
 
-    // Juoni tallennetaan erikseen — EI lomakkeen arvostelukenttään
+    // Juoni menee juonikenttään heti, jotta sen näkee ennen tallennusta.
+    // Ilman tätä applyFormPlot() lukisi tyhjän kentän ja juoni katoaisi
+    // uutta arvostelua luotaessa. Oma kirjoitettu teksti ei ylikirjoitu:
+    // siitä huolehtii fillFormPlotFromTmdb itse.
+    if(window.fillFormPlotFromTmdb) window.fillFormPlotFromTmdb(overview);
+
 
     // Genret
     setTimeout(() => {
@@ -2139,7 +2144,10 @@ window.fillFromTmdb = async function(idx) {
     });
 
     // Jos TV-sarja — hae kaudet ja jaksot yhteisellä logiikalla
-    const tvType = document.querySelector('.tv-type-opt.selected')?.dataset?.type;
+    // Sama totuuden lähde kuin saveReview():lla. Aiemmin tämä luki DOMin
+    // .selected-luokkaa, joka saattoi olla edellisestä lomakkeesta jäänyt
+    // — silloin kaudet haettiin turhaan ja tallennus heitti ne pois.
+    const tvType = (typeof selectedTvType !== 'undefined') ? selectedTvType : null;
     if (isTv && tvType === 'jaksot') {
       const numSeasons = detail.number_of_seasons || 0;
       const seasons = [];

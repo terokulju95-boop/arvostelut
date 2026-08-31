@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-31.14';
+window.BUILD_VIEWS = '2026-08-31.15';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -484,6 +484,10 @@ window.openAddModal = function(){
   document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('scoreSection').style.display = 'block';
   document.getElementById('tvTypeSection').style.display = 'none';
+  // Arvostelutyypin korostus DOMissa jäi aiemmin edellisestä lomakkeesta.
+  // Silloin uusi lomake näytti "Jaksoittain"-valinnan vaikka muuttuja oli
+  // 'kokonaisuus', ja haetut kaudet katosivat tallennuksessa.
+  selectTvTypeByValue('kokonaisuus');
   // Uusi arvostelu perii sen alalajin jota parhaillaan selaat — jos katsot
   // Dokumentit-välilehteä, lisäät todennäköisesti dokumentin.
   const si=document.getElementById('scoreInput'); if(si) si.value='';
@@ -1576,7 +1580,25 @@ window.saveReview = async function(){
       // Säilytä TMDB-tiedot jos niitä ei päivitetä
     }
   } else {
-    const newReview = {
+    // TMDB-tiedot yhdistetään kokonaisuudessaan. Aiemmin tästä poimittiin
+    // käsin vain kourallinen kenttiä, jolloin uudelta arvostelulta puuttui
+    // esimerkiksi tuotantotila, backdrop, kokoelma ja director_id — ne
+    // ilmestyivät vasta kun TMDB-haku ajettiin uudelleen tallennuksen
+    // jälkeen. Lomake omistaa nämä kentät, joten ne eivät saa tulla
+    // TMDB-datasta.
+    const OWNED_BY_FORM = ['id','name','year','category','subcat','genre',
+                           'tvType','score','mark','note','date','ratings',
+                           'parts','plot','plotSource'];
+    const pending = window._tmdbPending || {};
+    const tmdbFields = {};
+    Object.keys(pending).forEach(k => {
+      if(OWNED_BY_FORM.includes(k)) return;
+      if(k === 'seasons') return;   // käsitellään erikseen alempana
+      if(pending[k] === undefined) return;
+      tmdbFields[k] = pending[k];
+    });
+
+    const newReview = Object.assign({
       id: Date.now(),
       date: (document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z',
       name, year, category:cat,
@@ -1587,24 +1609,16 @@ window.saveReview = async function(){
       parts: [],
       mark: selectedMark,
       note: document.getElementById('formNote').value,
-      // TMDB-tiedot
-      poster: window._tmdbPending?.poster || null,
-      director: window._tmdbPending?.director || null,
-      runtime: window._tmdbPending?.runtime || null,
-      episodes_total: window._tmdbPending?.episodes_total || null,
-      country: window._tmdbPending?.country || null,
-      cast: window._tmdbPending?.cast || null,
-      tmdb_score: window._tmdbPending?.tmdb_score || null,
-      tmdb_id: window._tmdbPending?.tmdb_id || null,
       plot: null,   // asetetaan alla applyFormPlot():lla
       ratings: Object.keys(selectedRatings).length ? {...selectedRatings} : null,
-    };
-    // Jos TV-sarja jaksoittain ja TMDB-kaudet haettu, lisää ne
-    if(isTv && selectedTvType==='jaksot' && window._tmdbPending?.seasons) {
-      newReview.seasons = window._tmdbPending.seasons;
+    }, tmdbFields);
+
+    // Kaudet vain jos sarjaa oikeasti arvostellaan jaksoittain
+    if(isTv && selectedTvType==='jaksot' && pending.seasons) {
+      newReview.seasons = pending.seasons;
     }
     if(window.applyFormPlot) window.applyFormPlot(newReview);
-    else newReview.plot = window._tmdbPending?.plot || null;
+    else newReview.plot = pending.plot || null;
     appData.reviews.push(newReview);
     window._tmdbPending = null;
   }
