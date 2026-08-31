@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-08-28.13';
+window.BUILD_CORE = '2026-08-31.14';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -43,6 +43,9 @@ let activeScoreFilter = null;
 let activeMarkFilter = null;
 let activeYearFilter = null;
 let activeDecadeFilter = null;
+// Ohjaajasuodatin. Ei osa suodatinpaneelia, vaan käynnistyy kortin
+// ohjaajanimeä napauttamalla — siksi se elää omana muuttujanaan.
+let activeDirectorFilter = null;
 let selectedMark = null;
 let currentView = 'reviews';
 let editingId = null;
@@ -88,6 +91,10 @@ function renderAll(){
 // ── NÄKYMÄ ──
 window.setView = function(view){
   currentView = view;
+  // Ohjaajarajaus on aina väliaikainen näkymä listaan. Se ei saa jäädä
+  // päälle taustalle, koska se ohittaa kategoriavalinnan kokonaan.
+  if(view !== 'reviews') activeDirectorFilter = null;
+  if(window.renderDiscoverCount && view === 'discover') window.renderDiscoverCount();
   ['reviews','top','discover','budget'].forEach(v=>{
     const el = document.getElementById('viewTab'+v.charAt(0).toUpperCase()+v.slice(1));
     if(el) el.classList.toggle('active', v===view);
@@ -530,6 +537,10 @@ function ensureSettings(){
   // Pisteluokkien rajat. high = tästä ylöspäin vihreä, mid = tästä ylöspäin keltainen.
   if(!appData.settings.scoreBands) appData.settings.scoreBands = { high: 70, mid: 40 };
   if(typeof appData.settings.tmdbToken !== 'string') appData.settings.tmdbToken = '';
+  // Löydä-näkymä: montako ehdotusta yhtä lähdettä kohden haetaan.
+  if(appData.settings.discoverCount == null) appData.settings.discoverCount = 3;
+  // Lomakkeen kenttäjärjestys. Tyhjä taulukko = oletusjärjestys.
+  if(!Array.isArray(appData.settings.formOrder)) appData.settings.formOrder = [];
   // Asetuksiin tallennettu TMDB-tunnus voittaa koodissa olevan oletuksen.
   if(window.syncTmdbToken) window.syncTmdbToken();
   return appData.settings;
@@ -564,6 +575,26 @@ window.updatePosterColorToggle = function(){
   const btn = document.getElementById('posterColorToggle');
   if(!btn) return;
   btn.classList.toggle('on', !!ensureSettings().posterColors);
+};
+
+// ── JULISTEEN OSOITE ──
+// Juliste voi tulla kahdesta paikasta: TMDB:n polusta (r.poster) tai
+// itse ladatusta kuvasta (r.posterCustom, data-URL). Oma kuva voittaa
+// aina, jotta TMDB-päivitys ei pyyhi käsin valittua julistetta.
+window.posterUrl = function(r, size){
+  if(!r) return '';
+  if(r.posterCustom) return r.posterCustom;
+  if(r.poster) return 'https://image.tmdb.org/t/p/' + (size || 'w342') + r.poster;
+  return '';
+};
+
+window.hasPoster = function(r){ return !!(r && (r.posterCustom || r.poster)); };
+
+// CSS:n url() sietää huonosti heittomerkkejä ja sulkeita. Data-URL:ssa
+// niitä ei esiinny, mutta kaksoislainaus on silti turvallisin.
+window.posterCss = function(r, size){
+  const u = window.posterUrl(r, size);
+  return u ? `url("${u.replace(/"/g, '%22')}")` : '';
 };
 
 // ── JULISTEESTA POIMITTU VÄRI ──
@@ -633,8 +664,10 @@ async function processPosterColorQueue(){
   _pcRunning = true;
   while(_pcQueue.length){
     const r = _pcQueue.shift();
-    if(!r || !r.poster || r.posterColor) continue;
-    const hex = await extractPosterColor('https://image.tmdb.org/t/p/w92' + r.poster);
+    if(!r || !window.hasPoster(r) || r.posterColor) continue;
+    // Oma kuva on data-URL, joten se ei tarvitse pientä w92-versiota
+    // eikä CORS-kikkailua — canvas ei saastu siitä.
+    const hex = await extractPosterColor(window.posterUrl(r, 'w92'));
     if(hex){
       r.posterColor = hex;
       _pcDirty = true;
@@ -657,7 +690,7 @@ function schedulePosterColors(list){
   if(!ensureSettings().posterColors) return;
   let added = 0;
   list.forEach(r => {
-    if(r.poster && !r.posterColor && !_pcFailed.has(r.id) && !_pcQueue.includes(r)){
+    if(window.hasPoster(r) && !r.posterColor && !_pcFailed.has(r.id) && !_pcQueue.includes(r)){
       _pcQueue.push(r); added++;
     }
   });
@@ -1547,8 +1580,8 @@ function askDuplicate(dup){
     _dupResolve = resolve;
     const score = getReviewScore(dup);
     const dateStr = dup.date ? new Date(dup.date).toLocaleDateString('fi-FI') : 'ei päivämäärää';
-    const poster = dup.poster
-      ? `<img class="dup-poster" src="https://image.tmdb.org/t/p/w154${dup.poster}" alt="">`
+    const poster = window.hasPoster(dup)
+      ? `<img class="dup-poster" src="${esc(window.posterUrl(dup, 'w154'))}" alt="">`
       : `<div class="dup-poster">${dup.category === 'TV-sarjat' ? '📺' : '🎬'}</div>`;
     document.getElementById('dupBoxArea').innerHTML = `<div class="dup-box">
       ${poster}

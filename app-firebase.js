@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-08-28.13';
+window.BUILD_FIREBASE = '2026-08-31.14';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -425,6 +425,52 @@ function releaseChunk(chunk){
   });
   updateSyncBanner();
 }
+
+// ── PAKOTETTU UUDELLEENLATAUS (pull-to-refresh) ──
+// Kuuntelijat pitävät datan ajan tasalla itsestään, mutta jos yhteys on
+// ollut poikki tai kuuntelija on katkennut, muistissa oleva kuva voi olla
+// vanha. Tämä lukee arvostelut ja metan suoraan PALVELIMELTA välimuistin
+// ohi, ja palauttaa tiedon siitä muuttuiko mikään.
+window.fbRefresh = async function(){
+  if(window._sandbox) throw new Error('Testitila on päällä');
+  if(!db) await initDb();
+  if(!REVIEWS || !META_DOC) throw new Error('Ei yhteyttä tietokantaan');
+
+  const [snap, mSnap] = await Promise.all([
+    withTimeout(getDocsFromServer(REVIEWS), COMMIT_TIMEOUT),
+    withTimeout(getDocFromServer(META_DOC), COMMIT_TIMEOUT)
+  ]);
+
+  const fresh = snap.docs.map(d => d.data()).filter(Boolean);
+  const before = JSON.stringify(appData.reviews || []);
+
+  appData.reviews = fresh;
+  if(mSnap.exists()){
+    const m = mSnap.data();
+    appData.categories = m.categories || appData.categories;
+    appData.genres     = m.genres || appData.genres;
+    if(m.subcats && typeof m.subcats === 'object') appData.subcats = m.subcats;
+    appData.budget     = m.budget || appData.budget;
+    appData.settings   = m.settings || appData.settings;
+    metaTrusted = true;
+  }
+
+  try{ if(typeof ensureSettings === 'function') ensureSettings(); } catch(e){}
+  if(typeof GENRES !== 'undefined') GENRES = [...(appData.genres || [])];
+  if(window.migrateYearField) window.migrateYearField();
+
+  // Palvelimen tilannekuva on nyt totuus — nollataan jonokirjanpito,
+  // jottei fbSave lähetä samoja tietoja heti perään takaisin.
+  cacheQueuedIds = new Set();
+  rememberSaved();
+  updateSyncBanner();
+
+  if(window.applyTheme) window.applyTheme();
+  if(appData.settings && appData.settings.accent && window.applyAccent) window.applyAccent(appData.settings.accent);
+  renderAll();
+
+  return { count: fresh.length, changed: before !== JSON.stringify(fresh) };
+};
 
 window.fbSave = async function(){
   // TESTITILA: mitään ei kirjoiteta pilveen eikä paikalliseen

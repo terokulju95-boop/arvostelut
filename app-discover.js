@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-08-28.13';
+window.BUILD_DISCOVER = '2026-08-31.14';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.
@@ -30,6 +30,29 @@ function alreadyHave(item, ids, names){
   if(ids.has(`${type}:${item.id}`)) return true;
   const title = item.title || item.name || '';
   return names.has(fuzzyNormCached(title));
+}
+
+// Montako ehdotusta yhdestä lähteestä otetaan. Asetus elää Löydä-näkymän
+// omassa valitsimessa, koska sitä säädetään juuri silloin kun haetaan.
+function discCount(){
+  const n = Number((ensureSettings() || {}).discoverCount);
+  return (n >= 1 && n <= 12) ? n : 3;
+}
+
+// TMDB:n elokuvagenret suomeksi. Käänteinen kuvaus omista genreistä
+// TMDB:n tunnuksiin, jotta klassikkohaku osaa pyytää oikeaa genreä.
+// Vain elokuvapuolen tunnukset — discover/movie ei tunne sarjagenrejä.
+const MOVIE_GENRE_IDS = {
+  'toiminta':28, 'seikkailu':12, 'animaatio':16, 'komedia':35, 'rikostarina':80,
+  'dokumentti':99, 'draama':18, 'perhe':10751, 'fantasia':14, 'historia':36,
+  'kauhu':27, 'musiikki':10402, 'mysteeri':9648, 'romantiikka':10749,
+  'sci-fi':878, 'scifi':878, 'trilleri':53, 'sota':10752, 'western':37,
+  'jännitys':53, 'noir':80, 'tositapahtumat':99, 'urheilu':18
+};
+
+function genreToTmdbId(name){
+  const k = String(name || '').toLowerCase().trim();
+  return MOVIE_GENRE_IDS[k] != null ? MOVIE_GENRE_IDS[k] : null;
 }
 
 function discStatus(html, spinning){
@@ -114,6 +137,7 @@ window.runDiscover = async function(mode){
     else if(mode === 'people')       await discoverByPeople(out);
     else if(mode === 'similar')      await discoverSimilar(out);
     else if(mode === 'collections')  await discoverCollections(out);
+    else if(mode === 'classics')     await discoverClassics(out);
   } catch(e){
     console.error(e);
     discStatus('❌ Haku epäonnistui. Tarkista internetyhteys.');
@@ -281,7 +305,7 @@ async function discoverByPeople(out){
       .filter(item => !alreadyHave(item, ids, names))
       .filter(item => (item.vote_count || 0) >= 50)     // karsii tuntemattomat
       .sort((a,b) => (b.vote_average || 0) - (a.vote_average || 0))
-      .slice(0, 4);
+      .slice(0, discCount());
 
     if(!picks.length) continue;
 
@@ -330,7 +354,7 @@ async function discoverSimilar(out){
       .filter(item => !alreadyHave(item, ids, names))
       .filter(item => !seen.has(item.id))
       .filter(item => (item.vote_count || 0) >= 50)
-      .slice(0, 3);
+      .slice(0, discCount());
 
     picks.forEach(item => seen.add(item.id));
     if(!picks.length) continue;
@@ -394,3 +418,111 @@ async function discoverCollections(out){
     ? sections.join('')
     : discEmpty('Olet nähnyt kaikki osat niistä kokoelmista jotka tunnetaan.');
 }
+
+// ── 5. KLASSIKOT JOITA ET OLE NÄHNYT ──
+// Painotus tulee omista pisteistäsi: haetaan vain niistä genreistä joille
+// annat keskimäärin parhaat pisteet. "Klassikko" = vähintään 20 vuotta
+// vanha ja laajasti äänestetty, jotta listalle ei nouse tuoretta hittiä
+// eikä tuntematonta kuriositeettia.
+const CLASSIC_AGE  = 20;     // vuotta
+const CLASSIC_VOTES = 700;   // vähimmäisäänimäärä TMDB:ssä
+
+function bestGenres(){
+  const stats = new Map();   // genre -> { sum, n }
+  (appData.reviews || []).forEach(r => {
+    const sc = getReviewScore(r);
+    if(sc == null) return;
+    // Vain elokuvamaiset kategoriat: sarjojen pisteet eivät kerro
+    // mitään siitä millaisista elokuvaklassikoista pidät.
+    if(!GENRE_CATS.includes(r.category)) return;
+    const gs = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
+    gs.forEach(g => {
+      if(genreToTmdbId(g) == null) return;
+      if(!stats.has(g)) stats.set(g, { sum: 0, n: 0 });
+      const o = stats.get(g);
+      o.sum += sc; o.n++;
+    });
+  });
+
+  return [...stats.entries()]
+    .map(([name, o]) => ({ name, avg: Math.round(o.sum / o.n), n: o.n, id: genreToTmdbId(name) }))
+    // Yksi arvostelu ei riitä genren luonnehtimiseen, kaksi jo riittää
+    .filter(g => g.n >= 2)
+    .sort((a, b) => b.avg - a.avg || b.n - a.n)
+    .slice(0, 3);
+}
+
+async function discoverClassics(out){
+  const liked = bestGenres();
+  if(!liked.length){
+    discStatus('');
+    out.innerHTML = discEmpty('Tarvitaan vähintään kaksi pisteytettyä elokuvaa samasta genrestä, jotta osaan päätellä mistä pidät. Lisää genretiedot arvosteluihin tai päivitä ne TMDB:stä.');
+    return;
+  }
+
+  const cutoff = `${new Date().getFullYear() - CLASSIC_AGE}-12-31`;
+  const ids   = reviewedTmdbIds();
+  const names = reviewedNames();
+  const seen  = new Set();
+  const sections = [];
+  const want = discCount();
+
+  for(let i = 0; i < liked.length; i++){
+    const g = liked[i];
+    discStatus(`Haetaan klassikoita ${i+1}/${liked.length}: ${esc(g.name)}`, true);
+
+    // Haetaan kaksi sivua, jotta jo nähtyjen karsimisen jälkeen jää
+    // riittävästi ehdotettavaa myös hyvin katsotuissa genreissä.
+    const pages = [];
+    for(let page = 1; page <= 2; page++){
+      const res = await tmdbGet(
+        `/discover/movie?language=fi-FI&page=${page}` +
+        `&with_genres=${g.id}` +
+        `&sort_by=vote_average.desc` +
+        `&vote_count.gte=${CLASSIC_VOTES}` +
+        `&primary_release_date.lte=${cutoff}`
+      );
+      if(res && res.results) pages.push(...res.results);
+      if(!res || !res.results || res.results.length < 20) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    const picks = pages
+      .filter(item => !alreadyHave(Object.assign({ media_type: 'movie' }, item), ids, names))
+      .filter(item => !seen.has(item.id))
+      .slice(0, want);
+
+    picks.forEach(item => seen.add(item.id));
+    if(!picks.length) continue;
+
+    sections.push(discSection(
+      `🏛️ ${esc(g.name)}`,
+      `Keskiarvosi genressä ${g.avg} pistettä (${g.n} teosta) · vähintään ${CLASSIC_AGE} vuotta vanhoja`,
+      picks.map(item => discCard(item, `Klassikko genressä ${esc(g.name)}, jota et ole arvostellut`)).join('')
+    ));
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  discStatus('');
+  out.innerHTML = sections.length
+    ? sections.join('')
+    : discEmpty('Olet nähnyt parhaiden genrejesi klassikot jo. Nosta ehdotusten määrää tai anna pisteitä useammalle genrelle.');
+}
+
+// ── EHDOTUSTEN MÄÄRÄ ──
+const DISCOVER_COUNTS = [2, 3, 5, 8];
+
+window.renderDiscoverCount = function(){
+  const el = document.getElementById('discCountRow');
+  if(!el) return;
+  const cur = discCount();
+  el.innerHTML = DISCOVER_COUNTS.map(n =>
+    `<button type="button" class="filter-chip ${n === cur ? 'active' : ''}" onclick="setDiscoverCount(${n})">${n}</button>`
+  ).join('');
+};
+
+window.setDiscoverCount = async function(n){
+  ensureSettings().discoverCount = n;
+  window.renderDiscoverCount();
+  await window.fbSave();
+};

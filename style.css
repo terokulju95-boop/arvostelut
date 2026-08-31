@@ -1172,3 +1172,222 @@ body.sandbox-on #fab{bottom:74px;}
 .mp-name span{font-weight:400;color:var(--muted);font-size:11.5px;}
 .mp-go{padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:transparent;
   color:var(--accent);font-size:11.5px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0;}
+
+/* ══════════════════════════════════════════════════════════
+   LISÄTOIMINNOT (app-extras.js)
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Pull-to-refresh ── */
+#ptrIndicator{
+  position:fixed; top:-46px; left:50%;
+  transform:translateX(-50%);
+  display:none; align-items:center; gap:8px;
+  padding:9px 16px; border-radius:999px;
+  background:var(--bg3); border:1px solid var(--border);
+  color:var(--text); font-size:13px; font-weight:600;
+  box-shadow:0 6px 22px rgba(0,0,0,0.35);
+  z-index:1400; pointer-events:none;
+  white-space:nowrap;
+}
+#ptrIndicator.visible{display:flex;}
+#ptrIndicator .ptr-icon{font-size:15px; line-height:1; transition:transform 0.18s ease;}
+#ptrIndicator.armed{border-color:var(--accent); color:var(--accent);}
+#ptrIndicator.busy .ptr-icon{animation:ptrSpin 0.9s linear infinite;}
+#ptrIndicator.done{border-color:var(--green); color:var(--green);}
+#ptrIndicator.fail{border-color:var(--sc-low); color:var(--sc-low);}
+#ptrIndicator.busy, #ptrIndicator.done, #ptrIndicator.fail{transition:transform 0.25s ease;}
+@keyframes ptrSpin{to{transform:rotate(360deg);}}
+@media (prefers-reduced-motion: reduce){
+  #ptrIndicator.busy .ptr-icon{animation:none;}
+}
+
+/* ── Ohjaajasuodatin ── */
+.dir-link{
+  background:none; border:none; padding:0; margin:0;
+  font:inherit; color:var(--accent); cursor:pointer;
+  text-decoration:underline; text-decoration-style:dotted;
+  text-underline-offset:2px;
+}
+.dir-link:active{opacity:0.6;}
+.dir-link-lg{font-size:15px; font-weight:600;}
+
+#directorBanner{
+  display:flex; align-items:center; gap:10px;
+  margin:0 0 12px; padding:11px 12px;
+  background:var(--acc-08); border:1px solid var(--accent);
+  border-radius:12px;
+}
+#directorBanner .db-icon{font-size:18px; flex-shrink:0;}
+#directorBanner .db-text{flex:1; min-width:0; line-height:1.35;}
+#directorBanner .db-text strong{
+  display:block; font-size:15px; color:var(--text);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+#directorBanner .db-sub{font-size:12px; color:var(--muted);}
+#directorBanner .db-clear{
+  flex-shrink:0; width:34px; height:34px; border-radius:50%;
+  background:transparent; border:1px solid var(--border);
+  color:var(--muted); font-size:14px; cursor:pointer;
+}
+#directorBanner .db-clear:active{background:var(--bg3);}
+
+/* ── Tuotantotilan merkki kortin kulmassa ── */
+.status-dot{
+  position:absolute; top:5px; right:5px;
+  font-size:11px; line-height:1;
+  padding:3px 5px; border-radius:6px;
+  background:rgba(0,0,0,0.55);
+  backdrop-filter:blur(3px);
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+}
+.list-status .status-dot{
+  position:static; padding:0; background:none;
+  backdrop-filter:none; font-size:11px;
+}
+
+/* ── Sarjan top 10 jaksoa ── */
+.eptop{
+  margin:10px 0 4px;
+  border:1px solid var(--border); border-radius:10px;
+  overflow:hidden; background:var(--bg3);
+}
+.eptop-head{
+  display:flex; align-items:center; gap:8px; width:100%;
+  padding:10px 12px; background:none; border:none;
+  color:var(--text); font-family:inherit; font-size:13px;
+  font-weight:600; cursor:pointer; text-align:left;
+}
+.eptop-head:active{background:var(--acc-08);}
+.eptop-arrow{font-size:10px; color:var(--muted); width:12px; flex-shrink:0;}
+.eptop-count{margin-left:auto; font-size:11px; font-weight:400; color:var(--muted);}
+.eptop-body{border-top:1px solid var(--border); padding:4px 0;}
+.eptop-row{
+  display:flex; align-items:center; gap:9px;
+  padding:6px 12px; font-size:13px;
+}
+.eptop-rank{
+  flex-shrink:0; width:20px; text-align:center;
+  font-family:'Bebas Neue',sans-serif; font-size:15px; color:var(--muted);
+}
+.eptop-rank.gold{color:#e8b84b;}
+.eptop-rank.silver{color:#c0c4cc;}
+.eptop-rank.bronze{color:#cd7f32;}
+.eptop-code{
+  flex-shrink:0; font-size:11px; font-weight:700;
+  color:var(--accent); min-width:38px;
+}
+.eptop-name{
+  flex:1; min-width:0; color:var(--muted);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.eptop-score{
+  flex-shrink:0; font-family:'Bebas Neue',sans-serif; font-size:17px;
+}
+
+/* ── Löydä: ehdotusten määrä ── */
+.disc-count{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  margin:0 0 14px; padding:10px 12px;
+  background:var(--bg3); border:1px solid var(--border); border-radius:12px;
+}
+.disc-count-label{font-size:12.5px; color:var(--muted); font-weight:600;}
+.disc-count .filter-row{gap:6px; margin:0;}
+.disc-count .filter-chip{min-width:38px; text-align:center;}
+
+/* ── Julisteen vaihto ── */
+.pp-current{display:flex; gap:14px; align-items:flex-start; margin-bottom:16px;}
+.pp-current-img{
+  width:96px; height:144px; flex-shrink:0;
+  object-fit:cover; border-radius:10px;
+  border:1px solid var(--border); background:var(--bg3);
+}
+.pp-current-img.pp-none{
+  display:flex; align-items:center; justify-content:center; font-size:34px;
+}
+.pp-current-info{flex:1; min-width:0;}
+.pp-name{font-size:16px; font-weight:700; line-height:1.3; margin-bottom:6px;}
+.pp-year{font-size:13px; color:var(--muted); font-weight:400;}
+.pp-source{font-size:13px; color:var(--muted);}
+.pp-note{font-size:12px; color:var(--muted); margin-top:6px; line-height:1.5;}
+.pp-actions{display:flex; flex-direction:column; gap:8px;}
+.pp-btn{width:100%; padding:12px; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer;}
+.pp-btn-del{color:var(--sc-low);}
+.pp-hint{
+  font-size:12.5px; color:var(--muted); line-height:1.5;
+  padding:10px 12px; background:var(--bg3);
+  border:1px solid var(--border); border-radius:10px;
+}
+.pp-status{
+  display:none; margin-top:14px; font-size:13px; color:var(--muted);
+  line-height:1.5;
+}
+.pp-grid{
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:8px; margin-top:12px;
+}
+.pp-opt{
+  position:relative; padding:0; border-radius:8px; overflow:hidden;
+  background:var(--bg3); border:2px solid transparent; cursor:pointer;
+  aspect-ratio:2/3;
+}
+.pp-opt img{width:100%; height:100%; object-fit:cover; display:block;}
+.pp-opt.current{border-color:var(--accent);}
+.pp-opt:active{opacity:0.7;}
+.pp-opt-lang{
+  position:absolute; bottom:0; left:0; right:0;
+  font-size:9px; font-weight:700; letter-spacing:0.5px;
+  padding:2px 0; background:rgba(0,0,0,0.6); color:#fff;
+}
+.pp-opt-cur{
+  position:absolute; top:4px; right:4px;
+  width:18px; height:18px; border-radius:50%;
+  background:var(--accent); color:var(--bg);
+  font-size:11px; line-height:18px; text-align:center; font-weight:700;
+}
+
+/* Luku-modaalin napautettava juliste */
+.read-poster-btn{
+  position:relative; padding:0; border:none; background:none;
+  flex-shrink:0; cursor:pointer; line-height:0;
+}
+.read-poster-btn img{
+  width:70px; height:105px; object-fit:cover;
+  border-radius:8px; display:block;
+}
+.read-poster-btn:active{opacity:0.75;}
+.read-poster-edit{
+  position:absolute; bottom:-4px; right:-4px;
+  width:22px; height:22px; border-radius:50%;
+  background:var(--bg3); border:1px solid var(--border);
+  font-size:10px; line-height:20px; text-align:center;
+}
+.read-poster-empty{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:4px; width:70px; height:105px; border-radius:8px;
+  background:var(--bg3); border:1px dashed var(--border);
+  font-size:26px; line-height:1;
+}
+.read-poster-add{font-size:10px; color:var(--muted); font-weight:600;}
+
+/* ── Lomakkeen kenttäjärjestys ── */
+.fo-list{display:flex; flex-direction:column; gap:6px;}
+.fo-row{
+  display:flex; align-items:center; gap:10px;
+  padding:11px 12px; border-radius:10px;
+  background:var(--bg3); border:1px solid var(--border);
+  font-size:14px; touch-action:none; user-select:none;
+  transition:transform 0.16s ease;
+}
+.fo-row.dragging{
+  transition:none; z-index:5; position:relative;
+  border-color:var(--accent);
+  box-shadow:0 6px 20px rgba(0,0,0,0.4);
+  opacity:0.95;
+}
+.fo-handle{
+  color:var(--muted); font-size:16px; cursor:grab;
+  padding:0 2px; flex-shrink:0; letter-spacing:-2px;
+}
+.fo-row.dragging .fo-handle{cursor:grabbing;}
+.fo-icon{flex-shrink:0;}
+.fo-label{flex:1; min-width:0;}

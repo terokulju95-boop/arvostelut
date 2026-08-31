@@ -120,6 +120,11 @@
       eivätkä ehdotukset näy muualla sovelluksessa.
     </div>
 
+    <div class="disc-count">
+      <span class="disc-count-label">Ehdotuksia lähdettä kohden</span>
+      <div class="filter-row" id="discCountRow"></div>
+    </div>
+
     <div class="disc-actions">
       <button class="disc-btn disc-btn-main" onclick="runDiscover('new-seasons')">
         <span class="disc-btn-icon">📺</span>
@@ -135,6 +140,11 @@
         <span class="disc-btn-icon">✨</span>
         <span class="disc-btn-text"><strong>Samankaltaisia suosikkiesi kanssa</strong>
         <span>TMDB:n suositukset parhaiten pisteyttämillesi</span></span>
+      </button>
+      <button class="disc-btn disc-btn-main" onclick="runDiscover('classics')">
+        <span class="disc-btn-icon">🏛️</span>
+        <span class="disc-btn-text"><strong>Klassikot joita et ole nähnyt</strong>
+        <span>Vanhempia arvostettuja elokuvia parhaista genreistäsi</span></span>
       </button>
       <button class="disc-btn disc-btn-main" onclick="runDiscover('collections')">
         <span class="disc-btn-icon">🎞️</span>
@@ -230,7 +240,7 @@
       </div>
     </div>
 
-    <div class="form-group">
+    <div class="form-group" id="nameSection">
       <div style="display:flex;gap:10px;align-items:flex-start;">
         <div style="flex:1;min-width:0;">
           <label>Nimi *</label>
@@ -275,7 +285,7 @@
       </div>
     </div>
 
-    <div class="form-group">
+    <div class="form-group" id="markSection">
       <label>Merkintä</label>
       <div style="display:flex;gap:10px;">
         <button class="mark-btn" id="markHeart" onclick="toggleMark('heart')" title="Suosikki – katso uudelleen!">❤️ Suosikki</button>
@@ -295,7 +305,7 @@
       <div class="plot-meta" id="plotMeta"></div>
     </div>
 
-    <div class="form-group">
+    <div class="form-group" id="noteSection">
       <label>Lisätiedot</label>
       <div class="md-toolbar">
         <button type="button" class="md-btn" onclick="mdWrap('formNote','**','**')" title="Lihavointi">B</button>
@@ -307,7 +317,7 @@
       <div class="md-hint">**lihavointi** · *kursiivi* · ~~yliviivaus~~ · rivin alussa - tekee luettelon</div>
     </div>
 
-    <div class="form-group">
+    <div class="form-group" id="dateSection">
       <label>Päivämäärä</label>
       <input type="date" id="formDate">
     </div>
@@ -482,6 +492,19 @@
   </div>
 </div>
 
+<!-- JULISTEEN VAIHTO -->
+<div class="modal-overlay" id="posterModal" onclick="closeModalIfOutside(event,'posterModal')">
+  <div class="modal-sheet" style="max-width:520px;">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div class="modal-title">🖼️ Juliste</div>
+    <div id="posterModalBody"></div>
+    <input type="file" id="posterFileInput" accept="image/*" style="display:none;" onchange="onPosterFile(this)">
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('posterModal')">Sulje</button>
+    </div>
+  </div>
+</div>
+
 <!-- ASETUKSET MODAL -->
 <div class="modal-overlay" id="settingsModal" onclick="closeModalIfOutside(event,'settingsModal')">
   <div class="modal-sheet">
@@ -513,6 +536,13 @@
         <label>Korostusväri</label>
         <div class="accent-row" id="accentRow"></div>
       </div>
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Lomakkeen kenttäjärjestys</label>
+        <div class="toggle-row-sub" style="margin-bottom:10px;">Raahaa rivejä ⠿-kahvasta. Kategoria, alalaji ja arvostelutyyppi pysyvät aina ylimpänä, koska ne ratkaisevat mitkä muut kentät näkyvät.</div>
+        <div class="fo-list" id="formOrderList"></div>
+        <button type="button" class="thr-reset" onclick="resetFormOrder()">↩️ Palauta oletusjärjestys</button>
+      </div>
+
       <div class="form-group">
         <div class="toggle-row">
           <div>
@@ -817,6 +847,7 @@
 <script src="app-discover.js"></script>
 <script src="app-tmdb-bulk.js"></script>
 <script src="app-plot.js"></script>
+<script src="app-extras.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 </body>

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-08-28.13';
+window.BUILD_MODALS = '2026-08-31.14';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -945,6 +945,7 @@ const BUILD_FILES = [
   ['app-theme.js',     'BUILD_THEME',    true],
   ['app-tmdb-bulk.js', 'BUILD_BULK',     true],
   ['app-plot.js',      'BUILD_PLOT',     true],
+  ['app-extras.js',    'BUILD_EXTRAS',   true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
 
@@ -1308,6 +1309,7 @@ window.openSettings = function(){
   safeRender('tarkkuus', renderPrecisionRow);
   safeRender('painotukset', renderWeightRows);
   safeRender('julistevärit', updatePosterColorToggle);
+  safeRender('kenttäjärjestys', window.renderFormOrderSettings);
   safeRender('tmdb-tila', renderTmdbStatus);
   safeRender('varmuuskopio', renderBackupInfo);
   safeRender('tili', renderAccountInfo);
@@ -1487,7 +1489,8 @@ window.openReadModal = function(id){
   const cls = score!=null?scoreBand(score):'mid';
 
   const extraRows = [];
-  if(r.director) extraRows.push(`<div class="read-section"><div class="read-label">🎬 Ohjaaja</div><div class="read-value">${esc(r.director)}</div></div>`);
+  if(r.director) extraRows.push(`<div class="read-section"><div class="read-label">🎬 Ohjaaja</div>
+    <div class="read-value"><button type="button" class="dir-link dir-link-lg" onclick="closeModal('readModal');filterByDirector('${escJs(r.director)}')">${esc(r.director)}</button></div></div>`);
   if(r.cast && r.cast.length) extraRows.push(`<div class="read-section"><div class="read-label">🎭 Näyttelijät</div><div class="read-value">${esc(r.cast.join(', '))}</div></div>`);
   if(r.runtime) extraRows.push(`<div class="read-section"><div class="read-label">⏱️ Kesto</div><div class="read-value">${r.runtime} min</div></div>`);
   if(r.tvType === 'jaksot'){
@@ -1524,7 +1527,17 @@ window.openReadModal = function(id){
   if(r.country) extraRows.push(`<div class="read-section"><div class="read-label">🌍 Maa</div><div class="read-value">${esc(r.country)}</div></div>`);
   if(r.tmdb_score) extraRows.push(`<div class="read-section"><div class="read-label">⭐ TMDB-arvosana</div><div class="read-value">${r.tmdb_score}/10</div></div>`);
 
-  const posterHtml = r.poster ? `<img src="https://image.tmdb.org/t/p/w200${r.poster}" style="width:70px;height:105px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="">` : '';
+  // Juliste on napautettava: se avaa julisteen vaihtajan. Ilman julistetta
+  // tilalla on sama nappi paikkakuvana, jotta oman kuvan voi lisätä myös
+  // teokselle jota TMDB ei tunne lainkaan.
+  const posterHtml = window.hasPoster(r)
+    ? `<button type="button" class="read-poster-btn" onclick="openPosterPicker(${r.id})" title="Vaihda juliste">
+         <img src="${esc(window.posterUrl(r,'w200'))}" alt="">
+         <span class="read-poster-edit">✏️</span>
+       </button>`
+    : `<button type="button" class="read-poster-btn read-poster-empty" onclick="openPosterPicker(${r.id})" title="Lisää juliste">
+         <span>🖼️</span><span class="read-poster-add">Lisää</span>
+       </button>`;
 
   document.getElementById('readModalContent').innerHTML = `
     <div class="read-ring-row" style="align-items:flex-start;gap:12px;">

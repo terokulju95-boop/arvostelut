@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-28.13';
+window.BUILD_VIEWS = '2026-08-31.14';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -63,18 +63,35 @@ function renderPosterTile(r, idx){
   const score = getReviewScore(r);
   const cls = score!=null ? scoreClass(score) : '';
   const name = plainName(r);
-  const img = r.poster
-    ? `<img class="tile-img" src="https://image.tmdb.org/t/p/w342${r.poster}" alt="" loading="lazy">`
+  const img = window.hasPoster(r)
+    ? `<img class="tile-img" src="${esc(window.posterUrl(r,'w342'))}" alt="" loading="lazy">`
     : `<div class="tile-img tile-noimg">${catEmoji(r.category)}<span class="tile-noimg-name">${esc(name)}</span></div>`;
   const mark = r.mark==='heart' ? '<div class="tile-mark">❤️</div>'
              : r.mark==='skull' ? '<div class="tile-mark">💀</div>' : '';
   const pc = pcAttrs(r);
   return `<div class="poster-tile ${r.mark==='heart'?'is-fav':''}${pc.cls}"${pc.id} style="animation-delay:${Math.min(idx*0.03,0.4)}s;${pc.style}" onclick="openReadModal(${r.id})">
     ${img}
+    ${statusDot(r)}
     ${score!=null?`<div class="tile-score ${cls}">${score}</div>`:''}
     ${mark}
     <div class="tile-name">${esc(name)}${r.year?` <span class="tile-year">${r.year}</span>`:''}</div>
   </div>`;
+}
+
+// Tuotantotilan merkki kortin kulmaan. Sarjakortissa tila on tärkeämpi
+// tieto kuin missään muualla: se kertoo yhdellä silmäyksellä kannattaako
+// jäädä odottamaan jatkoa. Palautetaan tyhjä kaikelle muulle kuin sarjoille.
+function statusDot(r){
+  const st = tvStatusInfo(r && r.tv_status);
+  if(!st) return '';
+  let title = st.fi;
+  if(r.next_air && r.next_air.date){
+    const days = Math.ceil((new Date(r.next_air.date + 'T00:00:00') - new Date()) / 86400000);
+    if(days >= 0) title += ` · seuraava jakso ${days === 0 ? 'tänään' : days === 1 ? 'huomenna' : days + ' pv'}`;
+  } else if(r.last_air_date){
+    title += ` · viimeinen jakso ${r.last_air_date}`;
+  }
+  return `<span class="status-dot status-${st.cls}" title="${esc(title)}">${st.icon}</span>`;
 }
 
 // Listatila: yksi rivi per arvostelu
@@ -83,24 +100,88 @@ function renderListRow(r){
   const cls = score!=null ? scoreClass(score) : '';
   const dateStr = r.date ? new Date(r.date).toLocaleDateString('fi-FI') : '';
   const mark = r.mark==='heart' ? ' ❤️' : r.mark==='skull' ? ' 💀' : '';
+  const dot = statusDot(r);
   return `<div class="list-row" onclick="openReadModal(${r.id})">
     <span class="list-icon">${catEmoji(r.category)}</span>
-    <span class="list-name">${esc(plainName(r))}${r.year?` <span class="list-year">${r.year}</span>`:''}${mark}</span>
+    <span class="list-name">${esc(plainName(r))}${r.year?` <span class="list-year">${r.year}</span>`:''}${mark}${dot?` <span class="list-status">${dot}</span>`:''}</span>
     <span class="list-date">${dateStr}</span>
     <span class="list-score ${cls}">${score!=null?score:'–'}</span>
   </div>`;
 }
 
+// ── SARJAN SISÄINEN TOP 10 ──
+// Kaikki arvostellut jaksot yhtenä listana parhaasta huonoimpaan.
+// Kausirakenne piilottaa tämän muuten kokonaan: yksittäinen huippujakso
+// kolmannelta kaudelta ei näy missään ennen kuin kausi avataan käsin.
+window.episodeRanking = function(r){
+  return (r.seasons || []).flatMap((s, si) => (s.episodes || []).map(e => ({
+    score: e.score,
+    name: e.name || '',
+    ep: e.episode || null,
+    // Kauden oma numero jos se on tiedossa, muuten järjestysnumero
+    sNum: (s.seasonNumber != null ? s.seasonNumber : si + 1)
+  })))
+  .filter(e => e.score != null)
+  .sort((a, b) => b.score - a.score || a.sNum - b.sNum || (a.ep || 0) - (b.ep || 0));
+};
+
+function episodeTopHtml(r){
+  const all = window.episodeRanking(r);
+  // Alle viidellä arvostellulla jaksolla "top 10" ei kerro mitään uutta —
+  // paras ja huonoin näkyvät jo omassa laatikossaan.
+  if(all.length < 5) return '';
+  const n = Math.min(10, all.length);
+  const key = `eptop-${r.id}`;
+  const open = !!window._epTopOpen && window._epTopOpen[r.id];
+  const rows = all.slice(0, n).map((e, i) => {
+    const label = `${e.sNum ? 'K' + e.sNum : ''}${e.ep ? 'J' + e.ep : ''}`;
+    return `<div class="eptop-row">
+      <span class="eptop-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i+1}</span>
+      <span class="eptop-code">${esc(label)}</span>
+      <span class="eptop-name">${esc(e.name || '—')}</span>
+      <span class="eptop-score ${scoreClass(e.score)}">${e.score}</span>
+    </div>`;
+  }).join('');
+  return `<div class="eptop">
+    <button type="button" class="eptop-head" onclick="toggleEpisodeTop(${r.id})">
+      <span class="eptop-arrow" id="arr-${key}">${open ? '▼' : '▶'}</span>
+      <span>🏅 Sarjan top ${n} ${n === 1 ? 'jakso' : 'jaksoa'}</span>
+      <span class="eptop-count">${all.length} arvosteltu</span>
+    </button>
+    <div class="eptop-body" id="${key}" style="display:${open ? 'block' : 'none'};">${rows}</div>
+  </div>`;
+}
+
+window._epTopOpen = {};
+window.toggleEpisodeTop = function(id){
+  const body = document.getElementById('eptop-' + id);
+  const arr  = document.getElementById('arr-eptop-' + id);
+  if(!body) return;
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  if(arr) arr.textContent = open ? '▼' : '▶';
+  window._epTopOpen[id] = open;
+};
+
 window.renderCards = function(){
   const searchEl = document.getElementById('searchInput');
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
   let reviews = [...appData.reviews];
-  if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
-  // Alalaji: '' = perus, muu = kyseinen alalaji. Kategoriassa jolla ei ole
-  // alalajeja rajausta ei tehdä lainkaan.
   const sub = window.getActiveSub ? window.getActiveSub() : '';
-  if(activeCat && subcatsFor(activeCat).length){
-    reviews = reviews.filter(r => subcatOf(r) === sub);
+
+  if(activeDirectorFilter){
+    // Ohjaajasuodatin ohittaa kategoria- ja alalajirajauksen tarkoituksella:
+    // kun napautat ohjaajan nimeä, haluat nähdä kaikki hänen teoksensa etkä
+    // vain niitä jotka sattuvat olemaan auki olevassa välilehdessä.
+    const want = normName(activeDirectorFilter);
+    reviews = reviews.filter(r => r.director && normName(r.director) === want);
+  } else {
+    if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
+    // Alalaji: '' = perus, muu = kyseinen alalaji. Kategoriassa jolla ei ole
+    // alalajeja rajausta ei tehdä lainkaan.
+    if(activeCat && subcatsFor(activeCat).length){
+      reviews = reviews.filter(r => subcatOf(r) === sub);
+    }
   }
 
   // ── SUMEA HAKU ──
@@ -166,9 +247,17 @@ window.renderCards = function(){
     }
   }
 
+  if(window.renderDirectorBanner) window.renderDirectorBanner(reviews.length);
+
   const grid = document.getElementById('cardsGrid');
   if(!reviews.length){
     grid.className = 'cards-grid';
+    if(activeDirectorFilter){
+      grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🎬</div>
+        <div class="empty-title">Ei osumia ohjaajalle “${esc(activeDirectorFilter)}”</div>
+        <div class="empty-sub">Muut suodattimet saattavat rajata tuloksia.</div></div>`;
+      return;
+    }
     const subLabel = !subcatsFor(activeCat).length ? '' : (sub === '' ? 'Perus' : sub);
     grid.innerHTML = q
       ? `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Ei osumia haulle “${esc(q)}”</div></div>`
@@ -283,6 +372,7 @@ window.renderCards = function(){
           ${avg!==null?`<div class="tv-avg">${buildRing(avg)}</div>`:''}
           ${progHtml}
           ${bestWorstHtml}
+          ${episodeTopHtml(r)}
           ${seasonHtml}
           <div class="season-actions">
             <button class="btn-add-season" onclick="openAddSeason(${r.id})">+ Lisää kausi</button>
@@ -317,9 +407,12 @@ window.renderCards = function(){
 
     const scoreCardCls = score!==null ? ('score-'+scoreBand(score)+'-card') : '';
     const favCls = r.mark==='heart' ? 'is-favorite' : '';
-    const posterBg = r.poster ? `<div class="card-poster-bg" style="background-image:url('https://image.tmdb.org/t/p/w200${r.poster}')"></div>` : '';
+    const posterBg = window.hasPoster(r) ? `<div class="card-poster-bg" style="background-image:${window.posterCss(r,'w200')}"></div>` : '';
     const extraInfo = [];
-    if(r.director) extraInfo.push(`🎬 ${esc(r.director)}`);
+    // Ohjaajan nimi on napautettava: se avaa listan kaikista saman
+    // ohjaajan teoksista yli kategoriarajojen.
+    if(r.director) extraInfo.push(
+      `<button type="button" class="dir-link" onclick="event.stopPropagation();filterByDirector('${escJs(r.director)}')">🎬 ${esc(r.director)}</button>`);
     if(r.runtime) extraInfo.push(`⏱️ ${r.runtime} min`);
     if(r.episodes_total) extraInfo.push(`📺 ${r.episodes_total} jaksoa`);
     if(r.country) extraInfo.push(`🌍 ${esc(r.country)}`);
@@ -878,8 +971,8 @@ function showNextCompareRound(){
 function compareCardIcon(cat){ return cat === 'TV-sarjat' ? '📺' : '🎬'; }
 
 function compareCardHtml(item, side){
-  const posterHtml = item.poster
-    ? `<img src="https://image.tmdb.org/t/p/w200${item.poster}" alt="">`
+  const posterHtml = window.hasPoster(item)
+    ? `<img src="${esc(window.posterUrl(item,'w200'))}" alt="">`
     : `<div class="compare-card-icon">${compareCardIcon(item.category || compareState?.category)}</div>`;
   const scoreHtml = item.finalScore != null ? `<span class="compare-card-score">${item.finalScore}p</span>` : '<span class="compare-card-score">?</span>';
   const tmdbHtml = item.tmdb_score != null ? `<span class="compare-card-score" style="opacity:0.7;">⭐ TMDB ${item.tmdb_score}/10</span>` : '';
@@ -2022,8 +2115,8 @@ window.renderTop = function(){
 
     const top = reviews[0];
     const rest = reviews.slice(1);
-    const hasPoster = !!top.poster;
-    const heroStyle = hasPoster ? `style="background-image:url('https://image.tmdb.org/t/p/w500${top.poster}')"` : '';
+    const hasPoster = window.hasPoster(top);
+    const heroStyle = hasPoster ? `style="background-image:${window.posterCss(top,'w500')}"` : '';
     const heroAttrs = hasPoster ? '' : `data-icon="${topHeroIcon(g.cat)}"`;
 
     html += `<div class="top-section">
