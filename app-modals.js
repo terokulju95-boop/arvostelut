@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-08-28.12';
+window.BUILD_MODALS = '2026-08-28.13';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -944,6 +944,7 @@ const BUILD_FILES = [
   ['app-discover.js', 'BUILD_DISCOVER', true],
   ['app-theme.js',     'BUILD_THEME',    true],
   ['app-tmdb-bulk.js', 'BUILD_BULK',     true],
+  ['app-plot.js',      'BUILD_PLOT',     true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
 
@@ -1301,6 +1302,7 @@ window.openSettings = function(){
   safeRender('pisterajat', window.renderScoreBandSettings);
   safeRender('tmdb-tunnus', window.renderTokenSettings);
   safeRender('tmdb-laskuri', window.renderTmdbCalls);
+  safeRender('puuttuvat juonet', window.renderMissingPlots);
   safeRender('suorituskyky', window.renderPerfInfo);
   safeRender('testitila', window.renderSandboxSettings);
   safeRender('tarkkuus', renderPrecisionRow);
@@ -1536,10 +1538,17 @@ window.openReadModal = function(id){
       </div>
     </div>
     ${extraRows.join('')}
-    ${r.plot?`<div class="read-section">
-      <div class="read-label">📖 Juoni</div>
+    ${PLOT_CATS.includes(r.category) ? (r.plot ? `<div class="read-section">
+      <div class="read-label read-label-row">
+        <span>📖 Juoni</span>
+        ${isOwnPlot(r) ? '<span class="plot-badge own">OMA</span>' : ''}
+        <button type="button" class="read-plot-edit" onclick="openPlotEditor(${r.id}, null)">✏️ Muokkaa</button>
+      </div>
       <div class="read-value" style="color:var(--muted);font-style:italic;">${escNl(r.plot)}</div>
-    </div>`:''}
+    </div>` : `<div class="read-section">
+      <div class="read-label">📖 Juoni</div>
+      <button type="button" class="plot-add-btn" onclick="openPlotEditor(${r.id}, null)">➕ Lisää juoni itse</button>
+    </div>`) : ''}
     ${r.note?`<div class="read-section">
       <div class="read-label">Arvostelu</div>
       <div class="read-value read-note">${mdText(r.note)}</div>

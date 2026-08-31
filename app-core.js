@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-08-28.12';
+window.BUILD_CORE = '2026-08-28.13';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -11,6 +11,9 @@ const DEFAULT_CATS = ['Elokuvat','TV-sarjat'];
 const DEFAULT_GENRES = ['Toiminta','Komedia','Draama','Kauhu','Sci-fi','Trilleri','Dokumentti','Animaatio','Romantiikka','Fantasia','Seikkailu','Musiikki','Urheilu','Rikostarina','Historia','Sota','Western','Noir','Perhe','Tositapahtumat'];
 let GENRES = [...DEFAULT_GENRES];
 const GENRE_CATS = ['Elokuvat','TV-sarjat'];
+// Kategoriat joilla on TMDB-tiedot ja siten juoni
+const PLOT_CATS = ['Elokuvat','TV-sarjat'];
+window.PLOT_CATS = PLOT_CATS;
 
 // ── TURVALLINEN HTML ──
 // Kaikki käyttäjän syöttämä teksti (nimet, muistiinpanot, kategoriat, genret)
@@ -1337,7 +1340,7 @@ window.runTranslationJobs = runTranslationJobs;
 // Jaksot yhdistetään jaksonumeron perusteella, ei listan järjestyksen —
 // muuten yksi puuttuva jakso siirsi kaikki loput nimet väärille riveille.
 function mergeSeasonInto(existing, fresh){
-  const stats = { added:0, renamed:0, plots:0, kept:0 };
+  const stats = { added:0, renamed:0, plots:0, kept:0, keptOwn:0 };
   const byNum = new Map();
   (existing.episodes || []).forEach(ep => {
     if(ep.episode != null) byNum.set(Number(ep.episode), ep);
@@ -1356,10 +1359,15 @@ function mergeSeasonInto(existing, fresh){
       // Jos muistiinpano on täsmälleen sama teksti, se ei ole käyttäjän
       // omaa tekstiä vaan vanha tuonti → siirretään oikeaan kenttään.
       if(old.note && fe.plot && old.note.trim() === fe.plot.trim()) old.note = '';
-      if(fe.plot){
+      // Itse kirjoitettua juonta ei koskaan ylikirjoiteta TMDB:n tekstillä.
+      // Alkuperäinen TMDB-teksti pannaan talteen, jotta sen voi palauttaa.
+      if(fe.plot && old.plotSource !== 'oma'){
         if(old.plot !== fe.plot) stats.plots++;
         old.plot = fe.plot;
         old.plotLang = fe.plotLang;
+      } else if(fe.plot && old.plotSource === 'oma'){
+        old.plot_tmdb = fe.plot;
+        stats.keptOwn = (stats.keptOwn || 0) + 1;
       }
       if(fe.air_date && !old.air_date) old.air_date = fe.air_date;
       if(old.episode == null) old.episode = fe.episode;
@@ -1629,6 +1637,71 @@ function scoreBand(s){
 window.scoreBand = scoreBand;
 
 function scoreClass(s){ return 'score-' + scoreBand(s); }
+
+// ══ JUONET ══
+// plot          = näytettävä teksti
+// plotSource    = 'oma' jos teksti on itse kirjoitettu; muuten TMDB:n
+// plot_tmdb     = TMDB:n alkuperäinen teksti talteen, jotta sen voi palauttaa
+//
+// TMDB-päivitykset eivät koskaan ylikirjoita omaa tekstiä. Jos oman
+// juonen tyhjentää, kenttä palautuu TMDB:n hallintaan.
+function isOwnPlot(o){ return !!(o && o.plotSource === 'oma'); }
+window.isOwnPlot = isOwnPlot;
+
+// Kirjoittaa juonen kohteeseen (arvostelu tai jakso) ja hoitaa merkinnät.
+// Palauttaa true jos teksti muuttui.
+function setOwnPlot(o, text){
+  if(!o) return false;
+  const t = String(text == null ? '' : text).trim();
+  const before = o.plot || '';
+  if(!t){
+    // Tyhjennys palauttaa TMDB:n tekstin jos sellainen on tallessa
+    if(o.plot_tmdb){
+      o.plot = o.plot_tmdb;
+      o.plotLang = o.plot_tmdb_lang || o.plotLang || '';
+      delete o.plot_tmdb;
+      delete o.plot_tmdb_lang;
+    } else {
+      o.plot = null;
+      o.plotLang = '';
+    }
+    delete o.plotSource;
+    delete o.plotEdited;
+    return (o.plot || '') !== before;
+  }
+  // Ensimmäinen oma muokkaus ottaa TMDB:n tekstin talteen
+  if(!isOwnPlot(o) && o.plot && !o.plot_tmdb){
+    o.plot_tmdb = o.plot;
+    o.plot_tmdb_lang = o.plotLang || '';
+  }
+  o.plot = t;
+  o.plotSource = 'oma';
+  o.plotLang = 'fi';
+  o.plotEdited = new Date().toISOString().slice(0,10);
+  return t !== before;
+}
+window.setOwnPlot = setOwnPlot;
+
+// Palauttaa TMDB:n alkuperäisen juonen, jos se on tallessa
+function restoreTmdbPlot(o){
+  if(!o || !o.plot_tmdb) return false;
+  o.plot = o.plot_tmdb;
+  o.plotLang = o.plot_tmdb_lang || '';
+  delete o.plot_tmdb;
+  delete o.plot_tmdb_lang;
+  delete o.plotSource;
+  delete o.plotEdited;
+  return true;
+}
+window.restoreTmdbPlot = restoreTmdbPlot;
+
+// Arvostelut, joilta juoni puuttuu kokonaan
+function reviewsWithoutPlot(){
+  return (appData.reviews || [])
+    .filter(r => PLOT_CATS.includes(r.category) && !String(r.plot || '').trim())
+    .sort((a,b) => plainName(a).localeCompare(plainName(b), 'fi'));
+}
+window.reviewsWithoutPlot = reviewsWithoutPlot;
 function catType(cat){
   if(cat==='TV-sarjat') return 'tv';
   if(cat==='Ruuat') return 'ruoka';

@@ -286,6 +286,15 @@
 
     <div id="scorePredictionBox" style="display:none;"></div>
 
+    <!-- JUONI (vain elokuvat ja sarjat) -->
+    <div class="form-group" id="plotSection" style="display:none;">
+      <label>📖 Juoni</label>
+      <textarea id="formPlot" spellcheck="true" lang="fi" autocapitalize="sentences"
+        oninput="onPlotInput()"
+        placeholder="TMDB:n juoni tulee tähän automaattisesti. Jos se puuttuu, voit kirjoittaa juonen itse."></textarea>
+      <div class="plot-meta" id="plotMeta"></div>
+    </div>
+
     <div class="form-group">
       <label>Lisätiedot</label>
       <div class="md-toolbar">
@@ -588,6 +597,11 @@
       </div>
 
       <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Puuttuvat juonet</label>
+        <div id="missingPlotsBox"></div>
+      </div>
+
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
         <label>Tietojen massapäivitys</label>
         <div class="toggle-row-sub" style="margin-bottom:10px;">Käy läpi kaikki elokuvat ja sarjat, kertoo miltä puuttuu julisteita, ohjaajia, kestoja tai tuotantotiloja, ja näyttää tarkalleen mitä muuttuisi ennen kuin mitään tallennetaan.</div>
         <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="openBulkTmdb()">🔄 Etsi puuttuvat tiedot</button>
@@ -670,6 +684,26 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- JUONEN MUOKKAUS -->
+<div class="modal-overlay" id="plotModal" onclick="closeModalIfOutside(event,'plotModal')">
+  <div class="modal-sheet" style="max-width:520px;">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div class="modal-title" id="plotModalTitle">📖 Juoni</div>
+    <div id="plotQueueBar" class="plot-queue" style="display:none;"></div>
+    <div class="form-group">
+      <div class="plot-modal-name" id="plotModalName"></div>
+      <textarea id="plotModalText" spellcheck="true" lang="fi" autocapitalize="sentences"
+        oninput="onPlotModalInput()" placeholder="Kirjoita tai liitä juoni tähän..."></textarea>
+      <div class="plot-meta" id="plotModalMeta"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('plotModal')">Peruuta</button>
+      <button class="btn-primary" id="plotSaveBtn" onclick="savePlotModal()">Tallenna</button>
+    </div>
+    <button type="button" class="plot-skip" id="plotSkipBtn" style="display:none;" onclick="plotQueueNext()">Ohita → seuraava</button>
   </div>
 </div>
 
@@ -782,6 +816,7 @@
 <script src="app-modals.js"></script>
 <script src="app-discover.js"></script>
 <script src="app-tmdb-bulk.js"></script>
+<script src="app-plot.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 </body>

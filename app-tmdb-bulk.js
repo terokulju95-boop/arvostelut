@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · TMDB-massapäivitys ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_BULK = '2026-08-28.12';
+window.BUILD_BULK = '2026-08-28.13';
 //
 // Kolme vaihetta, koska verkkokutsu on kallis ja peruuttamaton:
 //   1. TARKISTUS  – pelkkä paikallinen läpikäynti. Kertoo miltä puuttuu mitä.
@@ -69,6 +69,7 @@ function scanReviews(){
     const missing = fieldsFor(isTv)
       .filter(f => !f.hidden && f.isEmpty(r[f.key]))
       .map(f => f.label);
+    // Oma juoni on täytetty tieto, ei puute
     if(!r.year) missing.push('Vuosi');
     out.push({
       id: r.id,
@@ -208,6 +209,16 @@ function diffFor(r, detail, isTv){
   const nv = newValuesFrom(detail, isTv);
   const rows = [];
   fieldsFor(isTv).forEach(f => {
+    // Itse kirjoitettua juonta ei tarjota korvattavaksi missään tilassa.
+    // TMDB:n versio pannaan hiljaa talteen, jotta sen voi halutessaan
+    // palauttaa juonen muokkausikkunasta.
+    if(f.key === 'plot' && isOwnPlot(r)){
+      if(nv.plot && nv.plot !== r.plot_tmdb){
+        rows.push({ key:'plot_tmdb', label:'TMDB:n juoni talteen', hidden:true,
+                    kind:'add', oldShow:null, newShow:'varmuuskopio', value:nv.plot });
+      }
+      return;
+    }
     const oldV = r[f.key];
     const newV = nv[f.key];
     if(!changed(f, oldV, newV)) return;

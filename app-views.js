@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-28.12';
+window.BUILD_VIEWS = '2026-08-28.13';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -379,6 +379,7 @@ window.openAddModal = function(){
   selectedMark = null;
   window._tmdbPending = null;
   selectedRatings = {};
+  if(window.resetFormPlot) window.resetFormPlot(null);
   window._ratingsSuggestedScore = null;
   window._compareSuggestedScore = null;
   document.getElementById('tmdbSearchInput').value = '';
@@ -414,6 +415,7 @@ window.editReview = function(id){
   selectedTvType = r.tvType||'kokonaisuus';
   selectedMark = r.mark||null;
   selectedRatings = r.ratings ? {...r.ratings} : {};
+  if(window.resetFormPlot) window.resetFormPlot(r);
   window._ratingsSuggestedScore = null;
   window._compareSuggestedScore = null;
   document.getElementById('modalTitle').textContent = 'Muokkaa arvostelua';
@@ -470,6 +472,7 @@ window.onCatChange = function(preselectedGenre){
   setTimeout(window.updateCompareButtonVisibility, 50);
   setTimeout(window.updateRatingsGridVisibility, 50);
   setTimeout(window.updateScoreContext, 50);
+  if(window.updatePlotSectionVisibility) window.updatePlotSectionVisibility();
   // Näytä TMDB-haku vain elokuville ja TV-sarjoille
   if(window.onTmdbCatChange) window.onTmdbCatChange(cat);
   if(hasGenre){
@@ -1470,7 +1473,12 @@ window.saveReview = async function(){
       r.mark=selectedMark;
       r.date=(document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z';
       r.note=document.getElementById('formNote').value;
-      r.plot = window._tmdbPending?.plot || r.plot || null;
+      // Juoni tulee lomakkeen kentästä. Jos teksti on itse kirjoitettu,
+      // TMDB-tuonti ei saa ylikirjoittaa sitä.
+      if(window._tmdbPending?.plot && !isOwnPlot(r) && window.fillFormPlotFromTmdb){
+        window.fillFormPlotFromTmdb(window._tmdbPending.plot);
+      }
+      if(window.applyFormPlot) window.applyFormPlot(r);
       r.ratings = Object.keys(selectedRatings).length ? {...selectedRatings} : (r.ratings || null);
       // Säilytä TMDB-tiedot jos niitä ei päivitetä
     }
@@ -1495,13 +1503,15 @@ window.saveReview = async function(){
       cast: window._tmdbPending?.cast || null,
       tmdb_score: window._tmdbPending?.tmdb_score || null,
       tmdb_id: window._tmdbPending?.tmdb_id || null,
-      plot: window._tmdbPending?.plot || null,
+      plot: null,   // asetetaan alla applyFormPlot():lla
       ratings: Object.keys(selectedRatings).length ? {...selectedRatings} : null,
     };
     // Jos TV-sarja jaksoittain ja TMDB-kaudet haettu, lisää ne
     if(isTv && selectedTvType==='jaksot' && window._tmdbPending?.seasons) {
       newReview.seasons = window._tmdbPending.seasons;
     }
+    if(window.applyFormPlot) window.applyFormPlot(newReview);
+    else newReview.plot = window._tmdbPending?.plot || null;
     appData.reviews.push(newReview);
     window._tmdbPending = null;
   }
@@ -1574,7 +1584,11 @@ window.updateTmdbData = async function(id) {
     r.tmdb_score = detail.vote_average ? Math.round(detail.vote_average * 10) / 10 : r.tmdb_score;
     r.tmdb_id = tmdbId;
     r.country = (detail.production_countries?.[0]?.iso_3166_1 || detail.origin_country?.[0] || r.country || null);
-    r.plot = detail.overview || r.plot || null;
+    // Itse kirjoitettu juoni säilyy; TMDB:n versio menee talteen
+    if(detail.overview){
+      if(isOwnPlot(r)) r.plot_tmdb = detail.overview;
+      else r.plot = detail.overview;
+    }
 
     // Yhteinen kenttäpoiminta: tuotantotila, henkilö-ID:t, seuraava jakso
     const tf = extractTmdbFields(detail, isTv);

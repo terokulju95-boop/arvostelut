@@ -1,7 +1,7 @@
 // ── ARVOSTELUT – SERVICE WORKER ──
 // TÄRKEÄÄ: nosta VERSION-numeroa aina kun muutat index.html:ää tai muita tiedostoja.
 // Muuten Android-puhelimen PWA voi tarjoilla vanhaa versiota välimuistista.
-const VERSION = 30;
+const VERSION = 31;
 
 const SHELL_CACHE = `arvostelut-shell-v${VERSION}`;
 const IMG_CACHE   = 'tmdb-img-v1';   // julisteet <img>-tagista (no-cors)
@@ -21,6 +21,7 @@ const ASSETS = [
   './app-modals.js',
   './app-discover.js',
   './app-tmdb-bulk.js',
+  './app-plot.js',
   './app-firebase.js',
   './manifest.json',
   './icons/icon-192.png',

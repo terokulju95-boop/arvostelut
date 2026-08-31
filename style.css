@@ -1130,3 +1130,45 @@ body.sandbox-on #fab{bottom:74px;}
 .bulk-prog-bar{height:100%;background:linear-gradient(90deg,var(--acc-40),var(--accent));border-radius:99px;transition:width .3s;min-width:2px;}
 .bulk-prog-sub{font-size:11.5px;color:var(--muted);margin-top:8px;min-height:16px;}
 .bulk-scope{display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap;}
+
+/* ════════════════════════════════════════════════════════════
+   JUONET
+   ════════════════════════════════════════════════════════════ */
+#formPlot, #plotModalText{width:100%;min-height:110px;padding:12px 14px;background:var(--bg3);
+  border:1px solid var(--border);border-radius:12px;color:var(--text);font-size:14px;line-height:1.6;
+  font-family:'DM Sans',sans-serif;resize:vertical;outline:none;}
+#formPlot:focus, #plotModalText:focus{border-color:var(--accent);}
+#plotModalText{min-height:180px;}
+.plot-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted);line-height:1.5;}
+.plot-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;letter-spacing:0.3px;}
+.plot-badge.own{background:var(--acc-15);color:var(--accent);}
+.plot-badge.tmdb{background:rgba(var(--blue-rgb),0.15);color:var(--blue);}
+.plot-badge.none{background:var(--tint-07);color:var(--muted);}
+.plot-restore{padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;
+  color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.plot-restore:active{border-color:var(--accent);color:var(--accent);}
+.plot-modal-name{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.5px;color:var(--text);
+  line-height:1.15;margin-bottom:10px;}
+.plot-modal-name span{display:block;font-family:'DM Sans',sans-serif;font-size:12px;letter-spacing:0;
+  color:var(--muted);font-weight:400;margin-top:3px;}
+.plot-queue{background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:10px 13px;
+  font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px;}
+.plot-queue strong{color:var(--accent);}
+.plot-queue-track{height:5px;background:var(--tint-07);border-radius:99px;overflow:hidden;margin-top:8px;}
+.plot-queue-bar{height:100%;background:var(--accent);border-radius:99px;transition:width .25s;min-width:2px;}
+.plot-skip{width:100%;margin-top:10px;padding:11px;border-radius:10px;border:1px dashed var(--border);
+  background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.read-plot-edit{margin-left:auto;padding:3px 9px;border-radius:7px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.read-plot-edit:active{border-color:var(--accent);color:var(--accent);}
+.read-label-row{display:flex;align-items:center;gap:8px;}
+.plot-add-btn{width:100%;margin-top:6px;padding:12px;border-radius:11px;border:1px dashed var(--border);
+  background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.plot-add-btn:active{border-color:var(--accent);color:var(--accent);}
+.mp-row{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--bg3);
+  border:1px solid var(--border);border-radius:10px;margin-bottom:6px;}
+.mp-name{flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--text);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
+.mp-name span{font-weight:400;color:var(--muted);font-size:11.5px;}
+.mp-go{padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:transparent;
+  color:var(--accent);font-size:11.5px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0;}
