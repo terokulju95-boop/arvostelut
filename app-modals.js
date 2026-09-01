@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-01.16';
+window.BUILD_MODALS = '2026-09-01.17';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -947,6 +947,7 @@ const BUILD_FILES = [
   ['app-plot.js',      'BUILD_PLOT',     true],
   ['app-extras.js',    'BUILD_EXTRAS',   true],
   ['app-cards.js',     'BUILD_CARDS',    true],
+  ['app-questions.js', 'BUILD_QUESTIONS',true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
 
@@ -1312,6 +1313,7 @@ window.openSettings = function(){
   safeRender('julistevärit', updatePosterColorToggle);
   safeRender('kenttäjärjestys', window.renderFormOrderSettings);
   safeRender('korttien sisältö', window.renderCardFieldSettings);
+  safeRender('kysymyspankki', window.renderQbankSettings);
   safeRender('tmdb-tila', renderTmdbStatus);
   safeRender('varmuuskopio', renderBackupInfo);
   safeRender('tili', renderAccountInfo);

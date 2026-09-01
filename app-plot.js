@@ -1,5 +1,5 @@
 // ══ ARVOSTELUT · juonten muokkaus ══
-window.BUILD_PLOT = '2026-09-01.16';
+window.BUILD_PLOT = '2026-09-01.17';
 //
 // TMDB tuo juonet automaattisesti, mutta kaikkiin teoksiin niitä ei löydy.
 // Tässä tiedostossa juonen voi kirjoittaa itse. Ydinsääntö: itse kirjoitettua
