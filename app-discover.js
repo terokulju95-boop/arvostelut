@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-09-01.22';
+window.BUILD_DISCOVER = '2026-09-02.23';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.
@@ -140,6 +140,7 @@ window.runDiscover = async function(mode){
     else if(mode === 'classics')     await discoverClassics(out);
     else if(mode === 'ended')        await discoverEndedSeries(out);
     else if(mode === 'longtv')       await discoverLongSeries(out);
+    else if(mode === 'shorttv')      await discoverShortStart(out);
   } catch(e){
     console.error(e);
     discStatus('❌ Haku epäonnistui. Tarkista internetyhteys.');
@@ -717,4 +718,108 @@ async function discoverLongSeries(out){
   out.innerHTML = sections.length
     ? sections.join('')
     : discEmpty('Pitkiä aloittamattomia sarjoja ei löytynyt. Nosta ehdotusten määrää tai kokeile toista hakua.');
+}
+
+// ── 8. LYHYT ENSIMMÄINEN KAUSI ──
+// Matalan kynnyksen aloitus: sarja jonka ensimmäinen kausi on lyhyt,
+// jolloin kokeilu ei sido montaa iltaa. Kausien kokonaismäärä kerrotaan
+// mukana, jotta näkee heti onko jatkoa luvassa jos sarja osuu makuun.
+const SHORT_MAX_EP1   = 10;   // ensimmäisessä kaudessa enintään näin monta jaksoa
+const SHORT_CHECK_MAX = 14;   // montako ehdokasta tarkistetaan yhtä hakua kohden
+
+// Kesto luettavaan muotoon. Alle tunnin kestot jäävät minuuteiksi,
+// koska "0 h 45 min" näyttäisi hassulta.
+function shortRuntimeLabel(mins){
+  if(!mins) return '';
+  if(mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
+async function discoverShortStart(out){
+  const ids   = reviewedTmdbIds();
+  const names = reviewedNames();
+  const want  = discCount();
+  const liked = bestTvGenres();
+  const seen  = new Set();
+  const sections = [];
+
+  // Ilman omia sarja-arvosteluja haetaan ilman genrerajausta.
+  const targets = liked.length ? liked : [{ name:null, id:null, avg:null, n:0 }];
+
+  for(let i = 0; i < targets.length; i++){
+    const g = targets[i];
+    discStatus(g.name
+      ? `Haetaan lyhyitä aloituksia ${i+1}/${targets.length}: ${esc(g.name)}`
+      : 'Haetaan lyhyitä aloituksia', true);
+
+    const results = [];
+    for(let page = 1; page <= 2; page++){
+      const res = await tmdbGet(
+        `/discover/tv?language=fi-FI&page=${page}` +
+        `&sort_by=vote_average.desc` +
+        `&vote_count.gte=${ENDED_VOTES}` +
+        (g.id ? `&with_genres=${g.id}` : '')
+      );
+      if(res && res.results) results.push(...res.results);
+      if(!res || !res.results || res.results.length < 20) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    // Aloittamattomat: mitään omaa arvostelua ei saa löytyä
+    const candidates = results
+      .filter(item => !alreadyHave(Object.assign({ media_type:'tv' }, item), ids, names))
+      .filter(item => !seen.has(item.id))
+      .slice(0, SHORT_CHECK_MAX);
+
+    const picks = [];
+    for(const item of candidates){
+      if(picks.length >= want) break;
+      const d = await tmdbGet(`/tv/${item.id}?language=fi-FI`);
+      await new Promise(r => setTimeout(r, 70));
+      if(!d) continue;
+
+      // Jaksomäärä luetaan nimenomaan kaudesta 1. Kausi 0 on erikoisjaksot,
+      // eikä number_of_episodes kelpaa koska se kattaa koko sarjan.
+      const s1  = (d.seasons || []).find(s => Number(s.season_number) === 1);
+      const ep1 = s1 ? (Number(s1.episode_count) || 0) : 0;
+      if(!ep1 || ep1 > SHORT_MAX_EP1) continue;
+
+      const runtime = Array.isArray(d.episode_run_time) && d.episode_run_time.length
+        ? d.episode_run_time[0] : null;
+      const mins = runtime ? ep1 * runtime : null;
+      const seas = Number(d.number_of_seasons) || 0;
+
+      picks.push({ item, ep1, seas, mins });
+      seen.add(item.id);
+    }
+
+    if(!picks.length) continue;
+
+    sections.push(discSection(
+      g.name ? `⏱️ ${esc(g.name)}` : '⏱️ Lyhyt aloitus',
+      g.name
+        ? `Keskiarvosi genressä ${g.avg} pistettä (${g.n} sarjaa) · ensimmäisessä kaudessa enintään ${SHORT_MAX_EP1} jaksoa`
+        : `Ensimmäisessä kaudessa enintään ${SHORT_MAX_EP1} jaksoa`,
+      picks.map(p => {
+        const kesto = shortRuntimeLabel(p.mins);
+        const jatko = p.seas > 1
+          ? `jatkoa ${p.seas - 1} kautta`
+          : (p.seas === 1 ? 'vain yksi kausi' : '');
+        const osat = [
+          `Kausi 1: ${p.ep1} jaksoa`,
+          kesto ? `noin ${kesto}` : '',
+          jatko
+        ].filter(Boolean);
+        return discCard(p.item, osat.join(' · '));
+      }).join('')
+    ));
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  discStatus('');
+  out.innerHTML = sections.length
+    ? sections.join('')
+    : discEmpty('Lyhyen aloituskauden sarjoja ei löytynyt. Nosta ehdotusten määrää tai kokeile toista hakua.');
 }

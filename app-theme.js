@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-01.22';
+window.BUILD_THEME = '2026-09-02.23';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -48,6 +48,9 @@ window.applyTheme = function(){
   const root = document.documentElement;
   root.setAttribute('data-theme', effectiveMode());
   root.setAttribute('data-pack', pack);
+  // Filmiraita on pelkkä CSS-koriste: attribuutti riittää, mitään ei
+  // piirretä JavaScriptillä eikä listaa tarvitse renderöidä uudelleen.
+  root.setAttribute('data-filmstrip', s.filmstrip ? 'on' : 'off');
 
   // Androidin statusbar seuraa taustaväriä. Arvo pitää lukea vasta
   // attribuuttien asettamisen jälkeen, muuten saadaan edellinen väri.
@@ -66,6 +69,26 @@ if(prefersLight && prefersLight.addEventListener){
     if((s.themeMode || 'dark') === 'auto') window.applyTheme();
   });
 }
+
+// ── FILMIRAITA ──
+// Rei'itetty filminauha ruudun molemmissa reunoissa. Puhdasta CSS:ää:
+// html-elementin data-filmstrip ratkaisee piirretäänkö se, ja sama
+// attribuutti kasvattaa listan sivumarginaalit niin ettei sisältö jää
+// nauhan alle.
+window.toggleFilmstrip = async function(){
+  const s = ensureSettings();
+  s.filmstrip = !s.filmstrip;
+  window.applyTheme();
+  window.updateFilmstripToggle();
+  if(window.renderSectionSummaries) window.renderSectionSummaries();
+  await window.fbSave();
+};
+
+window.updateFilmstripToggle = function(){
+  const btn = document.getElementById('filmstripToggle');
+  if(!btn) return;
+  btn.classList.toggle('on', !!ensureSettings().filmstrip);
+};
 
 window.setThemeMode = async function(id){
   const s = ensureSettings();

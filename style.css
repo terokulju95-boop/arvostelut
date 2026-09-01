@@ -25,6 +25,11 @@
   --tint-16: rgba(255,255,255,0.16);
   --tint-20: rgba(255,255,255,0.20);
 
+  /* Filmiraita. Nauhan väri johdetaan pinnoista, jolloin se seuraa
+     jokaista teemaa ja väripakettia ilman omia sääntöjä. */
+  --fs-ink: var(--bg3);
+  --fs-line: var(--border);
+
   /* Modaalien taustahimmennys */
   --scrim: rgba(0,0,0,0.7);
   --scrim-strong: rgba(0,0,0,0.88);
@@ -292,6 +297,39 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 /* MAIN */
 .main{padding:70px 14px 100px;}
+
+/* ════════════════════════════════════════════════════════════
+   FILMIRAITA
+   Rei'itetty filminauha ruudun molemmissa reunoissa. Koko koriste on
+   yksi kiinteä pseudoelementti, jossa on neljä taustatasoa: kaksi
+   rei'itettyä nauhaa (vasen ja oikea) ja kaksi ohutta sisäreunaviivaa.
+   Reikä syntyy radial-gradientin läpinäkyvästä keskustasta, jolloin
+   taustaväri näkyy sen läpi ja nauha seuraa teemaa itsestään.
+   pointer-events:none — koriste ei saa napata kosketuksia.
+   z-index 1 riittää: yläpalkki (200), FAB (100) ja modaalit (1000)
+   jäävät sen päälle.
+   ════════════════════════════════════════════════════════════ */
+html[data-filmstrip="on"] .main{padding-left:30px;padding-right:30px;}
+html[data-filmstrip="on"] body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background-image:
+    radial-gradient(ellipse 4px 5.5px at 11px 12px, transparent 0 94%, var(--fs-ink) 100%),
+    radial-gradient(ellipse 4px 5.5px at 11px 12px, transparent 0 94%, var(--fs-ink) 100%),
+    linear-gradient(var(--fs-line), var(--fs-line)),
+    linear-gradient(var(--fs-line), var(--fs-line));
+  background-size: 22px 24px, 22px 24px, 1px 100%, 1px 100%;
+  background-position: left top, right top, left 22px top, right 22px top;
+  background-repeat: repeat-y, repeat-y, no-repeat, no-repeat;
+}
+/* Vaakatilassa ja leveällä ruudulla nauha saa hieman enemmän tilaa,
+   jottei se näytä puristetulta reunaa vasten. */
+@media (min-width:600px){
+  html[data-filmstrip="on"] .main{padding-left:38px;padding-right:38px;}
+}
 
 /* KATEGORIA TABS */
 .cat-tabs{display:flex;gap:8px;overflow-x:auto;padding:14px 0 8px;scrollbar-width:none;-ms-overflow-style:none;}
@@ -595,6 +633,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .mark-btn.active-heart { background:rgba(var(--fav-rgb),0.18); border-color:var(--fav); color:var(--fav); }
 .mark-btn.active-skull { background:var(--tint-15); border-color:#aaa; color:#ccc; }
 .mark-btn.active-none { background:var(--bg3); border-color:var(--border); opacity:1!important; }
+
+/* KOLMEN VAIHTOEHDON VALINTA (suositus, uusintakatselu)
+   Valintaa ei ole pakko tehdä: aktiivisen napin uudelleennapautus
+   tyhjentää kentän, joten erillistä "ei valintaa" -nappia ei tarvita. */
+.trio-row{display:flex;gap:8px;}
+.trio-btn{flex:1;padding:10px 6px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:13px;font-weight:600;line-height:1.25;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;text-align:center;min-height:44px;}
+.trio-btn.active{background:var(--acc-15);border-color:var(--accent);color:var(--accent);}
+.trio-btn:active{transform:scale(0.97);}
+.trio-hint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4;}
 
 /* ARVOSANA-RENGAS */
 .score-ring { position:relative; width:88px; height:88px; flex-shrink:0; }

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-01.22';
+window.BUILD_MODALS = '2026-09-02.23';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1314,6 +1314,7 @@ window.openSettings = function(){
   safeRender('tarkkuus', renderPrecisionRow);
   safeRender('painotukset', renderWeightRows);
   safeRender('julistevärit', updatePosterColorToggle);
+  safeRender('filmiraita', window.updateFilmstripToggle);
   safeRender('kenttäjärjestys', window.renderFormOrderSettings);
   safeRender('korttien sisältö', window.renderCardSettings);
   safeRender('tmdb-tila', renderTmdbStatus);
@@ -1536,6 +1537,14 @@ window.openReadModal = function(id){
       <div class="read-value">${st.icon} ${esc(st.fi)}${r.seasons_total ? ` · ${r.seasons_total} kautta` : ''}</div>${extra}</div>`);
   }
   if(subcatOf(r) && rf('subcat')) extraRows.push(`<div class="read-section"><div class="read-label">📂 Alalaji</div><div class="read-value">${esc(subcatOf(r))}</div></div>`);
+  if(rf('recommend')){
+    const o = window.recommendOpt ? window.recommendOpt(r.recommend) : null;
+    if(o) extraRows.push(`<div class="read-section"><div class="read-label">👍 Suosittelisitko</div><div class="read-value">${esc(o.read)}</div></div>`);
+  }
+  if(rf('rewatch')){
+    const o = window.rewatchOpt ? window.rewatchOpt(r.rewatch) : null;
+    if(o) extraRows.push(`<div class="read-section"><div class="read-label">🔁 Katsoisitko uudelleen</div><div class="read-value">${esc(o.read)}</div></div>`);
+  }
   if(r.country && rf('country')) extraRows.push(`<div class="read-section"><div class="read-label">🌍 Maa</div><div class="read-value">${esc(r.country)}</div></div>`);
   if(r.tmdb_score && rf('tmdbScore')) extraRows.push(`<div class="read-section"><div class="read-label">⭐ TMDB-arvosana</div><div class="read-value">${r.tmdb_score}/10</div></div>`);
 

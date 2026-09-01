@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-01.22';
+window.BUILD_CARDS = '2026-09-02.23';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -25,6 +25,8 @@ const CARD_FIELDS = [
   { id:'tvtype',     label:'Arvostelutapa',      icon:'📺' },
   { id:'status',     label:'Tuotantotila',       icon:'📡' },
   { id:'mark',       label:'Suosikki/huono',     icon:'❤️' },
+  { id:'recommend',  label:'Suositus',           icon:'👍' },
+  { id:'rewatch',    label:'Uusintakatselu',     icon:'🔁' },
   { id:'director',   label:'Ohjaaja',            icon:'🎬' },
   { id:'cast',       label:'Näyttelijät',        icon:'🎭' },
   { id:'runtime',    label:'Kesto',              icon:'⏱️' },
@@ -39,7 +41,10 @@ const CARD_FIELDS = [
 
 // Listakortti on tiivis, joten siitä on oletuksena piilotettu ne kentät
 // jotka näkyvät kuitenkin isossa kortissa.
-const CARD_DEFAULTS = { cast:false, country:false, tmdbScore:false };
+// Suositus ja uusintakatselu ovat oletuksena piilossa listakortissa:
+// kortin merkkilapputila on rajallinen, ja molemmat näkyvät joka
+// tapauksessa luku-modaalissa.
+const CARD_DEFAULTS = { cast:false, country:false, tmdbScore:false, recommend:false, rewatch:false };
 const READ_DEFAULTS = {};
 
 function fieldsFor(which){
@@ -451,6 +456,7 @@ function sectionSummaries(){
     paketti:      packName,
     korostus:     '',
     julistevari:  s.posterColors === false ? 'pois' : 'käytössä',
+    filmiraita:   s.filmstrip ? 'käytössä' : 'pois',
     logo:         s.logoHidden ? 'piilotettu' : ((s.logoText || LOGO_DEFAULT).trim()),
     kortinkentat: (hiddenCard || hiddenRead)
                     ? `${hiddenCard} + ${hiddenRead} piilotettu`
@@ -493,6 +499,17 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-09-02.23', items:[
+    { icon:'👍', title:'Suosittelisitko ja katsoisitko uudelleen',
+      text:'Kaksi uutta kenttää lomakkeelle. Molemmat ovat vapaaehtoisia: napauta valittua uudelleen jos haluat tyhjentää sen.',
+      tab:'kortit', sec:'kortinkentat' },
+    { icon:'🎞️', title:'Filmiraita reunoissa',
+      text:'Rei\'itetty filminauha ruudun molempiin reunoihin. Löytyy Ulkoasu-välilehdeltä.',
+      tab:'ulkoasu', sec:'filmiraita' },
+    { icon:'⏱️', title:'Löydä: lyhyt ensimmäinen kausi',
+      text:'Uusi haku etsii sarjoja joiden ensimmäinen kausi on lyhyt, eli kokeilu ei vie montaa iltaa.',
+      view:'discover' }
+  ]},
   { build:'2026-09-01.21', items:[
     { icon:'📐', title:'Kortin pyöristys ja renkaan paksuus',
       text:'Kortin kulmat ja arvosanarenkaan viivan paksuus säätyvät liukusäätimillä.',

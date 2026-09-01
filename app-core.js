@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-01.22';
+window.BUILD_CORE = '2026-09-02.23';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -14,6 +14,26 @@ const GENRE_CATS = ['Elokuvat','TV-sarjat'];
 // Kategoriat joilla on TMDB-tiedot ja siten juoni
 const PLOT_CATS = ['Elokuvat','TV-sarjat'];
 window.PLOT_CATS = PLOT_CATS;
+
+// ── SUOSITUS JA UUSINTAKATSELU ──
+// Kolme vaihtoehtoa kummallekin, eikä kumpikaan ole pakollinen. Tekstit
+// ovat kolmessa muodossa: nappi lomakkeella on lyhyt, kortin merkkilappu
+// keskipitkä ja luku-modaalin rivi kokonainen lause. Arvot (id) ovat
+// tallennettavia koodeja eivätkä saa muuttua — vain tekstit saa vaihtaa.
+const RECOMMEND_OPTS = [
+  { id:'yes',     btn:'👍 Kyllä',      chip:'👍 Suosittelen',   read:'👍 Kyllä, suosittelen' },
+  { id:'depends', btn:'🤔 Riippuu',    chip:'🤔 Riippuu',       read:'🤔 Riippuu' },
+  { id:'no',      btn:'👎 En',         chip:'👎 En suosittele', read:'👎 En suosittele' }
+];
+const REWATCH_OPTS = [
+  { id:'now',     btn:'⚡ Heti',       chip:'⚡ Uusinta heti',  read:'⚡ Katsoisin heti uudelleen' },
+  { id:'someday', btn:'🕐 Joskus',     chip:'🕐 Uusinta joskus',read:'🕐 Katsoisin joskus uudelleen' },
+  { id:'never',   btn:'🚫 En koskaan', chip:'🚫 Ei uusintaa',   read:'🚫 En katsoisi uudelleen' }
+];
+window.RECOMMEND_OPTS = RECOMMEND_OPTS;
+window.REWATCH_OPTS   = REWATCH_OPTS;
+window.recommendOpt = id => RECOMMEND_OPTS.find(o => o.id === id) || null;
+window.rewatchOpt   = id => REWATCH_OPTS.find(o => o.id === id) || null;
 
 // ── TURVALLINEN HTML ──
 // Kaikki käyttäjän syöttämä teksti (nimet, muistiinpanot, kategoriat, genret)
@@ -47,6 +67,10 @@ let activeDecadeFilter = null;
 // ohjaajanimeä napauttamalla — siksi se elää omana muuttujanaan.
 let activeDirectorFilter = null;
 let selectedMark = null;
+// Suositus ja uusintakatselu. Molemmat ovat kolmen vaihtoehdon valintoja
+// joista mitään ei ole pakko valita, joten null on kelvollinen arvo.
+let selectedRecommend = null;
+let selectedRewatch = null;
 let currentView = 'reviews';
 let editingId = null;
 let editingPartId = null;
@@ -523,6 +547,8 @@ function ensureSettings(){
   if(!appData.settings) appData.settings = {};
   if(!appData.settings.accent) appData.settings.accent = ACCENT_PRESETS[0].hex;
   if(appData.settings.posterColors == null) appData.settings.posterColors = true;
+  // Filmiraita on koriste, joten se on oletuksena pois: se kaventaa listaa.
+  if(appData.settings.filmstrip == null) appData.settings.filmstrip = false;
   if(!appData.settings.precision) appData.settings.precision = 'normal';
   if(!appData.settings.weights) appData.settings.weights = {};
   if(appData.settings.topLimit == null) appData.settings.topLimit = 5;

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-01.22';
+window.BUILD_VIEWS = '2026-09-02.23';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -439,7 +439,15 @@ window.renderCards = function(){
         return st ? `<span class="meta-chip status-chip status-${st.cls}">${st.icon} ${esc(st.fi)}</span>` : '';
       })() : '',
       (cf('mark') && r.mark==='heart') ? '<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>' : '',
-      (cf('mark') && r.mark==='skull') ? '<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>' : ''
+      (cf('mark') && r.mark==='skull') ? '<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>' : '',
+      cf('recommend') ? (()=>{
+        const o = window.recommendOpt ? window.recommendOpt(r.recommend) : null;
+        return o ? `<span class="meta-chip">${esc(o.chip)}</span>` : '';
+      })() : '',
+      cf('rewatch') ? (()=>{
+        const o = window.rewatchOpt ? window.rewatchOpt(r.rewatch) : null;
+        return o ? `<span class="meta-chip">${esc(o.chip)}</span>` : '';
+      })() : ''
     ].filter(Boolean).join('');
 
     const body = `
@@ -510,6 +518,10 @@ window.openAddModal = function(){
   populateFormSubcat(document.getElementById('formCat').value, curSub);
   buildScorePicker('scorePicker', 'selectedScore');
   window.toggleMark(null);
+  selectedRecommend = null;
+  selectedRewatch = null;
+  window.setRecommend(null);
+  window.setRewatch(null);
   document.getElementById('addModal').classList.add('open');
 };
 
@@ -536,6 +548,12 @@ window.editReview = function(id){
   if(r.category==='TV-sarjat') selectTvTypeByValue(r.tvType||'kokonaisuus');
   buildScorePicker('scorePicker', 'selectedScore');
   window.toggleMark(r.mark||null);
+  // Tallennettu arvo asetetaan suoraan muuttujaan, koska setRecommend
+  // tulkitsisi saman arvon uudelleenvalinnaksi ja tyhjentäisi kentän.
+  selectedRecommend = r.recommend || null;
+  selectedRewatch = r.rewatch || null;
+  paintTrio(REC_BTN_IDS, selectedRecommend);
+  paintTrio(RW_BTN_IDS, selectedRewatch);
   document.getElementById('addModal').classList.add('open');
 };
 
@@ -1521,6 +1539,31 @@ window.toggleMark = function(mark){
   if(nBtn){ nBtn.className = 'mark-btn'; nBtn.style.opacity = mark===null?'1':'0.5'; }
 };
 
+// ── SUOSITUS JA UUSINTAKATSELU ──
+// Sama kuvio molemmille: napautus valitsee, saman napin uudelleen-
+// napautus tyhjentää. Erillistä tyhjennysnappia ei ole, koska rivillä
+// on jo kolme vaihtoehtoa eikä neljäs mahtuisi luettavasti.
+function paintTrio(ids, value){
+  Object.keys(ids).forEach(val => {
+    const el = document.getElementById(ids[val]);
+    if(el) el.classList.toggle('active', val === value);
+  });
+}
+
+const REC_BTN_IDS = { yes:'recYes', depends:'recDepends', no:'recNo' };
+const RW_BTN_IDS  = { now:'rwNow', someday:'rwSomeday', never:'rwNever' };
+
+window.setRecommend = function(val){
+  // null tulee lomakkeen nollauksesta, muuten arvo tulee napista
+  selectedRecommend = (val === null || selectedRecommend === val) ? null : val;
+  paintTrio(REC_BTN_IDS, selectedRecommend);
+};
+
+window.setRewatch = function(val){
+  selectedRewatch = (val === null || selectedRewatch === val) ? null : val;
+  paintTrio(RW_BTN_IDS, selectedRewatch);
+};
+
 // Lomakkeen alalaji. Jos kategorialla ei ole alalajeja, arvo on aina tyhjä.
 function readFormSubcat(cat){
   if(!subcatsFor(cat).length) return '';
@@ -1576,6 +1619,8 @@ window.saveReview = async function(){
       r.tvType=isTv?selectedTvType:'';
       r.score=needsScore?selectedScore:null;
       r.mark=selectedMark;
+      r.recommend=selectedRecommend;
+      r.rewatch=selectedRewatch;
       r.date=(document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z';
       r.note=document.getElementById('formNote').value;
       // Juoni tulee lomakkeen kentästä. Jos teksti on itse kirjoitettu,
@@ -1595,7 +1640,8 @@ window.saveReview = async function(){
     // jälkeen. Lomake omistaa nämä kentät, joten ne eivät saa tulla
     // TMDB-datasta.
     const OWNED_BY_FORM = ['id','name','year','category','subcat','genre',
-                           'tvType','score','mark','note','date','ratings',
+                           'tvType','score','mark','recommend','rewatch',
+                           'note','date','ratings',
                            'parts','plot','plotSource'];
     const pending = window._tmdbPending || {};
     const tmdbFields = {};
@@ -1616,6 +1662,8 @@ window.saveReview = async function(){
       score: needsScore?selectedScore:null,
       parts: [],
       mark: selectedMark,
+      recommend: selectedRecommend,
+      rewatch: selectedRewatch,
       note: document.getElementById('formNote').value,
       plot: null,   // asetetaan alla applyFormPlot():lla
       ratings: Object.keys(selectedRatings).length ? {...selectedRatings} : null,

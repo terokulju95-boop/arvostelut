@@ -146,6 +146,11 @@
         <span class="disc-btn-text"><strong>Pitkät sarjat joita et ole aloittanut</strong>
         <span>Vähintään kolme kautta — riittää katsottavaa pitkäksi aikaa</span></span>
       </button>
+      <button class="disc-btn disc-btn-main" onclick="runDiscover('shorttv')">
+        <span class="disc-btn-icon">⏱️</span>
+        <span class="disc-btn-text"><strong>Lyhyt ensimmäinen kausi</strong>
+        <span>Matalan kynnyksen aloitus — kokeilu ei vie montaa iltaa</span></span>
+      </button>
       <button class="disc-btn disc-btn-main" onclick="runDiscover('ended')">
         <span class="disc-btn-icon">🏁</span>
         <span class="disc-btn-text"><strong>Päättyneet sarjat</strong>
@@ -301,6 +306,27 @@
         <button class="mark-btn" id="markHeart" onclick="toggleMark('heart')" title="Suosikki – katso uudelleen!">❤️ Suosikki</button>
         <button class="mark-btn" id="markSkull" onclick="toggleMark('skull')" title="Todella huono">💀 Huono</button>
         <button class="mark-btn" id="markNone" onclick="toggleMark(null)" style="opacity:0.5;">✕ Ei merkkiä</button>
+      </div>
+    </div>
+
+    <!-- SUOSITTELISITKO -->
+    <div class="form-group" id="recSection">
+      <label>Suosittelisitko</label>
+      <div class="trio-row">
+        <button type="button" class="trio-btn" id="recYes" onclick="setRecommend('yes')">👍 Kyllä</button>
+        <button type="button" class="trio-btn" id="recDepends" onclick="setRecommend('depends')">🤔 Riippuu</button>
+        <button type="button" class="trio-btn" id="recNo" onclick="setRecommend('no')">👎 En</button>
+      </div>
+      <div class="trio-hint">Napauta valittua uudelleen jos haluat jättää kentän tyhjäksi.</div>
+    </div>
+
+    <!-- KATSOISITKO UUDELLEEN -->
+    <div class="form-group" id="rewatchSection">
+      <label>Katsoisitko uudelleen</label>
+      <div class="trio-row">
+        <button type="button" class="trio-btn" id="rwNow" onclick="setRewatch('now')">⚡ Heti</button>
+        <button type="button" class="trio-btn" id="rwSomeday" onclick="setRewatch('someday')">🕐 Joskus</button>
+        <button type="button" class="trio-btn" id="rwNever" onclick="setRewatch('never')">🚫 En koskaan</button>
       </div>
     </div>
 
@@ -589,6 +615,22 @@
             <div class="toggle-row-sub">Poimii kortin reunaväriä julisteesta</div>
           </div>
           <button type="button" class="toggle-switch" id="posterColorToggle" onclick="togglePosterColors()"></button>
+        </div>
+        </div>
+      </div>
+      <div class="set-sec" data-sec="filmiraita">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('filmiraita')" aria-expanded="false">
+          <span class="set-sec-icon">🎞️</span>
+          <span class="set-sec-title">Filmiraita reunoissa<span class="set-sec-sum" id="sum-filmiraita"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-filmiraita" hidden>
+<div class="toggle-row">
+          <div>
+            <div class="toggle-row-label">Filmiraita reunoissa</div>
+            <div class="toggle-row-sub">Rei'itetty filminauha ruudun molemmissa reunoissa. Kaventaa listaa noin 30 pikseliä kummaltakin puolelta.</div>
+          </div>
+          <button type="button" class="toggle-switch" id="filmstripToggle" onclick="toggleFilmstrip()"></button>
         </div>
         </div>
       </div>
