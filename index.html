@@ -517,58 +517,173 @@
     <div class="modal-title">Asetukset</div>
     <div class="build-warning" id="buildWarning" style="display:none;"></div>
 
-    <!-- VÄLILEHDET -->
+    <!-- VÄLILEHDET · kaikki mahtuvat riville, ei vaakavieritystä -->
     <div class="settings-tabs" id="settingsTabs">
-      <button type="button" class="settings-tab" data-tab="ulkoasu"   onclick="setSettingsTab('ulkoasu')">🎨 Ulkoasu</button>
-      <button type="button" class="settings-tab" data-tab="pisteytys" onclick="setSettingsTab('pisteytys')">⭐ Pisteytys</button>
-      <button type="button" class="settings-tab" data-tab="data"      onclick="setSettingsTab('data')">🗂️ Data</button>
-      <button type="button" class="settings-tab" data-tab="tili"      onclick="setSettingsTab('tili')">👤 Tili</button>
+      <button type="button" class="settings-tab" data-tab="ulkoasu" onclick="setSettingsTab('ulkoasu')"><span class="st-ico">🎨</span><span class="st-lbl">Ulkoasu</span></button>
+      <button type="button" class="settings-tab" data-tab="kortit" onclick="setSettingsTab('kortit')"><span class="st-ico">🃏</span><span class="st-lbl">Kortit</span></button>
+      <button type="button" class="settings-tab" data-tab="lomake" onclick="setSettingsTab('lomake')"><span class="st-ico">✏️</span><span class="st-lbl">Lomake</span></button>
+      <button type="button" class="settings-tab" data-tab="pisteet" onclick="setSettingsTab('pisteet')"><span class="st-ico">⭐</span><span class="st-lbl">Pisteet</span></button>
+      <button type="button" class="settings-tab" data-tab="tmdb" onclick="setSettingsTab('tmdb')"><span class="st-ico">🎬</span><span class="st-lbl">TMDB</span></button>
+      <button type="button" class="settings-tab" data-tab="data" onclick="setSettingsTab('data')"><span class="st-ico">💾</span><span class="st-lbl">Data</span></button>
     </div>
 
     <!-- ── ULKOASU ── -->
     <div class="settings-pane" data-pane="ulkoasu">
-      <div class="form-group">
-        <label>Teema</label>
-        <div class="theme-mode-row" id="themeModeRow"></div>
+      <div class="set-sec" data-sec="teema">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('teema')" aria-expanded="false">
+          <span class="set-sec-icon">🌗</span>
+          <span class="set-sec-title">Teema<span class="set-sec-sum" id="sum-teema"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-teema" hidden>
+<div class="theme-mode-row" id="themeModeRow"></div>
         <div class="theme-note" id="themeNote"></div>
+        </div>
       </div>
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Väripaketti</label>
-        <div class="theme-pack-row" id="themePackRow"></div>
+      <div class="set-sec" data-sec="paketti">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('paketti')" aria-expanded="false">
+          <span class="set-sec-icon">🎨</span>
+          <span class="set-sec-title">Väripaketti<span class="set-sec-sum" id="sum-paketti"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-paketti" hidden>
+<div class="theme-pack-row" id="themePackRow"></div>
         <div class="toggle-row-sub">Paketti vaihtaa taustat, tekstit ja pistevärit kerralla. Se asettaa myös korostusvärin, jonka voit vaihtaa jälkikäteen alta.</div>
+        </div>
       </div>
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Korostusväri</label>
-        <div class="accent-row" id="accentRow"></div>
+      <div class="set-sec" data-sec="korostus">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('korostus')" aria-expanded="false">
+          <span class="set-sec-icon">🖍️</span>
+          <span class="set-sec-title">Korostusväri<span class="set-sec-sum" id="sum-korostus"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-korostus" hidden>
+<div class="accent-row" id="accentRow"></div>
+        </div>
       </div>
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Korttien sisältö ja yläpalkki</label>
-        <div id="cardFieldsBox"></div>
+      <div class="set-sec" data-sec="logo">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('logo')" aria-expanded="false">
+          <span class="set-sec-icon">⭐</span>
+          <span class="set-sec-title">Yläpalkin logo<span class="set-sec-sum" id="sum-logo"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-logo" hidden>
+<div id="logoBox"></div>
+        </div>
       </div>
-
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Lomakkeen kenttäjärjestys</label>
-        <div class="toggle-row-sub" style="margin-bottom:10px;">Raahaa rivejä ⠿-kahvasta. Kategoria, alalaji ja arvostelutyyppi pysyvät aina ylimpänä, koska ne ratkaisevat mitkä muut kentät näkyvät.</div>
-        <div class="fo-list" id="formOrderList"></div>
-        <button type="button" class="thr-reset" onclick="resetFormOrder()">↩️ Palauta oletusjärjestys</button>
-      </div>
-
-      <div class="form-group">
-        <div class="toggle-row">
+      <div class="set-sec" data-sec="julistevari">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('julistevari')" aria-expanded="false">
+          <span class="set-sec-icon">🌈</span>
+          <span class="set-sec-title">Julisteen väri korteissa<span class="set-sec-sum" id="sum-julistevari"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-julistevari" hidden>
+<div class="toggle-row">
           <div>
             <div class="toggle-row-label">Julisteen väri korteissa</div>
             <div class="toggle-row-sub">Poimii kortin reunaväriä julisteesta</div>
           </div>
           <button type="button" class="toggle-switch" id="posterColorToggle" onclick="togglePosterColors()"></button>
         </div>
+        </div>
       </div>
     </div>
 
-    <!-- ── PISTEYTYS ── -->
-    <div class="settings-pane" data-pane="pisteytys">
-      <div class="form-group">
-        <label>Pisteluokkien rajat</label>
-        <div class="thr-preview" id="thrPreview"></div>
+    <!-- ── KORTIT ── -->
+    <div class="settings-pane" data-pane="kortit">
+      <div class="set-sec" data-sec="kortinkentat">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('kortinkentat')" aria-expanded="false">
+          <span class="set-sec-icon">👁️</span>
+          <span class="set-sec-title">Näkyvät tiedot<span class="set-sec-sum" id="sum-kortinkentat"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-kortinkentat" hidden>
+<div id="cardFieldsBox"></div>
+        </div>
+      </div>
+      <div class="set-sec" data-sec="julistepaikka">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('julistepaikka')" aria-expanded="false">
+          <span class="set-sec-icon">🖼️</span>
+          <span class="set-sec-title">Julisteen sijainti<span class="set-sec-sum" id="sum-julistepaikka"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-julistepaikka" hidden>
+<div id="posterPosBox"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LOMAKE ── -->
+    <div class="settings-pane" data-pane="lomake">
+      <div class="set-sec" data-sec="kenttajarj">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('kenttajarj')" aria-expanded="false">
+          <span class="set-sec-icon">⠿</span>
+          <span class="set-sec-title">Kenttien järjestys<span class="set-sec-sum" id="sum-kenttajarj"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-kenttajarj" hidden>
+<div class="toggle-row-sub" style="margin-bottom:10px;">Raahaa rivejä ⠿-kahvasta. Kategoria, alalaji ja arvostelutyyppi pysyvät aina ylimpänä, koska ne ratkaisevat mitkä muut kentät näkyvät.</div>
+        <div class="fo-list" id="formOrderList"></div>
+        <button type="button" class="thr-reset" onclick="resetFormOrder()">↩️ Palauta oletusjärjestys</button>
+        </div>
+      </div>
+      <div class="set-sec" data-sec="kategoriat">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('kategoriat')" aria-expanded="false">
+          <span class="set-sec-icon">📁</span>
+          <span class="set-sec-title">Kategoriat<span class="set-sec-sum" id="sum-kategoriat"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-kategoriat" hidden>
+<div class="cat-manage" id="catManageList"></div>
+        <div class="add-cat-row">
+          <input type="text" id="newCatInput" placeholder="Uusi kategoria...">
+          <button class="add-cat-btn" onclick="addCategory()">+</button>
+        </div>
+        </div>
+      </div>
+      <div class="set-sec" data-sec="alalajit">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('alalajit')" aria-expanded="false">
+          <span class="set-sec-icon">📂</span>
+          <span class="set-sec-title">Alalajit<span class="set-sec-sum" id="sum-alalajit"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-alalajit" hidden>
+<div class="toggle-row-sub" style="margin-bottom:10px;">Kategorian sisäinen jako, esimerkiksi Elokuvat → Perus / Dokumentit. Alalajivalitsin näkyy arvostelulistan yläpuolella vain niissä kategorioissa joilla on alalajeja.</div>
+        <select id="subcatCatSelect" onchange="renderSubcatManage()"></select>
+        <div class="cat-manage" id="subcatManageList" style="margin-top:10px;"></div>
+        <div class="add-cat-row">
+          <input type="text" id="newSubcatInput" placeholder="Uusi alalaji...">
+          <button class="add-cat-btn" onclick="addSubcat()">+</button>
+        </div>
+        <button class="btn-secondary" style="width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;" onclick="openMoveModal()">📂 Siirrä arvosteluja</button>
+        </div>
+      </div>
+      <div class="set-sec" data-sec="genret">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('genret')" aria-expanded="false">
+          <span class="set-sec-icon">🏷️</span>
+          <span class="set-sec-title">Genret<span class="set-sec-sum" id="sum-genret"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-genret" hidden>
+<div class="cat-manage" id="genreManageList"></div>
+        <div class="add-cat-row">
+          <input type="text" id="newGenreInput" placeholder="Uusi genre...">
+          <button class="add-cat-btn" onclick="addGenre()">+</button>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PISTEET ── -->
+    <div class="settings-pane" data-pane="pisteet">
+      <div class="set-sec" data-sec="rajat">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('rajat')" aria-expanded="false">
+          <span class="set-sec-icon">🚦</span>
+          <span class="set-sec-title">Pisteluokkien rajat<span class="set-sec-sum" id="sum-rajat"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-rajat" hidden>
+<div class="thr-preview" id="thrPreview"></div>
         <div class="thr-row">
           <span class="thr-label">🟢 Hyvä alkaa</span>
           <input type="range" class="thr-slider" id="thrHigh" min="2" max="100" step="1"
@@ -585,40 +700,42 @@
         </div>
         <div class="toggle-row-sub" style="margin-top:8px;">Rajat vaikuttavat kaikkiin väreihin: korttien reunoihin, arvosanarenkaisiin, Top-listaan ja arvosanasuodattimeen. Jos käytät asteikon yläpäätä tiiviisti, nosta rajoja.</div>
         <button type="button" class="thr-reset" onclick="resetScoreBands()">↩️ Palauta oletukset (70 / 40)</button>
+        </div>
       </div>
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Osa-arvioiden painotus</label>
-        <div id="weightRows"></div>
+      <div class="set-sec" data-sec="painotus">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('painotus')" aria-expanded="false">
+          <span class="set-sec-icon">⚖️</span>
+          <span class="set-sec-title">Osa-arvioiden painotus<span class="set-sec-sum" id="sum-painotus"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-painotus" hidden>
+<div id="weightRows"></div>
         <div class="toggle-row-sub" style="margin-top:8px;">Kuinka paljon kukin ryhmä vaikuttaa laajennetun arvioinnin pisteeseen. 1,0 = normaali.</div>
+        </div>
       </div>
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Vertailun tarkkuus</label>
-        <div class="precision-row" id="precisionRow"></div>
+      <div class="set-sec" data-sec="tarkkuus">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('tarkkuus')" aria-expanded="false">
+          <span class="set-sec-icon">🎯</span>
+          <span class="set-sec-title">Vertailun tarkkuus<span class="set-sec-sum" id="sum-tarkkuus"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-tarkkuus" hidden>
+<div class="precision-row" id="precisionRow"></div>
         <div class="toggle-row-sub" style="margin-top:6px;">Montako kysymystä vertailu esittää enintään. Enemmän kysymyksiä = tarkempi piste.</div>
+        </div>
       </div>
     </div>
 
-    <!-- ── DATA ── -->
-    <div class="settings-pane" data-pane="data">
-      <div class="form-group">
-        <label>Kategoriat</label>
-        <div class="cat-manage" id="catManageList"></div>
-        <div class="add-cat-row">
-          <input type="text" id="newCatInput" placeholder="Uusi kategoria...">
-          <button class="add-cat-btn" onclick="addCategory()">+</button>
-        </div>
-      </div>
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Genret</label>
-        <div class="cat-manage" id="genreManageList"></div>
-        <div class="add-cat-row">
-          <input type="text" id="newGenreInput" placeholder="Uusi genre...">
-          <button class="add-cat-btn" onclick="addGenre()">+</button>
-        </div>
-      </div>
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>TMDB-tunnus</label>
-        <div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
+    <!-- ── TMDB ── -->
+    <div class="settings-pane" data-pane="tmdb">
+      <div class="set-sec" data-sec="tunnus">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('tunnus')" aria-expanded="false">
+          <span class="set-sec-icon">🔑</span>
+          <span class="set-sec-title">TMDB-tunnus<span class="set-sec-sum" id="sum-tunnus"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-tunnus" hidden>
+<div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
         <label style="margin-top:14px;">Oma lukutunnus (Read Access Token)</label>
         <textarea class="token-input" id="tmdbTokenInput" rows="3" spellcheck="false" autocapitalize="off" autocorrect="off"
           placeholder="Jätä tyhjäksi jos haluat käyttää oletusta"></textarea>
@@ -629,44 +746,47 @@
         <button type="button" class="thr-reset" onclick="clearTmdbToken()">↩️ Palauta oletustunnus</button>
         <div class="token-state" id="tmdbTokenState"></div>
         <div class="toggle-row-sub" style="margin-top:8px;">Tunnuksen saa osoitteesta themoviedb.org → Settings → API → API Read Access Token. Se tallennetaan vain omaan pilveesi, ei koodiin.</div>
-      </div>
-
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>TMDB-kutsut</label>
-        <div id="tmdbCallsBox"></div>
-      </div>
-
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Puuttuvat juonet</label>
-        <div id="missingPlotsBox"></div>
-      </div>
-
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Tietojen massapäivitys</label>
-        <div class="toggle-row-sub" style="margin-bottom:10px;">Käy läpi kaikki elokuvat ja sarjat, kertoo miltä puuttuu julisteita, ohjaajia, kestoja tai tuotantotiloja, ja näyttää tarkalleen mitä muuttuisi ennen kuin mitään tallennetaan.</div>
-        <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="openBulkTmdb()">🔄 Etsi puuttuvat tiedot</button>
-      </div>
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Alalajit</label>
-        <div class="toggle-row-sub" style="margin-bottom:10px;">Kategorian sisäinen jako, esimerkiksi Elokuvat → Perus / Dokumentit. Alalajivalitsin näkyy arvostelulistan yläpuolella vain niissä kategorioissa joilla on alalajeja.</div>
-        <select id="subcatCatSelect" onchange="renderSubcatManage()"></select>
-        <div class="cat-manage" id="subcatManageList" style="margin-top:10px;"></div>
-        <div class="add-cat-row">
-          <input type="text" id="newSubcatInput" placeholder="Uusi alalaji...">
-          <button class="add-cat-btn" onclick="addSubcat()">+</button>
         </div>
-        <button class="btn-secondary" style="width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;" onclick="openMoveModal()">📂 Siirrä arvosteluja</button>
       </div>
-
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Tallennuksen tila</label>
-        <div id="syncSummary" style="font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:10px;"></div>
-        <button class="btn-secondary" style="width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;" onclick="openSyncQueue()">☁️ Näytä tallennusjono</button>
+      <div class="set-sec" data-sec="kutsut">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('kutsut')" aria-expanded="false">
+          <span class="set-sec-icon">📊</span>
+          <span class="set-sec-title">TMDB-kutsut<span class="set-sec-sum" id="sum-kutsut"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-kutsut" hidden>
+<div id="tmdbCallsBox"></div>
+        </div>
       </div>
-
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Jaksotiedot ja käännökset</label>
-        <div class="toggle-row-sub" style="margin-bottom:10px;">Tuonti ei käännä mitään automaattisesti: TMDB:n suomi käytetään aina kun se on olemassa, muuten englanti. Kääntäminen käynnistetään käsin sarjakortin 🌐-napista. Nämä valinnat kertovat mitä silloin käännetään.</div>
+      <div class="set-sec" data-sec="juonet">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('juonet')" aria-expanded="false">
+          <span class="set-sec-icon">📖</span>
+          <span class="set-sec-title">Puuttuvat juonet<span class="set-sec-sum" id="sum-juonet"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-juonet" hidden>
+<div id="missingPlotsBox"></div>
+        </div>
+      </div>
+      <div class="set-sec" data-sec="massa">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('massa')" aria-expanded="false">
+          <span class="set-sec-icon">🔄</span>
+          <span class="set-sec-title">Tietojen massapäivitys<span class="set-sec-sum" id="sum-massa"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-massa" hidden>
+<div class="toggle-row-sub" style="margin-bottom:10px;">Käy läpi kaikki elokuvat ja sarjat, kertoo miltä puuttuu julisteita, ohjaajia, kestoja tai tuotantotiloja, ja näyttää tarkalleen mitä muuttuisi ennen kuin mitään tallennetaan.</div>
+        <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="openBulkTmdb()">🔄 Etsi puuttuvat tiedot</button>
+        </div>
+      </div>
+      <div class="set-sec" data-sec="kaannokset">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('kaannokset')" aria-expanded="false">
+          <span class="set-sec-icon">🌐</span>
+          <span class="set-sec-title">Jaksotiedot ja käännökset<span class="set-sec-sum" id="sum-kaannokset"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-kaannokset" hidden>
+<div class="toggle-row-sub" style="margin-bottom:10px;">Tuonti ei käännä mitään automaattisesti: TMDB:n suomi käytetään aina kun se on olemassa, muuten englanti. Kääntäminen käynnistetään käsin sarjakortin 🌐-napista. Nämä valinnat kertovat mitä silloin käännetään.</div>
         <div class="toggle-row">
           <div>
             <div class="toggle-row-label">Ota juonet mukaan käännökseen</div>
@@ -688,11 +808,31 @@
         <div class="toggle-row-sub" style="margin-top:6px;">MyMemory sallii nimettömänä noin 5 000 merkkiä vuorokaudessa. Sähköpostilla raja nousee 50 000 merkkiin. Osoitetta ei tallenneta muualle kuin omaan pilveesi.</div>
         <div id="translateCacheInfo" style="font-size:12px;color:var(--muted);margin-top:10px;"></div>
         <button class="btn-secondary" style="width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="resetTranslationCache()">🗑️ Tyhjennä käännösvälimuisti</button>
+        </div>
       </div>
+    </div>
 
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Varmuuskopio</label>
-        <div id="backupInfo" style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px;"></div>
+    <!-- ── DATA ── -->
+    <div class="settings-pane" data-pane="data">
+      <div class="set-sec" data-sec="tallennus">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('tallennus')" aria-expanded="false">
+          <span class="set-sec-icon">☁️</span>
+          <span class="set-sec-title">Tallennuksen tila<span class="set-sec-sum" id="sum-tallennus"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-tallennus" hidden>
+<div id="syncSummary" style="font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:10px;"></div>
+        <button class="btn-secondary" style="width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;" onclick="openSyncQueue()">☁️ Näytä tallennusjono</button>
+        </div>
+      </div>
+      <div class="set-sec" data-sec="varmuus">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('varmuus')" aria-expanded="false">
+          <span class="set-sec-icon">💾</span>
+          <span class="set-sec-title">Varmuuskopio<span class="set-sec-sum" id="sum-varmuus"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-varmuus" hidden>
+<div id="backupInfo" style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px;"></div>
         <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="downloadBackup()">⬇️ Lataa varmuuskopio</button>
         <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="document.getElementById('restoreFileInput').click()">⬆️ Palauta tiedostosta</button>
         <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none;" onchange="restoreBackup(this)">
@@ -700,33 +840,43 @@
         <input type="file" id="restoreMetaInput" accept="application/json,.json" style="display:none;" onchange="restoreMetaFile(this)">
         <button class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="checkOldDoc()">🗄️ Tarkista vanha pilvikopio</button>
         <div id="oldDocReport" style="font-size:12px;color:var(--muted);line-height:1.55;margin-top:10px;"></div>
+        </div>
       </div>
-    </div>
-
-    <!-- ── TILI ── -->
-    <div class="settings-pane" data-pane="tili">
-      <div class="form-group">
-        <label>Kirjautunut käyttäjä</label>
-        <div id="accountInfo" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
+      <div class="set-sec" data-sec="tili">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('tili')" aria-expanded="false">
+          <span class="set-sec-icon">👤</span>
+          <span class="set-sec-title">Kirjautunut käyttäjä<span class="set-sec-sum" id="sum-tili"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-tili" hidden>
+<div id="accountInfo" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
+        </div>
       </div>
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Suorituskyky ja tilankäyttö</label>
-        <div id="perfBox"></div>
+      <div class="set-sec" data-sec="suorituskyky">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('suorituskyky')" aria-expanded="false">
+          <span class="set-sec-icon">⚡</span>
+          <span class="set-sec-title">Suorituskyky ja tila<span class="set-sec-sum" id="sum-suorituskyky"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-suorituskyky" hidden>
+<div id="perfBox"></div>
+        </div>
       </div>
-
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Testitila</label>
-        <div id="sandboxBox"></div>
+      <div class="set-sec" data-sec="testitila">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('testitila')" aria-expanded="false">
+          <span class="set-sec-icon">🧪</span>
+          <span class="set-sec-title">Testitila<span class="set-sec-sum" id="sum-testitila"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-testitila" hidden>
+<div id="sandboxBox"></div>
+        </div>
       </div>
-
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <button class="btn-secondary" style="width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;" onclick="doSignOut()">🚪 Kirjaudu ulos</button>
-      </div>
+      <button class="btn-secondary set-signout" onclick="doSignOut()">🚪 Kirjaudu ulos</button>
     </div>
 
   </div>
 </div>
-
 <!-- JUONEN MUOKKAUS -->
 <div class="modal-overlay" id="plotModal" onclick="closeModalIfOutside(event,'plotModal')">
   <div class="modal-sheet" style="max-width:520px;">

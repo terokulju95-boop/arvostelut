@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-01.19';
+window.BUILD_THEME = '2026-09-01.20';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -30,6 +30,7 @@ const THEME_PACKS = [
   { id:'paperi', name:'Paperi',    accent:'#4a5568', prev:['#fbfaf7','#4a5568','#166534'] }
 ];
 window.THEME_PACKS = THEME_PACKS;
+window.THEME_MODES = THEME_MODES;
 
 const prefersLight = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 

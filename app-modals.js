@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-01.19';
+window.BUILD_MODALS = '2026-09-01.20';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -850,7 +850,7 @@ window.restoreBackup = function(input){
 // ── ASETUKSET ──
 // Asetukset on jaettu neljään välilehteen. Valittu välilehti muistetaan,
 // jotta esim. varmuuskopiointi löytyy heti uudelleen avattaessa.
-const SETTINGS_TABS = ['ulkoasu','pisteytys','data','tili'];
+const SETTINGS_TABS = ['ulkoasu','kortit','lomake','pisteet','tmdb','data'];
 let settingsTab = 'ulkoasu';
 try {
   const saved = localStorage.getItem('arvostelut_settingsTab');
@@ -867,6 +867,10 @@ window.setSettingsTab = function(id){
   document.querySelectorAll('#settingsModal .settings-pane').forEach(p=>{
     p.classList.toggle('active', p.dataset.pane === id);
   });
+  // Osiot kiinni myös välilehteä vaihdettaessa, jotta uusi välilehti
+  // alkaa aina lyhyenä listana otsikoita eikä avoimena seinänä.
+  if(window.closeAllSetSecs) window.closeAllSetSecs();
+  if(window.renderSectionSummaries) window.renderSectionSummaries();
   // Vieritä ylös, muuten pitkältä välilehdeltä lyhyelle siirtyminen
   // jättää näkymän tyhjän näköiseksi
   const sheet = document.querySelector('#settingsModal .modal-sheet');
@@ -1311,7 +1315,7 @@ window.openSettings = function(){
   safeRender('painotukset', renderWeightRows);
   safeRender('julistevärit', updatePosterColorToggle);
   safeRender('kenttäjärjestys', window.renderFormOrderSettings);
-  safeRender('korttien sisältö', window.renderCardFieldSettings);
+  safeRender('korttien sisältö', window.renderCardSettings);
   safeRender('tmdb-tila', renderTmdbStatus);
   safeRender('varmuuskopio', renderBackupInfo);
   safeRender('tili', renderAccountInfo);
@@ -1320,6 +1324,10 @@ window.openSettings = function(){
   _oldDocReport = null;
   const odr = document.getElementById('oldDocReport');
   if(odr) odr.innerHTML = '';
+  // Kaikki osiot suljetaan aina kun asetukset avataan — pitkät listat
+  // eivät saa täyttää näkymää heti.
+  if(window.closeAllSetSecs) window.closeAllSetSecs();
+  safeRender('osioiden tiivistelmät', window.renderSectionSummaries);
   window.setSettingsTab(settingsTab);
   document.getElementById('settingsModal').classList.add('open');
 };
