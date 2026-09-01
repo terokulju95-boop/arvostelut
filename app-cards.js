@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-01.20';
+window.BUILD_CARDS = '2026-09-01.21';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -120,7 +120,107 @@ window.cardPosterHtml = function(r){
 };
 
 // ════════════════════════════════════════════════════════════
-// 3. YLÄPALKIN LOGO
+// 3. MUODOT JA MITAT
+// Kortin pyöristys ja arvosanarenkaan paksuus. Molemmat asetetaan
+// CSS-muuttujina, jolloin ne seuraavat kaikkia näkymiä kerralla.
+// Väripaketit asettavat oman --card-radius-arvonsa, joten oma valinta
+// kirjoitetaan documentElementille jotta se voittaa paketin.
+// ════════════════════════════════════════════════════════════
+
+const RADIUS_DEFAULT = null;   // null = seuraa väripakettia
+const RING_DEFAULT   = 6;
+
+window.cardRadius = function(){
+  const v = ensureSettings().cardRadius;
+  if(v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return isFinite(n) ? Math.max(0, Math.min(28, Math.round(n))) : null;
+};
+
+window.ringWidth = function(){
+  const n = Number(ensureSettings().ringWidth);
+  return isFinite(n) ? Math.max(2, Math.min(14, Math.round(n))) : RING_DEFAULT;
+};
+
+window.applyShapes = function(){
+  const root = document.documentElement;
+  const r = window.cardRadius();
+  if(r === null) root.style.removeProperty('--card-radius');
+  else root.style.setProperty('--card-radius', r + 'px');
+  root.style.setProperty('--ring-width', window.ringWidth() + 'px');
+};
+
+window.setCardRadius = function(val, live){
+  const s = ensureSettings();
+  s.cardRadius = (val === '' || val === null) ? RADIUS_DEFAULT : Number(val);
+  window.applyShapes();
+  renderShapeSettings();
+  if(live) return;
+  if(window.renderSectionSummaries) window.renderSectionSummaries();
+  window.fbSave();
+};
+
+window.setRingWidth = function(val, live){
+  ensureSettings().ringWidth = Number(val);
+  window.applyShapes();
+  renderShapeSettings();
+  if(live) return;
+  if(window.renderSectionSummaries) window.renderSectionSummaries();
+  window.fbSave();
+};
+
+window.resetShapes = async function(){
+  const s = ensureSettings();
+  s.cardRadius = RADIUS_DEFAULT;
+  s.ringWidth  = RING_DEFAULT;
+  window.applyShapes();
+  renderShapeSettings();
+  if(window.renderSectionSummaries) window.renderSectionSummaries();
+  await window.fbSave();
+};
+
+function renderShapeSettings(){
+  const host = document.getElementById('shapeBox');
+  if(!host) return;
+  const r = window.cardRadius();
+  const w = window.ringWidth();
+  // Väripaketin oma arvo näytetään kun omaa valintaa ei ole tehty
+  const packR = getComputedStyle(document.documentElement)
+    .getPropertyValue('--card-radius').trim() || '14px';
+
+  host.innerHTML = `
+    <div class="thr-row">
+      <span class="thr-label">⬜ Kortin pyöristys</span>
+      <input type="range" class="thr-slider" min="0" max="28" step="1" value="${r === null ? parseInt(packR, 10) || 14 : r}"
+        oninput="setCardRadius(this.value, true)" onchange="setCardRadius(this.value, false)">
+      <span class="thr-val">${r === null ? packR : r + 'px'}</span>
+    </div>
+    <div class="shape-prev">
+      <span class="shape-prev-card" style="border-radius:var(--card-radius);"></span>
+      <span class="shape-prev-note">${r === null ? 'Seuraa väripakettia' : 'Oma valinta'}</span>
+    </div>
+
+    <div class="thr-row" style="margin-top:14px;">
+      <span class="thr-label">⭕ Renkaan paksuus</span>
+      <input type="range" class="thr-slider" min="2" max="14" step="1" value="${w}"
+        oninput="setRingWidth(this.value, true)" onchange="setRingWidth(this.value, false)">
+      <span class="thr-val">${w}px</span>
+    </div>
+    <div class="shape-prev">
+      <svg width="54" height="54" viewBox="0 0 88 88" style="transform:rotate(-90deg);">
+        <circle class="score-ring-bg" cx="44" cy="44" r="38"/>
+        <circle class="score-ring-fill high" cx="44" cy="44" r="38"
+          stroke-dasharray="238.8" stroke-dashoffset="60"/>
+      </svg>
+      <span class="shape-prev-note">Esikatselu</span>
+    </div>
+
+    <button type="button" class="thr-reset" onclick="resetShapes()">↩️ Palauta oletukset</button>`;
+}
+window.renderShapeSettings = renderShapeSettings;
+
+// ════════════════════════════════════════════════════════════
+// 4. YLÄPALKIN LOGO
 // ════════════════════════════════════════════════════════════
 
 const LOGO_DEFAULT = '★ ARVOSTELUT';
@@ -251,6 +351,7 @@ function renderLogoSettings(){
 window.renderCardSettings = function(){
   renderCardFieldSettings();
   renderPosterPosSettings();
+  renderShapeSettings();
   renderLogoSettings();
   if(window.renderSectionSummaries) window.renderSectionSummaries();
 };
@@ -260,6 +361,7 @@ window.renderCardFieldSettings = renderCardFieldSettings;
 // Logo asetetaan heti kun asetukset ovat luettavissa.
 document.addEventListener('DOMContentLoaded', () => {
   try{ window.applyLogo(); } catch(e){}
+  try{ window.applyShapes(); } catch(e){}
 });
 
 // ════════════════════════════════════════════════════════════
@@ -328,7 +430,7 @@ function sectionSummaries(){
 
   const modeName = ((window.THEME_MODES || []).find(m => m.id === (s.themeMode || 'dark')) || {}).name || '';
   const packName = ((window.THEME_PACKS || []).find(x => x.id === (s.themePack || 'perus')) || {}).name || '';
-  const bands = (typeof scoreBands === 'function') ? scoreBands() : { high:70, mid:40 };
+  const defs = (typeof scoreBandDefs === 'function') ? scoreBandDefs() : { count:3, cuts:[70,40] };
 
   return {
     teema:        modeName,
@@ -340,11 +442,12 @@ function sectionSummaries(){
                     ? `${hiddenCard} + ${hiddenRead} piilotettu`
                     : 'kaikki näkyvissä',
     julistepaikka: posLabel,
+    muodot:       `${window.cardRadius() === null ? 'paketin mukaan' : window.cardRadius() + 'px'} · rengas ${window.ringWidth()}px`,
     kenttajarj:   (s.formOrder && s.formOrder.length) ? 'muokattu' : 'oletus',
     kategoriat:   `${cats} kpl`,
     genret:       `${gens} kpl`,
     alalajit:     subs ? `${subs} kpl` : 'ei yhtään',
-    rajat:        `${bands.mid}–${bands.high}`,
+    rajat:        `${window.bandCount()} luokkaa · ${defs.cuts.join(' / ')}`,
     tunnus:       (s.tmdbToken || '').trim() ? 'oma tunnus' : 'oletus',
     juonet:       noPlot ? `${noPlot} puuttuu` : 'ei puutu',
     kaannokset:   s.translatePlots ? 'juonet mukana' : 'juonet pois',
@@ -360,3 +463,119 @@ window.renderSectionSummaries = function(){
     if(el) el.textContent = sums[id] ? ' · ' + sums[id] : '';
   });
 };
+
+// ════════════════════════════════════════════════════════════
+// 6. PÄIVITYKSEN TARKISTUSLISTA
+// Uudet asetukset jäävät helposti huomaamatta, koska mikään ei kerro
+// niistä. Kun versioleima muuttuu, näytetään kerran lyhyt lista siitä
+// mitä on tullut lisää ja mistä kukin löytyy. Lista kuitataan luetuksi
+// paikallisesti, joten se ei palaa laitteessa uudelleen.
+// ════════════════════════════════════════════════════════════
+
+const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
+
+// Uusimmat ensin. tab = mille asetusvälilehdelle vie, sec = mikä osio avataan.
+// HUOM: nämä versionumerot EIVÄT ole tiedoston versioleima vaan viittaus
+// siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
+// kun leimoja päivitetään — lista rikkoutuu.
+const WHATS_NEW = [
+  { build:'2026-09-01.21', items:[
+    { icon:'📐', title:'Kortin pyöristys ja renkaan paksuus',
+      text:'Kortin kulmat ja arvosanarenkaan viivan paksuus säätyvät liukusäätimillä.',
+      tab:'kortit', sec:'muodot' },
+    { icon:'🚦', title:'Viisi pisteluokkaa kolmen sijaan',
+      text:'Voit jakaa asteikon viiteen portaaseen. Lisävärit johdetaan nykyisestä teemasta.',
+      tab:'pisteet', sec:'rajat' },
+    { icon:'🩹', title:'Datan tarkistus ja korjaukset',
+      text:'Sovellus etsii rikkinäisiä kenttiä ja kirjoitusvirheitä. Mitään ei muuteta ilman hyväksyntääsi.',
+      tab:'data', sec:'korjaukset' },
+    { icon:'📚', title:'Löydä: pitkät sarjat',
+      text:'Uusi haku Löydä-näkymässä etsii pitkiä sarjoja joita et ole aloittanut.',
+      view:'discover' }
+  ]},
+  { build:'2026-09-01.20', items:[
+    { icon:'🗂️', title:'Asetukset jaettu kuudelle välilehdelle',
+      text:'Kaikki välilehdet mahtuvat riville, ja jokainen osio avautuu napista.',
+      tab:'ulkoasu' }
+  ]}
+];
+
+function newSinceSeen(){
+  let seen = '';
+  try{ seen = localStorage.getItem(SEEN_BUILD_KEY) || ''; } catch(e){}
+  const cur = window.BUILD_CARDS || '';
+  if(!cur) return [];
+  // Ensimmäisellä käynnistyksellä ei näytetä mitään: silloin kaikki on uutta
+  // eikä lista kertoisi mitään hyödyllistä.
+  if(!seen) return [];
+  if(seen === cur) return [];
+  const out = [];
+  for(const entry of WHATS_NEW){
+    if(entry.build <= seen) break;
+    out.push(...entry.items);
+  }
+  return out;
+}
+
+window.markBuildSeen = function(){
+  try{ localStorage.setItem(SEEN_BUILD_KEY, window.BUILD_CARDS || ''); } catch(e){}
+  const box = document.getElementById('whatsNewBox');
+  if(box) box.remove();
+};
+
+window.openWhatsNewTarget = function(tab, sec, view){
+  window.markBuildSeen();
+  if(view){
+    window.closeModal('settingsModal');
+    window.setView(view);
+    return;
+  }
+  if(!document.getElementById('settingsModal').classList.contains('open')){
+    if(window.openSettings) window.openSettings();
+  }
+  if(tab) window.setSettingsTab(tab);
+  if(sec) setTimeout(() => window.toggleSetSec(sec), 60);
+};
+
+// Palkki asetusten yläreunaan, heti versiovaroituksen alle.
+window.renderWhatsNew = function(){
+  const items = newSinceSeen();
+  const old = document.getElementById('whatsNewBox');
+  if(old) old.remove();
+  if(!items.length) return;
+
+  const warn = document.getElementById('buildWarning');
+  if(!warn || !warn.parentNode) return;
+
+  const box = document.createElement('div');
+  box.id = 'whatsNewBox';
+  box.className = 'whats-new';
+  box.innerHTML = `
+    <div class="wn-head">
+      <span class="wn-title">✨ Uutta tässä versiossa</span>
+      <button type="button" class="wn-close" onclick="markBuildSeen()" aria-label="Kuittaa luetuksi">✕</button>
+    </div>
+    <div class="wn-sub">${items.length} ${items.length === 1 ? 'uusi asia' : 'uutta asiaa'} · napauta siirtyäksesi</div>
+    ${items.map(i => `
+      <button type="button" class="wn-item" onclick="openWhatsNewTarget(${i.tab ? `'${i.tab}'` : 'null'},${i.sec ? `'${i.sec}'` : 'null'},${i.view ? `'${i.view}'` : 'null'})">
+        <span class="wn-icon">${i.icon}</span>
+        <span class="wn-text">
+          <strong>${esc(i.title)}</strong>
+          <span>${esc(i.text)}</span>
+        </span>
+        <span class="wn-arrow">›</span>
+      </button>`).join('')}
+    <button type="button" class="wn-done" onclick="markBuildSeen()">Selvä, kuittaa luetuksi</button>`;
+  warn.parentNode.insertBefore(box, warn.nextSibling);
+};
+
+// Versioleima merkitään nähdyksi vasta kun lista on kuitattu — mutta
+// aivan ensimmäisellä käynnistyksellä se merkitään heti, jottei uusi
+// laite näytä koko historiaa.
+document.addEventListener('DOMContentLoaded', () => {
+  try{
+    if(!localStorage.getItem(SEEN_BUILD_KEY)){
+      localStorage.setItem(SEEN_BUILD_KEY, window.BUILD_CARDS || '');
+    }
+  } catch(e){}
+});

@@ -141,6 +141,11 @@
         <span class="disc-btn-text"><strong>Samankaltaisia suosikkiesi kanssa</strong>
         <span>TMDB:n suositukset parhaiten pisteyttämillesi</span></span>
       </button>
+      <button class="disc-btn disc-btn-main" onclick="runDiscover('longtv')">
+        <span class="disc-btn-icon">📚</span>
+        <span class="disc-btn-text"><strong>Pitkät sarjat joita et ole aloittanut</strong>
+        <span>Vähintään kolme kautta — riittää katsottavaa pitkäksi aikaa</span></span>
+      </button>
       <button class="disc-btn disc-btn-main" onclick="runDiscover('ended')">
         <span class="disc-btn-icon">🏁</span>
         <span class="disc-btn-text"><strong>Päättyneet sarjat</strong>
@@ -601,6 +606,16 @@
 <div id="cardFieldsBox"></div>
         </div>
       </div>
+      <div class="set-sec" data-sec="muodot">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('muodot')" aria-expanded="false">
+          <span class="set-sec-icon">📐</span>
+          <span class="set-sec-title">Muodot ja mitat<span class="set-sec-sum" id="sum-muodot"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-muodot" hidden>
+<div id="shapeBox"></div>
+        </div>
+      </div>
       <div class="set-sec" data-sec="julistepaikka">
         <button type="button" class="set-sec-head" onclick="toggleSetSec('julistepaikka')" aria-expanded="false">
           <span class="set-sec-icon">🖼️</span>
@@ -684,22 +699,13 @@
         </button>
         <div class="set-sec-body" id="sec-rajat" hidden>
 <div class="thr-preview" id="thrPreview"></div>
-        <div class="thr-row">
-          <span class="thr-label">🟢 Hyvä alkaa</span>
-          <input type="range" class="thr-slider" id="thrHigh" min="2" max="100" step="1"
-            oninput="setScoreBand('high', this.value, true)"
-            onchange="setScoreBand('high', this.value, false)">
-          <span class="thr-val" id="thrHighVal">70</span>
-        </div>
-        <div class="thr-row">
-          <span class="thr-label">🟠 Keskitaso alkaa</span>
-          <input type="range" class="thr-slider" id="thrMid" min="0" max="99" step="1"
-            oninput="setScoreBand('mid', this.value, true)"
-            onchange="setScoreBand('mid', this.value, false)">
-          <span class="thr-val" id="thrMidVal">40</span>
-        </div>
+        <div id="thrSliders"></div>
         <div class="toggle-row-sub" style="margin-top:8px;">Rajat vaikuttavat kaikkiin väreihin: korttien reunoihin, arvosanarenkaisiin, Top-listaan ja arvosanasuodattimeen. Jos käytät asteikon yläpäätä tiiviisti, nosta rajoja.</div>
-        <button type="button" class="thr-reset" onclick="resetScoreBands()">↩️ Palauta oletukset (70 / 40)</button>
+        <div class="cfld-sep"></div>
+        <label>Luokkien määrä</label>
+        <div class="filter-row" id="thrCountRow" style="margin:6px 0 4px;"></div>
+        <div class="toggle-row-sub" id="thrCountHint"></div>
+        <button type="button" class="thr-reset" onclick="resetScoreBands()">↩️ Palauta oletukset</button>
         </div>
       </div>
       <div class="set-sec" data-sec="painotus">

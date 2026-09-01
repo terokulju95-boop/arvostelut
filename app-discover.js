@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-09-01.20';
+window.BUILD_DISCOVER = '2026-09-01.21';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.
@@ -139,6 +139,7 @@ window.runDiscover = async function(mode){
     else if(mode === 'collections')  await discoverCollections(out);
     else if(mode === 'classics')     await discoverClassics(out);
     else if(mode === 'ended')        await discoverEndedSeries(out);
+    else if(mode === 'longtv')       await discoverLongSeries(out);
   } catch(e){
     console.error(e);
     discStatus('❌ Haku epäonnistui. Tarkista internetyhteys.');
@@ -635,4 +636,85 @@ async function discoverEndedSeries(out){
   out.innerHTML = sections.length
     ? sections.join('')
     : discEmpty('Et löytänyt uusia päättyneitä sarjoja. Nosta ehdotusten määrää tai kokeile toista hakua.');
+}
+
+// ── 7. PITKÄT SARJAT JOITA ET OLE ALOITTANUT ──
+// Sarjoja joissa riittää katsottavaa pitkäksi aikaa. TMDB:n discover ei
+// osaa suodattaa jaksomäärällä, joten haetaan arvostetut sarjat ja
+// kysytään jaksomäärä yksitellen vasta karsinnan jälkeen — muuten
+// kutsuja kuluisi kymmenkertaisesti.
+const LONG_MIN_EPISODES = 40;
+const LONG_MIN_SEASONS  = 3;
+const LONG_CHECK_MAX    = 14;   // montako ehdokasta tarkistetaan yhtä hakua kohden
+
+async function discoverLongSeries(out){
+  const ids   = reviewedTmdbIds();
+  const names = reviewedNames();
+  const want  = discCount();
+  const liked = bestTvGenres();
+  const seen  = new Set();
+  const sections = [];
+
+  const targets = liked.length ? liked : [{ name:null, id:null, avg:null, n:0 }];
+
+  for(let i = 0; i < targets.length; i++){
+    const g = targets[i];
+    discStatus(g.name
+      ? `Haetaan pitkiä sarjoja ${i+1}/${targets.length}: ${esc(g.name)}`
+      : 'Haetaan pitkiä sarjoja', true);
+
+    const results = [];
+    for(let page = 1; page <= 2; page++){
+      const res = await tmdbGet(
+        `/discover/tv?language=fi-FI&page=${page}` +
+        `&sort_by=vote_average.desc` +
+        `&vote_count.gte=${ENDED_VOTES}` +
+        (g.id ? `&with_genres=${g.id}` : '')
+      );
+      if(res && res.results) results.push(...res.results);
+      if(!res || !res.results || res.results.length < 20) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    // Aloittamattomat: mitään omaa arvostelua ei saa löytyä
+    const candidates = results
+      .filter(item => !alreadyHave(Object.assign({ media_type:'tv' }, item), ids, names))
+      .filter(item => !seen.has(item.id))
+      .slice(0, LONG_CHECK_MAX);
+
+    const picks = [];
+    for(const item of candidates){
+      if(picks.length >= want) break;
+      const d = await tmdbGet(`/tv/${item.id}?language=fi-FI`);
+      await new Promise(r => setTimeout(r, 70));
+      if(!d) continue;
+      const eps  = Number(d.number_of_episodes) || 0;
+      const seas = Number(d.number_of_seasons) || 0;
+      if(eps < LONG_MIN_EPISODES || seas < LONG_MIN_SEASONS) continue;
+      // Kesto arvioidaan jakson keskikestosta kun se on tiedossa
+      const runtime = Array.isArray(d.episode_run_time) && d.episode_run_time.length
+        ? d.episode_run_time[0] : null;
+      const hours = runtime ? Math.round(eps * runtime / 60) : null;
+      picks.push({ item, eps, seas, hours });
+      seen.add(item.id);
+    }
+
+    if(!picks.length) continue;
+
+    sections.push(discSection(
+      g.name ? `📚 ${esc(g.name)}` : '📚 Pitkät sarjat',
+      g.name
+        ? `Keskiarvosi genressä ${g.avg} pistettä (${g.n} sarjaa) · vähintään ${LONG_MIN_SEASONS} kautta ja ${LONG_MIN_EPISODES} jaksoa`
+        : `Vähintään ${LONG_MIN_SEASONS} kautta ja ${LONG_MIN_EPISODES} jaksoa`,
+      picks.map(p => discCard(p.item,
+        `${p.seas} kautta · ${p.eps} jaksoa${p.hours ? ` · noin ${p.hours} h katsottavaa` : ''}`
+      )).join('')
+    ));
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  discStatus('');
+  out.innerHTML = sections.length
+    ? sections.join('')
+    : discEmpty('Pitkiä aloittamattomia sarjoja ei löytynyt. Nosta ehdotusten määrää tai kokeile toista hakua.');
 }

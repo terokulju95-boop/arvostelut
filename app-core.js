@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-01.20';
+window.BUILD_CORE = '2026-09-01.21';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1675,26 +1675,76 @@ function getReviewScore(r){
 // Rajat ovat asetus, eivät vakio. Yksi paikka päättää minkä värinen
 // mikäkin luku on, jotta kortit, renkaat ja Top-lista pysyvät samassa
 // linjassa myös silloin kun rajoja siirtää.
-function scoreBands(){
-  const s = (appData.settings && appData.settings.scoreBands) || {};
+// ── PISTELUOKAT ──
+// Luokkia voi olla joko kolme (oletus) tai viisi. Kolmen tila säilyy
+// ennallaan, jotta vanhat asetukset ja kaikki nykyinen CSS toimivat
+// muuttumatta. Viiden tilassa mukaan tulevat 'top' ja 'bottom'.
+const BAND_NAMES_3 = ['high','mid','low'];
+const BAND_NAMES_5 = ['top','high','mid','low','bottom'];
+const BAND_DEFAULTS_3 = { high:70, mid:40 };
+const BAND_DEFAULTS_5 = { c4:85, c3:70, c2:50, c1:30 };
+
+// Suomenkieliset nimet asetusruutua ja otsikoita varten
+const BAND_LABELS = {
+  top:'Huippu', high:'Hyvä', mid:'Keskitaso', low:'Heikko', bottom:'Pohja'
+};
+window.BAND_LABELS = BAND_LABELS;
+
+function bandNum(v, oletus){
   // HUOM: Number(null) === 0 ja Number('') === 0, joten pelkkä isFinite
   // hyväksyisi puuttuvan arvon nollaksi ja värjäisi koko listan uusiksi.
-  const num = (v, oletus) => {
-    if(v === null || v === undefined || v === '') return oletus;
-    const n = Number(v);
-    return isFinite(n) ? n : oletus;
-  };
-  let high = num(s.high, 70), mid = num(s.mid, 40);
+  if(v === null || v === undefined || v === '') return oletus;
+  const n = Number(v);
+  return isFinite(n) ? n : oletus;
+}
+
+window.bandCount = function(){
+  const s = (appData.settings && appData.settings.scoreBands) || {};
+  return Number(s.count) === 5 ? 5 : 3;
+};
+
+// Palauttaa { count, names, cuts } jossa cuts on laskeva raja-arvolista.
+// Luokka i kattaa välin cuts[i] .. cuts[i-1]-1, ja viimeinen luokka nollaan.
+function scoreBandDefs(){
+  const s = (appData.settings && appData.settings.scoreBands) || {};
+  if(window.bandCount() === 5){
+    let c4 = bandNum(s.c4, BAND_DEFAULTS_5.c4);
+    let c3 = bandNum(s.c3, BAND_DEFAULTS_5.c3);
+    let c2 = bandNum(s.c2, BAND_DEFAULTS_5.c2);
+    let c1 = bandNum(s.c1, BAND_DEFAULTS_5.c1);
+    // Rajat pakotetaan aidosti laskeviksi ylhäältä alas, jottei yksikään
+    // luokka jää nollan levyiseksi eikä järjestys mene sekaisin.
+    c4 = Math.max(4, Math.min(100, Math.round(c4)));
+    c3 = Math.max(3, Math.min(c4 - 1, Math.round(c3)));
+    c2 = Math.max(2, Math.min(c3 - 1, Math.round(c2)));
+    c1 = Math.max(1, Math.min(c2 - 1, Math.round(c1)));
+    return { count:5, names:BAND_NAMES_5, cuts:[c4, c3, c2, c1] };
+  }
+  let high = bandNum(s.high, BAND_DEFAULTS_3.high);
+  let mid  = bandNum(s.mid,  BAND_DEFAULTS_3.mid);
   high = Math.max(1, Math.min(100, Math.round(high)));
-  mid  = Math.max(0, Math.min(high - 1, Math.round(mid)));   // mid jää aina highin alle
-  return { high, mid };
+  mid  = Math.max(0, Math.min(high - 1, Math.round(mid)));
+  return { count:3, names:BAND_NAMES_3, cuts:[high, mid] };
+}
+window.scoreBandDefs = scoreBandDefs;
+
+// Yhteensopivuus: vanha muoto { high, mid } säilyy käytössä muualla.
+function scoreBands(){
+  const d = scoreBandDefs();
+  if(d.count === 3) return { high:d.cuts[0], mid:d.cuts[1] };
+  // Viiden tilassa palautetaan kaksi keskimmäistä rajaa, jotta vanhat
+  // kutsupaikat saavat silti mielekkään lukuparin.
+  return { high:d.cuts[1], mid:d.cuts[2] };
 }
 window.scoreBands = scoreBands;
 
-// 'high' | 'mid' | 'low'
+// 'top' | 'high' | 'mid' | 'low' | 'bottom'
 function scoreBand(s){
-  const b = scoreBands();
-  return s >= b.high ? 'high' : (s >= b.mid ? 'mid' : 'low');
+  const d = scoreBandDefs();
+  for(let i = 0; i < d.cuts.length; i++){
+    if(s >= d.cuts[i]) return d.names[i];
+  }
+  return d.names[d.names.length - 1];
 }
 window.scoreBand = scoreBand;
 

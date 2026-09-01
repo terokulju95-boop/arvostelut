@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-01.20';
+window.BUILD_THEME = '2026-09-01.21';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -133,49 +133,132 @@ window.renderThemeSettings = function(){
 // ════════════════════════════════════════════════════════════
 
 window.renderScoreBandSettings = function(){
-  const b = scoreBands();
+  const d = scoreBandDefs();
+  // Rajat ovat laskevia, joten luokkien alarajat saadaan kääntämällä lista.
+  // Alin luokka alkaa aina nollasta.
+  const lows = [...d.cuts].reverse();          // esim. [40, 70]
+  const names = [...d.names].reverse();        // esim. ['low','mid','high']
+
   const prev = document.getElementById('thrPreview');
   if(prev){
-    prev.innerHTML = `
-      <span class="thr-seg low"  style="width:${b.mid}%">${b.mid >= 14 ? '0–'+(b.mid-1) : ''}</span>
-      <span class="thr-seg mid"  style="width:${b.high-b.mid}%">${(b.high-b.mid) >= 14 ? b.mid+'–'+(b.high-1) : ''}</span>
-      <span class="thr-seg high" style="width:${100-b.high}%">${(100-b.high) >= 14 ? b.high+'–100' : ''}</span>`;
+    let out = '';
+    for(let i = 0; i < names.length; i++){
+      const from = i === 0 ? 0 : lows[i - 1];
+      const to   = i === names.length - 1 ? 100 : lows[i] - 1;
+      const w    = to - from + 1;
+      out += `<span class="thr-seg ${names[i]}" style="width:${w}%">${w >= 14 ? from + '–' + to : ''}</span>`;
+    }
+    prev.innerHTML = out;
   }
-  const hs = document.getElementById('thrHigh');
-  const ms = document.getElementById('thrMid');
-  if(hs && document.activeElement !== hs) hs.value = b.high;
-  if(ms && document.activeElement !== ms) ms.value = b.mid;
-  const hv = document.getElementById('thrHighVal');
-  const mv = document.getElementById('thrMidVal');
-  if(hv) hv.textContent = b.high;
-  if(mv) mv.textContent = b.mid;
-  if(ms) ms.max = String(Math.max(1, b.high - 1));
+
+  // Liukusäätimet luodaan luokkamäärän mukaan. Ylin raja ensin, jotta
+  // järjestys vastaa esikatselupalkkia luettuna oikealta vasemmalle.
+  const host = document.getElementById('thrSliders');
+  if(host){
+    const keys = d.count === 5 ? ['c4','c3','c2','c1'] : ['high','mid'];
+    const dots = { top:'🔵', high:'🟢', mid:'🟡', low:'🟠', bottom:'🔴' };
+    const rows = d.cuts.map((cut, i) => {
+      const name  = d.names[i];
+      const label = (window.BAND_LABELS[name] || name) + ' alkaa';
+      // Kukin raja mahtuu ylemmän ja alemman rajan väliin
+      const max = i === 0 ? 100 : d.cuts[i - 1] - 1;
+      const min = (d.cuts.length - 1 - i) + 1;
+      return `<div class="thr-row">
+        <span class="thr-label">${dots[name] || ''} ${esc(label)}</span>
+        <input type="range" class="thr-slider" id="thr-${keys[i]}" min="${min}" max="${max}" step="1" value="${cut}"
+          oninput="setScoreBand('${keys[i]}', this.value, true)"
+          onchange="setScoreBand('${keys[i]}', this.value, false)">
+        <span class="thr-val">${cut}</span>
+      </div>`;
+    }).join('');
+    // Alin luokka ei tarvitse säädintä: se alkaa aina nollasta
+    const lastName = d.names[d.names.length - 1];
+    host.innerHTML = rows + `<div class="thr-row thr-row-fixed">
+      <span class="thr-label">${dots[lastName] || ''} ${esc(window.BAND_LABELS[lastName] || lastName)} alkaa</span>
+      <span class="thr-fixed-note">aina nollasta</span>
+      <span class="thr-val">0</span>
+    </div>`;
+  }
+
+  const countRow = document.getElementById('thrCountRow');
+  if(countRow){
+    countRow.innerHTML = [3, 5].map(n =>
+      `<button type="button" class="filter-chip ${d.count === n ? 'active' : ''}" onclick="setBandCount(${n})">${n} luokkaa</button>`
+    ).join('');
+  }
+  const hint = document.getElementById('thrCountHint');
+  if(hint){
+    hint.textContent = d.count === 5
+      ? 'Huippu · Hyvä · Keskitaso · Heikko · Pohja. Lisävärit johdetaan nykyisen teeman väreistä.'
+      : 'Hyvä · Keskitaso · Heikko. Klassinen kolmijako.';
+  }
+};
+
+// Luokkamäärän vaihto säilyttää molempien tilojen omat rajat, jotta
+// kolmeen palaaminen ei vaadi säätöjen tekemistä uudelleen.
+window.setBandCount = async function(n){
+  const s = ensureSettings();
+  if(!s.scoreBands) s.scoreBands = {};
+  s.scoreBands.count = (n === 5) ? 5 : 3;
+  if(s.scoreBands.count === 5 && s.scoreBands.c4 == null){
+    Object.assign(s.scoreBands, { c4:85, c3:70, c2:50, c1:30 });
+  }
+  window.renderScoreBandSettings();
+  if(window.renderSectionSummaries) window.renderSectionSummaries();
+  if(window.renderAll) renderAll();
+  await window.fbSave();
 };
 
 // live = liu'utuksen aikana (ei tallenneta joka pikselistä)
 window.setScoreBand = function(which, val, live){
   const s = ensureSettings();
-  if(!s.scoreBands) s.scoreBands = { high:70, mid:40 };
+  if(!s.scoreBands) s.scoreBands = {};
   let v = Math.round(Number(val));
   if(!isFinite(v)) return;
-  if(which === 'high'){
-    v = Math.max(2, Math.min(100, v));
-    s.scoreBands.high = v;
-    if(s.scoreBands.mid >= v) s.scoreBands.mid = v - 1;   // mid ei voi ohittaa highia
+
+  if(which === 'high' || which === 'mid'){
+    if(!s.scoreBands.high) s.scoreBands.high = 70;
+    if(s.scoreBands.mid == null) s.scoreBands.mid = 40;
+    if(which === 'high'){
+      v = Math.max(2, Math.min(100, v));
+      s.scoreBands.high = v;
+      if(s.scoreBands.mid >= v) s.scoreBands.mid = v - 1;
+    } else {
+      v = Math.max(0, Math.min(s.scoreBands.high - 1, v));
+      s.scoreBands.mid = v;
+    }
   } else {
-    v = Math.max(0, Math.min(s.scoreBands.high - 1, v));
-    s.scoreBands.mid = v;
+    // Viiden luokan rajat: c4 > c3 > c2 > c1. Muutos työntää naapureita
+    // tarvittaessa, jottei mikään luokka kutistu tyhjäksi.
+    const order = ['c4','c3','c2','c1'];
+    const i = order.indexOf(which);
+    if(i < 0) return;
+    const cur = { c4:85, c3:70, c2:50, c1:30, ...s.scoreBands };
+    cur[which] = Math.max(1, Math.min(100, v));
+    for(let k = i - 1; k >= 0; k--){         // ylempien on pysyttävä suurempina
+      if(cur[order[k]] <= cur[order[k + 1]]) cur[order[k]] = cur[order[k + 1]] + 1;
+    }
+    for(let k = i + 1; k < order.length; k++){  // alempien pienempinä
+      if(cur[order[k]] >= cur[order[k - 1]]) cur[order[k]] = cur[order[k - 1]] - 1;
+    }
+    order.forEach(k => { s.scoreBands[k] = Math.max(1, Math.min(100, cur[k])); });
   }
+
   window.renderScoreBandSettings();
   if(live) return;
+  if(window.renderSectionSummaries) window.renderSectionSummaries();
   if(window.renderAll) renderAll();
   window.fbSave();
 };
 
 window.resetScoreBands = async function(){
   const s = ensureSettings();
-  s.scoreBands = { high:70, mid:40 };
+  const count = window.bandCount();
+  s.scoreBands = count === 5
+    ? { count:5, c4:85, c3:70, c2:50, c1:30 }
+    : { count:3, high:70, mid:40 };
   window.renderScoreBandSettings();
+  if(window.renderSectionSummaries) window.renderSectionSummaries();
   if(window.renderAll) renderAll();
   await window.fbSave();
 };
