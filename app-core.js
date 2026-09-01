@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-01.18';
+window.BUILD_CORE = '2026-09-01.19';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -541,6 +541,10 @@ function ensureSettings(){
   if(appData.settings.discoverCount == null) appData.settings.discoverCount = 3;
   // Lomakkeen kenttäjärjestys. Tyhjä taulukko = oletusjärjestys.
   if(!Array.isArray(appData.settings.formOrder)) appData.settings.formOrder = [];
+  // Poistettujen ominaisuuksien jäänteet pois, jotta tallennettu asetusdata
+  // ei kanna mukanaan kenttiä joita mikään ei enää lue.
+  delete appData.settings.qbank;
+  delete appData.settings.cardActionsMenu;
   // Asetuksiin tallennettu TMDB-tunnus voittaa koodissa olevan oletuksen.
   if(window.syncTmdbToken) window.syncTmdbToken();
   return appData.settings;
@@ -616,7 +620,6 @@ window.posterCss = function(r, size){
 // moduuli veisi julisteet kokonaan pois — sama oire jonka korjasimme jo
 // kerran, joten se estetään tässä rakenteellisesti.
 window.posterPos = function(){ return 'bg'; };
-window.cardActionsHidden = function(){ return false; };
 window.cardPosterHtml = function(r){
   return window.hasPoster(r)
     ? `<div class="card-poster-bg" style="background-image:${window.posterCss(r,'w200')}"></div>`

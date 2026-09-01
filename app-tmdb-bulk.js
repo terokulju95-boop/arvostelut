@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · TMDB-massapäivitys ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_BULK = '2026-09-01.18';
+window.BUILD_BULK = '2026-09-01.19';
 //
 // Kolme vaihetta, koska verkkokutsu on kallis ja peruuttamaton:
 //   1. TARKISTUS  – pelkkä paikallinen läpikäynti. Kertoo miltä puuttuu mitä.

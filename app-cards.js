@@ -1,13 +1,12 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-01.18';
+window.BUILD_CARDS = '2026-09-01.19';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
 //   2. Julisteen sijainti kortissa
-//   3. Toimintopainikkeet valikon taakse
-//   4. Yläpalkin logon teksti ja piilotus
+//   3. Yläpalkin logon teksti ja piilotus
 
 // ════════════════════════════════════════════════════════════
 // 1. KENTTÄREKISTERI
@@ -121,34 +120,7 @@ window.cardPosterHtml = function(r){
 };
 
 // ════════════════════════════════════════════════════════════
-// 3. TOIMINTOPAINIKKEET VALIKON TAAKSE
-// ════════════════════════════════════════════════════════════
-
-window.cardActionsHidden = function(){ return !!ensureSettings().cardActionsMenu; };
-
-window.setCardActionsMenu = async function(on){
-  ensureSettings().cardActionsMenu = !!on;
-  renderCardFieldSettings();
-  renderAll();
-  await window.fbSave();
-};
-
-window.toggleCardActions = function(id, btn){
-  const el = document.getElementById('acts-' + id);
-  if(!el) return;
-  const open = el.style.display === 'none';
-  // Vain yksi valikko auki kerrallaan, muuten pitkä lista täyttyy
-  // avoimista napeista eikä vieritys pysy hallinnassa.
-  document.querySelectorAll('.card-actions.is-menu').forEach(o => {
-    if(o !== el) o.style.display = 'none';
-  });
-  document.querySelectorAll('.card-menu-btn').forEach(b => b.classList.remove('open'));
-  el.style.display = open ? 'flex' : 'none';
-  if(btn) btn.classList.toggle('open', open);
-};
-
-// ════════════════════════════════════════════════════════════
-// 4. YLÄPALKIN LOGO
+// 3. YLÄPALKIN LOGO
 // ════════════════════════════════════════════════════════════
 
 const LOGO_DEFAULT = '★ ARVOSTELUT';
@@ -224,7 +196,6 @@ function renderCardFieldSettings(){
   const s = ensureSettings();
   const which = _cfTab;
   const pos = window.posterPos();
-  const hidden = window.cardActionsHidden();
   const logoTxt = (typeof s.logoText === 'string') ? s.logoText : LOGO_DEFAULT;
 
   host.innerHTML = `
@@ -251,15 +222,6 @@ function renderCardFieldSettings(){
         </button>`).join('')}
     </div>
     <div class="toggle-row-sub" style="margin-top:8px;">${esc((POSTER_POSITIONS.find(p=>p.id===pos)||{}).hint || '')}</div>
-
-    <div class="cfld-sep"></div>
-    <div class="toggle-row">
-      <div>
-        <div class="toggle-row-label">Toiminnot valikon taakse</div>
-        <div class="toggle-row-sub">Muokkaa, TMDB ja Poista piiloon ⋯-napin alle. Lista pysyy siistimpänä.</div>
-      </div>
-      <button type="button" class="toggle-switch ${hidden?'on':''}" onclick="setCardActionsMenu(${hidden?'false':'true'})"><span></span></button>
-    </div>
 
     <div class="cfld-sep"></div>
     <label>Yläpalkin logo</label>

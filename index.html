@@ -317,7 +317,6 @@
         <button type="button" class="md-btn md-i" onclick="mdWrap('formNote','*','*')" title="Kursiivi">I</button>
         <button type="button" class="md-btn" onclick="mdWrap('formNote','~~','~~')" title="Yliviivaus">S̶</button>
         <button type="button" class="md-btn" onclick="mdBullet('formNote')" title="Luettelo">•</button>
-        <button type="button" class="md-btn qa-open" id="qaOpenBtn" onclick="openQuestionFlow('form')" title="Ohjatut kysymykset">💬 En tiedä mitä kirjoittaa</button>
       </div>
       <textarea id="formNote" spellcheck="true" lang="fi" autocapitalize="sentences" placeholder="Omat ajatuksesi teoksesta..."></textarea>
       <div class="md-hint">**lihavointi** · *kursiivi* · ~~yliviivaus~~ · rivin alussa - tekee luettelon</div>
@@ -498,18 +497,6 @@
   </div>
 </div>
 
-<!-- OHJATUT KYSYMYKSET -->
-<div class="modal-overlay" id="questionModal" onclick="closeModalIfOutside(event,'questionModal')">
-  <div class="modal-sheet" style="max-width:560px;">
-    <div class="modal-grab"><div class="modal-handle"></div></div>
-    <div class="modal-title">💬 Mitä kirjoittaisin?</div>
-    <div id="questionModalBody"></div>
-    <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('questionModal')">Sulje</button>
-    </div>
-  </div>
-</div>
-
 <!-- JULISTEEN VAIHTO -->
 <div class="modal-overlay" id="posterModal" onclick="closeModalIfOutside(event,'posterModal')">
   <div class="modal-sheet" style="max-width:520px;">
@@ -554,11 +541,6 @@
         <label>Korostusväri</label>
         <div class="accent-row" id="accentRow"></div>
       </div>
-      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
-        <label>Ohjatut kysymykset</label>
-        <div id="qbankBox"></div>
-      </div>
-
       <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
         <label>Korttien sisältö ja yläpalkki</label>
         <div id="cardFieldsBox"></div>
@@ -877,7 +859,6 @@
 <script src="app-plot.js"></script>
 <script src="app-extras.js"></script>
 <script src="app-cards.js"></script>
-<script src="app-questions.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 </body>

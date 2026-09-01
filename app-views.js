@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-01.18';
+window.BUILD_VIEWS = '2026-09-01.19';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -421,7 +421,6 @@ window.renderCards = function(){
     if(r.country && cf('country')) extraInfo.push(`🌍 ${esc(r.country)}`);
     if(r.cast && r.cast.length && cf('cast')) extraInfo.push(`🎭 ${esc(r.cast.slice(0,3).join(', '))}`);
     const tmdbScoreHtml = (r.tmdb_score && cf('tmdbScore')) ? `<span class="tmdb-score-compare">⭐ TMDB ${r.tmdb_score}</span>` : '';
-    const actionsHidden = window.cardActionsHidden ? window.cardActionsHidden() : false;
     const actionsInner = `
         <button class="btn-sm btn-edit" onclick="editReviewWithFlip(${r.id})">✏️ Muokkaa</button>
         ${(r.category==='Elokuvat'||r.category==='TV-sarjat') ? `<button class="btn-sm" style="background:rgba(96,165,250,0.12);color:var(--blue);" onclick="updateTmdbData(${r.id})">🎬 TMDB</button>` : ''}
@@ -447,7 +446,6 @@ window.renderCards = function(){
       <div class="card-top">
         <div class="card-title">${escNl(r.name)}${(r.year && cf('year'))?` <span class="card-year">${r.year}</span>`:''}</div>
         ${score!==null&&!isTvParts&&cf('score') ? buildRing(score) : ''}
-        ${actionsHidden ? `<button type="button" class="card-menu-btn" onclick="event.stopPropagation();toggleCardActions(${r.id}, this)" aria-label="Toiminnot">⋯</button>` : ''}
       </div>
       ${metaChips ? `<div class="card-meta">${metaChips}</div>` : ''}
       ${extraInfo.length ? `<div class="card-extra-info">${extraInfo.map(i=>`<span>${i}</span>`).join('')}</div>` : ''}
@@ -456,9 +454,7 @@ window.renderCards = function(){
       ${(r.note && cf('note'))?`<div class="card-note" id="note-${r.id}">${mdText(r.note)}</div>`:''}
       ${cf('parts') ? partsHtml : ''}
       ${(dateStr && cf('date'))?`<div class="card-date">📅 ${dateStr}</div>`:''}
-      ${actionsHidden
-        ? `<div class="card-actions is-menu" id="acts-${r.id}" style="display:none;">${actionsInner}</div>`
-        : `<div class="card-actions">${actionsInner}</div>`}`;
+      <div class="card-actions">${actionsInner}</div>`;
 
     // Juliste on aina absoluuttisesti sijoitettu tausta, joten se on kortin
     // ensimmäinen lapsi ja sijainti hoidetaan pp-luokalla CSS:n puolella.
