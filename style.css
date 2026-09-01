@@ -1391,3 +1391,100 @@ body.sandbox-on #fab{bottom:74px;}
 .fo-row.dragging .fo-handle{cursor:grabbing;}
 .fo-icon{flex-shrink:0;}
 .fo-label{flex:1; min-width:0;}
+
+/* ══════════════════════════════════════════════════════════
+   KORTTIASETUKSET (app-cards.js)
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Julisteen sijainti kortissa ── */
+.review-card .card-body{position:relative;z-index:1;min-width:0;}
+.card-poster-side{flex-shrink:0;line-height:0;}
+.card-poster-side img{display:block;width:100%;height:100%;object-fit:cover;border-radius:10px;}
+
+/* Vasen ja oikea: juliste pystykuvana tekstin vieressä */
+.review-card.pp-left, .review-card.pp-right{display:flex;gap:14px;align-items:flex-start;}
+.review-card.pp-left .card-poster-side,
+.review-card.pp-right .card-poster-side{width:88px;aspect-ratio:2/3;}
+/* Vasemmalla juliste törmäisi kortin väripalkkiin, joten hieman väljyyttä */
+.review-card.pp-left{padding-left:20px;}
+
+/* Ylä ja ala: leveä kuva koko kortin poikki */
+.review-card.pp-top, .review-card.pp-bottom{display:flex;flex-direction:column;}
+.review-card.pp-top{padding-top:0;}
+.review-card.pp-bottom{padding-bottom:0;}
+.review-card.pp-top .card-poster-side,
+.review-card.pp-bottom .card-poster-side{
+  height:150px; margin:0 -16px; width:calc(100% + 32px);
+}
+.review-card.pp-top .card-poster-side{margin-bottom:14px;}
+.review-card.pp-bottom .card-poster-side{margin-top:14px;}
+.review-card.pp-top .card-poster-side img{
+  border-radius:var(--card-radius) var(--card-radius) 0 0;
+  object-position:center 28%;
+}
+.review-card.pp-bottom .card-poster-side img{
+  border-radius:0 0 var(--card-radius) var(--card-radius);
+  object-position:center 28%;
+}
+
+/* ── Toiminnot valikon takana ── */
+.card-menu-btn{
+  flex-shrink:0; width:34px; height:34px; border-radius:9px;
+  background:var(--tint-07); border:none; color:var(--muted);
+  font-size:18px; line-height:1; cursor:pointer; padding:0;
+  font-family:'DM Sans',sans-serif;
+}
+.card-menu-btn:active{background:var(--tint-15);}
+.card-menu-btn.open{background:var(--acc-08); color:var(--accent);}
+.card-actions.is-menu{
+  flex-wrap:wrap;
+  animation:cardMenuIn 0.16s ease both;
+}
+@keyframes cardMenuIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
+
+/* ── Asetusruudun kenttävalinnat ── */
+.cfld-tabs{display:flex;gap:6px;margin-bottom:10px;}
+.cfld-tab{
+  flex:1; padding:9px 8px; border-radius:9px; cursor:pointer;
+  background:var(--bg3); border:1px solid var(--border);
+  color:var(--muted); font-family:'DM Sans',sans-serif;
+  font-size:13px; font-weight:600;
+}
+.cfld-tab.active{background:var(--acc-08); border-color:var(--accent); color:var(--accent);}
+.cfld-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.cfld{
+  display:flex; align-items:center; gap:7px; text-align:left;
+  padding:9px 10px; border-radius:9px; cursor:pointer;
+  background:var(--bg3); border:1px solid var(--border);
+  color:var(--muted); font-family:'DM Sans',sans-serif; font-size:12.5px;
+}
+.cfld.on{border-color:var(--accent); color:var(--text); background:var(--acc-08);}
+.cfld-icon{flex-shrink:0;}
+.cfld-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cfld-state{flex-shrink:0;font-size:11px;opacity:0.75;}
+.cfld-sep{height:1px;background:var(--border);margin:18px 0 14px;}
+
+/* Julisteen sijainnin pikkukuvat */
+.pos-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.pos-opt{
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  padding:8px 4px; border-radius:9px; cursor:pointer;
+  background:var(--bg3); border:1px solid var(--border);
+  color:var(--muted); font-family:'DM Sans',sans-serif; font-size:10.5px;
+}
+.pos-opt.active{border-color:var(--accent); color:var(--accent); background:var(--acc-08);}
+.pos-preview{
+  position:relative; width:30px; height:22px; border-radius:4px;
+  background:var(--tint-07); display:block; overflow:hidden;
+}
+.pos-preview i{position:absolute;background:currentColor;opacity:0.65;display:block;}
+.pos-preview-bg i{right:0;top:0;bottom:0;width:11px;opacity:0.35;}
+.pos-preview-left i{left:0;top:0;bottom:0;width:10px;}
+.pos-preview-right i{right:0;top:0;bottom:0;width:10px;}
+.pos-preview-top i{left:0;right:0;top:0;height:8px;}
+.pos-preview-bottom i{left:0;right:0;bottom:0;height:8px;}
+.pos-label{text-align:center;line-height:1.2;}
+
+@media (max-width:360px){
+  .cfld-grid{grid-template-columns:1fr;}
+}

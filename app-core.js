@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-08-31.15';
+window.BUILD_CORE = '2026-09-01.16';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -577,6 +577,15 @@ window.updatePosterColorToggle = function(){
   btn.classList.toggle('on', !!ensureSettings().posterColors);
 };
 
+// ── KORTTIEN KENTTIEN NAKYVYYS ──
+// Oletustoteutus: kaikki kentat nakyvat. app-cards.js korvaa taman
+// asetuksia lukevalla versiolla. Naita kutsutaan korttien ja luku-modaalin
+// pohjissa, joten ilman oletusta puuttuva app-cards.js kaataisi koko listan
+// pelkan varoituksen sijaan.
+window.cardField = function(){ return true; };
+window.cf = id => window.cardField('card', id);
+window.rf = id => window.cardField('read', id);
+
 // ── JULISTEEN OSOITE ──
 // Juliste voi tulla kahdesta paikasta: TMDB:n polusta (r.poster) tai
 // itse ladatusta kuvasta (r.posterCustom, data-URL). Oma kuva voittaa
@@ -600,6 +609,18 @@ window.posterCss = function(r, size){
   const safe = u.replace(/'/g, '%27').replace(/"/g, '%22')
                 .replace(/\(/g, '%28').replace(/\)/g, '%29');
   return `url('${safe}')`;
+};
+
+// Oletustoteutukset kortin julisteelle ja toimintonapeille. app-cards.js
+// korvaa nämä asetuksia lukevilla versioilla. Ilman oletuksia puuttuva
+// moduuli veisi julisteet kokonaan pois — sama oire jonka korjasimme jo
+// kerran, joten se estetään tässä rakenteellisesti.
+window.posterPos = function(){ return 'bg'; };
+window.cardActionsHidden = function(){ return false; };
+window.cardPosterHtml = function(r){
+  return window.hasPoster(r)
+    ? `<div class="card-poster-bg" style="background-image:${window.posterCss(r,'w200')}"></div>`
+    : '';
 };
 
 // ── JULISTEESTA POIMITTU VÄRI ──

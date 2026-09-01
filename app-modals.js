@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-08-31.15';
+window.BUILD_MODALS = '2026-09-01.16';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -946,6 +946,7 @@ const BUILD_FILES = [
   ['app-tmdb-bulk.js', 'BUILD_BULK',     true],
   ['app-plot.js',      'BUILD_PLOT',     true],
   ['app-extras.js',    'BUILD_EXTRAS',   true],
+  ['app-cards.js',     'BUILD_CARDS',    true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
 
@@ -1310,6 +1311,7 @@ window.openSettings = function(){
   safeRender('painotukset', renderWeightRows);
   safeRender('julistevärit', updatePosterColorToggle);
   safeRender('kenttäjärjestys', window.renderFormOrderSettings);
+  safeRender('korttien sisältö', window.renderCardFieldSettings);
   safeRender('tmdb-tila', renderTmdbStatus);
   safeRender('varmuuskopio', renderBackupInfo);
   safeRender('tili', renderAccountInfo);
@@ -1489,11 +1491,11 @@ window.openReadModal = function(id){
   const cls = score!=null?scoreBand(score):'mid';
 
   const extraRows = [];
-  if(r.director) extraRows.push(`<div class="read-section"><div class="read-label">🎬 Ohjaaja</div>
+  if(r.director && rf('director')) extraRows.push(`<div class="read-section"><div class="read-label">🎬 Ohjaaja</div>
     <div class="read-value"><button type="button" class="dir-link dir-link-lg" onclick="closeModal('readModal');filterByDirector('${escJs(r.director)}')">${esc(r.director)}</button></div></div>`);
-  if(r.cast && r.cast.length) extraRows.push(`<div class="read-section"><div class="read-label">🎭 Näyttelijät</div><div class="read-value">${esc(r.cast.join(', '))}</div></div>`);
-  if(r.runtime) extraRows.push(`<div class="read-section"><div class="read-label">⏱️ Kesto</div><div class="read-value">${r.runtime} min</div></div>`);
-  if(r.tvType === 'jaksot'){
+  if(r.cast && r.cast.length && rf('cast')) extraRows.push(`<div class="read-section"><div class="read-label">🎭 Näyttelijät</div><div class="read-value">${esc(r.cast.join(', '))}</div></div>`);
+  if(r.runtime && rf('runtime')) extraRows.push(`<div class="read-section"><div class="read-label">⏱️ Kesto</div><div class="read-value">${r.runtime} min</div></div>`);
+  if(r.tvType === 'jaksot' && rf('parts')){
     const p = episodeProgress(r);
     if(p.total) extraRows.push(`<div class="read-section">
       <div class="read-label">📺 Edistyminen</div>
@@ -1502,10 +1504,10 @@ window.openReadModal = function(id){
         <div class="ep-progress-track"><div class="ep-progress-bar" style="width:${Math.min(100,p.pct)}%"></div></div>
       </div>
     </div>`);
-  } else if(r.episodes_total){
+  } else if(r.episodes_total && rf('episodes')){
     extraRows.push(`<div class="read-section"><div class="read-label">📺 Jaksoja</div><div class="read-value">${r.episodes_total}</div></div>`);
   }
-  const st = tvStatusInfo(r.tv_status);
+  const st = rf('status') ? tvStatusInfo(r.tv_status) : null;
   if(st){
     let extra = '';
     if(r.next_air && r.next_air.date){
@@ -1523,14 +1525,15 @@ window.openReadModal = function(id){
     extraRows.push(`<div class="read-section"><div class="read-label">📡 Tuotantotila</div>
       <div class="read-value">${st.icon} ${esc(st.fi)}${r.seasons_total ? ` · ${r.seasons_total} kautta` : ''}</div>${extra}</div>`);
   }
-  if(subcatOf(r)) extraRows.push(`<div class="read-section"><div class="read-label">📂 Alalaji</div><div class="read-value">${esc(subcatOf(r))}</div></div>`);
-  if(r.country) extraRows.push(`<div class="read-section"><div class="read-label">🌍 Maa</div><div class="read-value">${esc(r.country)}</div></div>`);
-  if(r.tmdb_score) extraRows.push(`<div class="read-section"><div class="read-label">⭐ TMDB-arvosana</div><div class="read-value">${r.tmdb_score}/10</div></div>`);
+  if(subcatOf(r) && rf('subcat')) extraRows.push(`<div class="read-section"><div class="read-label">📂 Alalaji</div><div class="read-value">${esc(subcatOf(r))}</div></div>`);
+  if(r.country && rf('country')) extraRows.push(`<div class="read-section"><div class="read-label">🌍 Maa</div><div class="read-value">${esc(r.country)}</div></div>`);
+  if(r.tmdb_score && rf('tmdbScore')) extraRows.push(`<div class="read-section"><div class="read-label">⭐ TMDB-arvosana</div><div class="read-value">${r.tmdb_score}/10</div></div>`);
 
   // Juliste on napautettava: se avaa julisteen vaihtajan. Ilman julistetta
   // tilalla on sama nappi paikkakuvana, jotta oman kuvan voi lisätä myös
   // teokselle jota TMDB ei tunne lainkaan.
-  const posterHtml = window.hasPoster(r)
+  const posterHtml = !rf('poster') ? ''
+    : window.hasPoster(r)
     ? `<button type="button" class="read-poster-btn" onclick="openPosterPicker(${r.id})" title="Vaihda juliste">
          <img src="${esc(window.posterUrl(r,'w200'))}" alt="">
          <span class="read-poster-edit">✏️</span>
@@ -1543,15 +1546,20 @@ window.openReadModal = function(id){
     <div class="read-ring-row" style="align-items:flex-start;gap:12px;">
       ${posterHtml}
       <div style="flex:1;">
-        ${score!=null?buildRing(score):''}
-        <div class="read-title">${escNl(r.name)}${r.year?` <span class="read-year">${r.year}</span>`:''}</div>
-        <div class="read-sub">${esc(r.category)}${genres.length?' · '+esc(genres.join(', ')):''}</div>
-        ${r.mark==='heart'?'<span style="color:#ff6482;font-size:13px;font-weight:700;">❤️ Suosikki</span>':''}
-        ${r.mark==='skull'?'<span style="color:#aaa;font-size:13px;font-weight:700;">💀 Huono</span>':''}
+        ${score!=null&&rf('score')?buildRing(score):''}
+        <div class="read-title">${escNl(r.name)}${(r.year&&rf('year'))?` <span class="read-year">${r.year}</span>`:''}</div>
+        ${(()=>{
+          const parts = [];
+          if(rf('category')) parts.push(esc(r.category));
+          if(rf('genre') && genres.length) parts.push(esc(genres.join(', ')));
+          return parts.length ? `<div class="read-sub">${parts.join(' · ')}</div>` : '';
+        })()}
+        ${(rf('mark')&&r.mark==='heart')?'<span style="color:#ff6482;font-size:13px;font-weight:700;">❤️ Suosikki</span>':''}
+        ${(rf('mark')&&r.mark==='skull')?'<span style="color:#aaa;font-size:13px;font-weight:700;">💀 Huono</span>':''}
       </div>
     </div>
     ${extraRows.join('')}
-    ${PLOT_CATS.includes(r.category) ? (r.plot ? `<div class="read-section">
+    ${(PLOT_CATS.includes(r.category) && rf('plot')) ? (r.plot ? `<div class="read-section">
       <div class="read-label read-label-row">
         <span>📖 Juoni</span>
         ${isOwnPlot(r) ? '<span class="plot-badge own">OMA</span>' : ''}
@@ -1562,11 +1570,11 @@ window.openReadModal = function(id){
       <div class="read-label">📖 Juoni</div>
       <button type="button" class="plot-add-btn" onclick="openPlotEditor(${r.id}, null)">➕ Lisää juoni itse</button>
     </div>`) : ''}
-    ${r.note?`<div class="read-section">
+    ${(r.note&&rf('note'))?`<div class="read-section">
       <div class="read-label">Arvostelu</div>
       <div class="read-value read-note">${mdText(r.note)}</div>
     </div>`:''}
-    ${dateStr?`<div class="read-section">
+    ${(dateStr&&rf('date'))?`<div class="read-section">
       <div class="read-label">Päivämäärä</div>
       <div class="read-value">📅 ${dateStr}</div>
     </div>`:''}

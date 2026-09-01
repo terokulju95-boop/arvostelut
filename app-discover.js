@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-08-31.15';
+window.BUILD_DISCOVER = '2026-09-01.16';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.
@@ -138,6 +138,7 @@ window.runDiscover = async function(mode){
     else if(mode === 'similar')      await discoverSimilar(out);
     else if(mode === 'collections')  await discoverCollections(out);
     else if(mode === 'classics')     await discoverClassics(out);
+    else if(mode === 'ended')        await discoverEndedSeries(out);
   } catch(e){
     console.error(e);
     discStatus('❌ Haku epäonnistui. Tarkista internetyhteys.');
@@ -526,3 +527,112 @@ window.setDiscoverCount = async function(n){
   window.renderDiscoverCount();
   await window.fbSave();
 };
+
+// ── 6. PÄÄTTYNEET SARJAT ──
+// Sarjoja joita ei tarvitse jäädä odottamaan: tarina on kokonaan
+// katsottavissa. TMDB:n with_status: 3 = Ended, 4 = Canceled. Peruttu
+// sarja ei jatku sekään, joten molemmat kelpaavat.
+//
+// TV-genrejen tunnukset ovat eri kuin elokuvien, eikä kaikille omille
+// genreille ole vastinetta — silloin haetaan ilman genrerajausta.
+const TV_GENRE_IDS = {
+  'toiminta':10759, 'seikkailu':10759, 'animaatio':16, 'komedia':35,
+  'rikostarina':80, 'dokumentti':99, 'draama':18, 'perhe':10751,
+  'fantasia':10765, 'sci-fi':10765, 'scifi':10765, 'mysteeri':9648,
+  'trilleri':9648, 'jännitys':9648, 'sota':10768, 'western':37,
+  'historia':10768, 'noir':80, 'tositapahtumat':99
+};
+
+function tvGenreId(name){
+  const k = String(name || '').toLowerCase().trim();
+  return TV_GENRE_IDS[k] != null ? TV_GENRE_IDS[k] : null;
+}
+
+// Parhaat TV-genret omien sarja-arvostelujen perusteella. Sarjapisteet
+// eivät kerro elokuvamausta eivätkä päinvastoin, joten tässä katsotaan
+// vain TV-sarjoja.
+function bestTvGenres(){
+  const stats = new Map();
+  (appData.reviews || []).forEach(r => {
+    if(r.category !== 'TV-sarjat') return;
+    const sc = getReviewScore(r);
+    if(sc == null) return;
+    const gs = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
+    gs.forEach(g => {
+      const id = tvGenreId(g);
+      if(id == null) return;
+      // Useampi oma genre voi osoittaa samaan TMDB-tunnukseen
+      // (esim. toiminta ja seikkailu), joten ne niputetaan yhteen.
+      const key = id + '|' + g;
+      if(!stats.has(key)) stats.set(key, { name:g, id, sum:0, n:0 });
+      const o = stats.get(key);
+      o.sum += sc; o.n++;
+    });
+  });
+  return [...stats.values()]
+    .map(o => ({ ...o, avg: Math.round(o.sum / o.n) }))
+    .filter(o => o.n >= 2)
+    .sort((a, b) => b.avg - a.avg || b.n - a.n)
+    .slice(0, 3);
+}
+
+const ENDED_VOTES = 200;   // sarjoilla on vähemmän ääniä kuin elokuvilla
+
+async function discoverEndedSeries(out){
+  const ids   = reviewedTmdbIds();
+  const names = reviewedNames();
+  const seen  = new Set();
+  const want  = discCount();
+  const liked = bestTvGenres();
+  const sections = [];
+
+  // Ilman riittävää sarjahistoriaa haetaan yleisesti parhaat päättyneet
+  // sarjat. Se on hyödyllisempi kuin tyhjä näkymä ja kehotus palata
+  // myöhemmin.
+  const targets = liked.length
+    ? liked
+    : [{ name:null, id:null, avg:null, n:0 }];
+
+  for(let i = 0; i < targets.length; i++){
+    const g = targets[i];
+    discStatus(g.name
+      ? `Haetaan päättyneitä sarjoja ${i+1}/${targets.length}: ${esc(g.name)}`
+      : 'Haetaan arvostetuimpia päättyneitä sarjoja', true);
+
+    const results = [];
+    for(let page = 1; page <= 2; page++){
+      const res = await tmdbGet(
+        `/discover/tv?language=fi-FI&page=${page}` +
+        `&with_status=3|4` +
+        `&sort_by=vote_average.desc` +
+        `&vote_count.gte=${ENDED_VOTES}` +
+        (g.id ? `&with_genres=${g.id}` : '')
+      );
+      if(res && res.results) results.push(...res.results);
+      if(!res || !res.results || res.results.length < 20) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    const picks = results
+      .filter(item => !alreadyHave(Object.assign({ media_type: 'tv' }, item), ids, names))
+      .filter(item => !seen.has(item.id))
+      .slice(0, want);
+
+    picks.forEach(item => seen.add(item.id));
+    if(!picks.length) continue;
+
+    sections.push(discSection(
+      g.name ? `🏁 ${esc(g.name)}` : '🏁 Päättyneet sarjat',
+      g.name
+        ? `Keskiarvosi genressä ${g.avg} pistettä (${g.n} sarjaa) · tarina on kokonaan katsottavissa`
+        : 'Arvostetuimmat loppuun asti kerrotut sarjat',
+      picks.map(item => discCard(item, 'Päättynyt sarja — ei tarvitse odottaa jatkoa')).join('')
+    ));
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  discStatus('');
+  out.innerHTML = sections.length
+    ? sections.join('')
+    : discEmpty('Et löytänyt uusia päättyneitä sarjoja. Nosta ehdotusten määrää tai kokeile toista hakua.');
+}

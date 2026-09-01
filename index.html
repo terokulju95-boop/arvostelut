@@ -141,6 +141,11 @@
         <span class="disc-btn-text"><strong>Samankaltaisia suosikkiesi kanssa</strong>
         <span>TMDB:n suositukset parhaiten pisteyttämillesi</span></span>
       </button>
+      <button class="disc-btn disc-btn-main" onclick="runDiscover('ended')">
+        <span class="disc-btn-icon">🏁</span>
+        <span class="disc-btn-text"><strong>Päättyneet sarjat</strong>
+        <span>Tarina kokonaan katsottavissa — ei tarvitse odottaa jatkoa</span></span>
+      </button>
       <button class="disc-btn disc-btn-main" onclick="runDiscover('classics')">
         <span class="disc-btn-icon">🏛️</span>
         <span class="disc-btn-text"><strong>Klassikot joita et ole nähnyt</strong>
@@ -537,6 +542,11 @@
         <div class="accent-row" id="accentRow"></div>
       </div>
       <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
+        <label>Korttien sisältö ja yläpalkki</label>
+        <div id="cardFieldsBox"></div>
+      </div>
+
+      <div class="form-group" style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px;">
         <label>Lomakkeen kenttäjärjestys</label>
         <div class="toggle-row-sub" style="margin-bottom:10px;">Raahaa rivejä ⠿-kahvasta. Kategoria, alalaji ja arvostelutyyppi pysyvät aina ylimpänä, koska ne ratkaisevat mitkä muut kentät näkyvät.</div>
         <div class="fo-list" id="formOrderList"></div>
@@ -848,6 +858,7 @@
 <script src="app-tmdb-bulk.js"></script>
 <script src="app-plot.js"></script>
 <script src="app-extras.js"></script>
+<script src="app-cards.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 </body>

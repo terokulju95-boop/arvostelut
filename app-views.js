@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-08-31.15';
+window.BUILD_VIEWS = '2026-09-01.16';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -407,52 +407,69 @@ window.renderCards = function(){
 
     const scoreCardCls = score!==null ? ('score-'+scoreBand(score)+'-card') : '';
     const favCls = r.mark==='heart' ? 'is-favorite' : '';
-    const posterBg = window.hasPoster(r) ? `<div class="card-poster-bg" style="background-image:${window.posterCss(r,'w200')}"></div>` : '';
+    // Kortin sisältö on asetuksista säädettävissä: cf('kenttä') kertoo
+    // näytetäänkö kyseinen tieto listakortissa.
+    const posterHtml = window.cardPosterHtml ? window.cardPosterHtml(r) : '';
+    const pPos = window.posterPos ? window.posterPos() : 'bg';
     const extraInfo = [];
     // Ohjaajan nimi on napautettava: se avaa listan kaikista saman
     // ohjaajan teoksista yli kategoriarajojen.
-    if(r.director) extraInfo.push(
+    if(r.director && cf('director')) extraInfo.push(
       `<button type="button" class="dir-link" onclick="event.stopPropagation();filterByDirector('${escJs(r.director)}')">🎬 ${esc(r.director)}</button>`);
-    if(r.runtime) extraInfo.push(`⏱️ ${r.runtime} min`);
-    if(r.episodes_total) extraInfo.push(`📺 ${r.episodes_total} jaksoa`);
-    if(r.country) extraInfo.push(`🌍 ${esc(r.country)}`);
-    if(r.cast && r.cast.length) extraInfo.push(`🎭 ${esc(r.cast.slice(0,3).join(', '))}`);
-    const tmdbScoreHtml = r.tmdb_score ? `<span class="tmdb-score-compare">⭐ TMDB ${r.tmdb_score}</span>` : '';
-    const pc = pcAttrs(r);
-    return `<div class="review-card type-${typeClass} ${scoreCardCls} ${favCls}${pc.cls}"${pc.id} style="animation-delay:${Math.min(idx*0.06,0.5)}s;${pc.style}" ondblclick="openReadModal(${r.id})">
-      ${posterBg}
-      <div class="card-top">
-        <div class="card-title">${escNl(r.name)}${r.year?` <span class="card-year">${r.year}</span>`:''}</div>
-        ${score!==null&&!isTvParts ? buildRing(score) : ''}
-      </div>
-      <div class="card-meta">
-        <span class="meta-chip">${esc(r.category)}</span>
-        ${subcatOf(r) ? `<span class="meta-chip subcat-chip">${esc(subcatOf(r))}</span>` : ''}
-        ${(()=>{
-          const genres = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
-          return genres.map(g=>`<span class="meta-chip">${esc(g)}</span>`).join('');
-        })()}
-        ${isTvParts?`<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>`:''}
-        ${(()=>{
-          const st = tvStatusInfo(r.tv_status);
-          if(!st) return '';
-          return `<span class="meta-chip status-chip status-${st.cls}">${st.icon} ${esc(st.fi)}</span>`;
-        })()}
-        ${r.mark==='heart'?'<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>':''}
-        ${r.mark==='skull'?'<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>':''}
-      </div>
-      ${extraInfo.length ? `<div class="card-extra-info">${extraInfo.map(i=>`<span>${i}</span>`).join('')}</div>` : ''}
-      ${tmdbScoreHtml}
-      ${r.plot?`<div class="card-plot"><span class="card-plot-label">📖 Juoni</span>${escNl(r.plot)}</div>`:''}
-      ${r.note?`<div class="card-note" id="note-${r.id}">${mdText(r.note)}</div>`:''}
-      ${partsHtml}
-      ${dateStr?`<div class="card-date">📅 ${dateStr}</div>`:''}
-      <div class="card-actions">
+    if(r.runtime && cf('runtime')) extraInfo.push(`⏱️ ${r.runtime} min`);
+    if(r.episodes_total && cf('episodes')) extraInfo.push(`📺 ${r.episodes_total} jaksoa`);
+    if(r.country && cf('country')) extraInfo.push(`🌍 ${esc(r.country)}`);
+    if(r.cast && r.cast.length && cf('cast')) extraInfo.push(`🎭 ${esc(r.cast.slice(0,3).join(', '))}`);
+    const tmdbScoreHtml = (r.tmdb_score && cf('tmdbScore')) ? `<span class="tmdb-score-compare">⭐ TMDB ${r.tmdb_score}</span>` : '';
+    const actionsHidden = window.cardActionsHidden ? window.cardActionsHidden() : false;
+    const actionsInner = `
         <button class="btn-sm btn-edit" onclick="editReviewWithFlip(${r.id})">✏️ Muokkaa</button>
         ${(r.category==='Elokuvat'||r.category==='TV-sarjat') ? `<button class="btn-sm" style="background:rgba(96,165,250,0.12);color:var(--blue);" onclick="updateTmdbData(${r.id})">🎬 TMDB</button>` : ''}
-        <button class="btn-sm btn-del" onclick="deleteReview(${r.id})">🗑️ Poista</button>
+        <button class="btn-sm btn-del" onclick="deleteReview(${r.id})">🗑️ Poista</button>`;
+    const pc = pcAttrs(r);
+    const metaChips = [
+      cf('category') ? `<span class="meta-chip">${esc(r.category)}</span>` : '',
+      (cf('subcat') && subcatOf(r)) ? `<span class="meta-chip subcat-chip">${esc(subcatOf(r))}</span>` : '',
+      cf('genre') ? (()=>{
+        const genres = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
+        return genres.map(g=>`<span class="meta-chip">${esc(g)}</span>`).join('');
+      })() : '',
+      (cf('tvtype') && isTvParts) ? `<span class="meta-chip">${r.tvType==='kaudet'?'Kausi-arv.':'Jakso-arv.'}</span>` : '',
+      cf('status') ? (()=>{
+        const st = tvStatusInfo(r.tv_status);
+        return st ? `<span class="meta-chip status-chip status-${st.cls}">${st.icon} ${esc(st.fi)}</span>` : '';
+      })() : '',
+      (cf('mark') && r.mark==='heart') ? '<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>' : '',
+      (cf('mark') && r.mark==='skull') ? '<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>' : ''
+    ].filter(Boolean).join('');
+
+    const body = `
+      <div class="card-top">
+        <div class="card-title">${escNl(r.name)}${(r.year && cf('year'))?` <span class="card-year">${r.year}</span>`:''}</div>
+        ${score!==null&&!isTvParts&&cf('score') ? buildRing(score) : ''}
+        ${actionsHidden ? `<button type="button" class="card-menu-btn" onclick="event.stopPropagation();toggleCardActions(${r.id}, this)" aria-label="Toiminnot">⋯</button>` : ''}
       </div>
-    </div>`;
+      ${metaChips ? `<div class="card-meta">${metaChips}</div>` : ''}
+      ${extraInfo.length ? `<div class="card-extra-info">${extraInfo.map(i=>`<span>${i}</span>`).join('')}</div>` : ''}
+      ${tmdbScoreHtml}
+      ${(r.plot && cf('plot'))?`<div class="card-plot"><span class="card-plot-label">📖 Juoni</span>${escNl(r.plot)}</div>`:''}
+      ${(r.note && cf('note'))?`<div class="card-note" id="note-${r.id}">${mdText(r.note)}</div>`:''}
+      ${cf('parts') ? partsHtml : ''}
+      ${(dateStr && cf('date'))?`<div class="card-date">📅 ${dateStr}</div>`:''}
+      ${actionsHidden
+        ? `<div class="card-actions is-menu" id="acts-${r.id}" style="display:none;">${actionsInner}</div>`
+        : `<div class="card-actions">${actionsInner}</div>`}`;
+
+    // Taustajuliste on absoluuttisesti sijoitettu, joten se voi olla suoraan
+    // kortin lapsi. Muut sijainnit ovat oikeita elementtejä rivissä tai
+    // pinossa, ja niiden järjestys ratkaisee tuleeko kuva ennen vai jälkeen.
+    const inner = (pPos === 'bg' || !posterHtml)
+      ? `${posterHtml}<div class="card-body">${body}</div>`
+      : (pPos === 'left' || pPos === 'top')
+        ? `${posterHtml}<div class="card-body">${body}</div>`
+        : `<div class="card-body">${body}</div>${posterHtml}`;
+
+    return `<div class="review-card type-${typeClass} ${scoreCardCls} ${favCls}${pc.cls} pp-${posterHtml ? pPos : 'none'}"${pc.id} style="animation-delay:${Math.min(idx*0.06,0.5)}s;${pc.style}" ondblclick="openReadModal(${r.id})">${inner}</div>`;
   }).join('');
 };
 
