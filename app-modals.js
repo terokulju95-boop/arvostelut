@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-01.21';
+window.BUILD_MODALS = '2026-09-01.22';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1329,6 +1329,7 @@ window.openSettings = function(){
   if(window.closeAllSetSecs) window.closeAllSetSecs();
   safeRender('osioiden tiivistelmät', window.renderSectionSummaries);
   safeRender('uutuuslista', window.renderWhatsNew);
+  safeRender('uutuusmerkki', window.updateNewsBadge);
   window.setSettingsTab(settingsTab);
   document.getElementById('settingsModal').classList.add('open');
 };

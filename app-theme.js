@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-01.21';
+window.BUILD_THEME = '2026-09-01.22';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -132,7 +132,11 @@ window.renderThemeSettings = function(){
 // 2. PISTELUOKKIEN RAJAT
 // ════════════════════════════════════════════════════════════
 
-window.renderScoreBandSettings = function(){
+// liveKey = sen säätimen tunnus jota juuri raahataan. Silloin DOM:ia EI
+// rakenneta uudelleen, koska se tuhoaisi elementin jota sormi pitää kiinni
+// ja veto katkeaisi joka pikselillä. Live-tilassa päivitetään vain
+// lukuarvot, rajat ja esikatselupalkki.
+window.renderScoreBandSettings = function(liveKey){
   const d = scoreBandDefs();
   // Rajat ovat laskevia, joten luokkien alarajat saadaan kääntämällä lista.
   // Alin luokka alkaa aina nollasta.
@@ -156,6 +160,23 @@ window.renderScoreBandSettings = function(){
   const host = document.getElementById('thrSliders');
   if(host){
     const keys = d.count === 5 ? ['c4','c3','c2','c1'] : ['high','mid'];
+    const built = keys.every(k => document.getElementById('thr-' + k));
+
+    if(liveKey && built){
+      d.cuts.forEach((cut, i) => {
+        const el = document.getElementById('thr-' + keys[i]);
+        if(!el) return;
+        el.max = String(i === 0 ? 100 : d.cuts[i - 1] - 1);
+        el.min = String((d.cuts.length - 1 - i) + 1);
+        // Raahattavan säätimen arvoon ei kosketa: selain omistaa sen
+        // niin kauan kuin sormi on sen päällä.
+        if(keys[i] !== liveKey) el.value = String(cut);
+        const val = el.parentNode && el.parentNode.querySelector('.thr-val');
+        if(val) val.textContent = cut;
+      });
+      return;
+    }
+
     const dots = { top:'🔵', high:'🟢', mid:'🟡', low:'🟠', bottom:'🔴' };
     const rows = d.cuts.map((cut, i) => {
       const name  = d.names[i];
@@ -244,7 +265,7 @@ window.setScoreBand = function(which, val, live){
     order.forEach(k => { s.scoreBands[k] = Math.max(1, Math.min(100, cur[k])); });
   }
 
-  window.renderScoreBandSettings();
+  window.renderScoreBandSettings(live ? which : null);
   if(live) return;
   if(window.renderSectionSummaries) window.renderSectionSummaries();
   if(window.renderAll) renderAll();

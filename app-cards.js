@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-01.21';
+window.BUILD_CARDS = '2026-09-01.22';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -154,7 +154,9 @@ window.setCardRadius = function(val, live){
   const s = ensureSettings();
   s.cardRadius = (val === '' || val === null) ? RADIUS_DEFAULT : Number(val);
   window.applyShapes();
-  renderShapeSettings();
+  // Live-tilassa vain lukuarvot päivittyvät. Koko laatikon uudelleenpiirto
+  // tuhoaisi säätimen jota sormi raahaa, ja veto katkeaisi.
+  renderShapeSettings(live ? 'radius' : null);
   if(live) return;
   if(window.renderSectionSummaries) window.renderSectionSummaries();
   window.fbSave();
@@ -163,7 +165,7 @@ window.setCardRadius = function(val, live){
 window.setRingWidth = function(val, live){
   ensureSettings().ringWidth = Number(val);
   window.applyShapes();
-  renderShapeSettings();
+  renderShapeSettings(live ? 'ring' : null);
   if(live) return;
   if(window.renderSectionSummaries) window.renderSectionSummaries();
   window.fbSave();
@@ -179,11 +181,23 @@ window.resetShapes = async function(){
   await window.fbSave();
 };
 
-function renderShapeSettings(){
+function renderShapeSettings(liveKey){
   const host = document.getElementById('shapeBox');
   if(!host) return;
   const r = window.cardRadius();
   const w = window.ringWidth();
+
+  // Raahauksen aikana päivitetään vain näkyvät luvut ja huomautus.
+  if(liveKey && host.querySelector('#shapeRadiusVal')){
+    const rv = host.querySelector('#shapeRadiusVal');
+    const wv = host.querySelector('#shapeRingVal');
+    const note = host.querySelector('#shapeRadiusNote');
+    if(rv) rv.textContent = (r === null ? '—' : r + 'px');
+    if(wv) wv.textContent = w + 'px';
+    if(note) note.textContent = (r === null ? 'Seuraa väripakettia' : 'Oma valinta');
+    return;
+  }
+
   // Väripaketin oma arvo näytetään kun omaa valintaa ei ole tehty
   const packR = getComputedStyle(document.documentElement)
     .getPropertyValue('--card-radius').trim() || '14px';
@@ -193,18 +207,18 @@ function renderShapeSettings(){
       <span class="thr-label">⬜ Kortin pyöristys</span>
       <input type="range" class="thr-slider" min="0" max="28" step="1" value="${r === null ? parseInt(packR, 10) || 14 : r}"
         oninput="setCardRadius(this.value, true)" onchange="setCardRadius(this.value, false)">
-      <span class="thr-val">${r === null ? packR : r + 'px'}</span>
+      <span class="thr-val" id="shapeRadiusVal">${r === null ? packR : r + 'px'}</span>
     </div>
     <div class="shape-prev">
       <span class="shape-prev-card" style="border-radius:var(--card-radius);"></span>
-      <span class="shape-prev-note">${r === null ? 'Seuraa väripakettia' : 'Oma valinta'}</span>
+      <span class="shape-prev-note" id="shapeRadiusNote">${r === null ? 'Seuraa väripakettia' : 'Oma valinta'}</span>
     </div>
 
     <div class="thr-row" style="margin-top:14px;">
       <span class="thr-label">⭕ Renkaan paksuus</span>
       <input type="range" class="thr-slider" min="2" max="14" step="1" value="${w}"
         oninput="setRingWidth(this.value, true)" onchange="setRingWidth(this.value, false)">
-      <span class="thr-val">${w}px</span>
+      <span class="thr-val" id="shapeRingVal">${w}px</span>
     </div>
     <div class="shape-prev">
       <svg width="54" height="54" viewBox="0 0 88 88" style="transform:rotate(-90deg);">
@@ -500,15 +514,34 @@ const WHATS_NEW = [
   ]}
 ];
 
+// Aivan uudella asennuksella listaa ei näytetä — silloin kaikki on uutta
+// eikä lista kertoisi mitään. Vanha asennus tunnistetaan siitä että
+// sovellus on jättänyt laitteeseen muita jälkiä tai pilvessä on arvosteluja.
+// Tämä on olennaista: ilman sitä päivittävä käyttäjä ei näkisi listaa
+// koskaan, koska hänelläkään ei ole vielä kuittausmerkintää.
+function looksLikeExistingInstall(){
+  try{
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && k.startsWith('arvostelut_') && k !== SEEN_BUILD_KEY) return true;
+    }
+  } catch(e){}
+  return !!(appData && Array.isArray(appData.reviews) && appData.reviews.length);
+}
+
 function newSinceSeen(){
   let seen = '';
   try{ seen = localStorage.getItem(SEEN_BUILD_KEY) || ''; } catch(e){}
   const cur = window.BUILD_CARDS || '';
   if(!cur) return [];
-  // Ensimmäisellä käynnistyksellä ei näytetä mitään: silloin kaikki on uutta
-  // eikä lista kertoisi mitään hyödyllistä.
-  if(!seen) return [];
   if(seen === cur) return [];
+
+  if(!seen){
+    if(!looksLikeExistingInstall()) return [];
+    // Vanha asennus ilman kuittausta: näytetään kaikki tiedossa olevat
+    return WHATS_NEW.flatMap(e => e.items);
+  }
+
   const out = [];
   for(const entry of WHATS_NEW){
     if(entry.build <= seen) break;
@@ -517,10 +550,40 @@ function newSinceSeen(){
   return out;
 }
 
+window.hasUnseenNews = function(){
+  try{ return newSinceSeen().length > 0; } catch(e){ return false; }
+};
+
+// Merkkipiste asetusnapin kulmaan, jotta listan olemassaolon huomaa
+// ilman että asetuksiin tarvitsee eksyä sattumalta.
+window.updateNewsBadge = function(){
+  const btn = document.querySelector('.settings-btn');
+  if(!btn) return;
+  const has = window.hasUnseenNews();
+  let dot = btn.querySelector('.settings-dot');
+  if(has && !dot){
+    dot = document.createElement('span');
+    dot.className = 'settings-dot';
+    btn.appendChild(dot);
+  } else if(!has && dot){
+    dot.remove();
+  }
+};
+
+// Listan voi avata uudelleen milloin tahansa, myös kuittauksen jälkeen.
+window.showAllNews = function(){
+  try{ localStorage.removeItem(SEEN_BUILD_KEY); } catch(e){}
+  window.renderWhatsNew(true);
+  window.updateNewsBadge();
+  const box = document.getElementById('whatsNewBox');
+  if(box){ try{ box.scrollIntoView({ block:'nearest', behavior:'smooth' }); } catch(e){} }
+};
+
 window.markBuildSeen = function(){
   try{ localStorage.setItem(SEEN_BUILD_KEY, window.BUILD_CARDS || ''); } catch(e){}
   const box = document.getElementById('whatsNewBox');
   if(box) box.remove();
+  window.updateNewsBadge();
 };
 
 window.openWhatsNewTarget = function(tab, sec, view){
@@ -538,8 +601,8 @@ window.openWhatsNewTarget = function(tab, sec, view){
 };
 
 // Palkki asetusten yläreunaan, heti versiovaroituksen alle.
-window.renderWhatsNew = function(){
-  const items = newSinceSeen();
+window.renderWhatsNew = function(force){
+  const items = force ? WHATS_NEW.flatMap(e => e.items) : newSinceSeen();
   const old = document.getElementById('whatsNewBox');
   if(old) old.remove();
   if(!items.length) return;
@@ -569,13 +632,8 @@ window.renderWhatsNew = function(){
   warn.parentNode.insertBefore(box, warn.nextSibling);
 };
 
-// Versioleima merkitään nähdyksi vasta kun lista on kuitattu — mutta
-// aivan ensimmäisellä käynnistyksellä se merkitään heti, jottei uusi
-// laite näytä koko historiaa.
+// Versioleima merkitään nähdyksi vasta kun lista on kuitattu käsin.
+// Merkkipiste asetusnapissa kertoo että luettavaa on.
 document.addEventListener('DOMContentLoaded', () => {
-  try{
-    if(!localStorage.getItem(SEEN_BUILD_KEY)){
-      localStorage.setItem(SEEN_BUILD_KEY, window.BUILD_CARDS || '');
-    }
-  } catch(e){}
+  setTimeout(() => { try{ window.updateNewsBadge(); } catch(e){} }, 400);
 });
