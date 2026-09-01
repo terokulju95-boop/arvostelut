@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-01.17';
+window.BUILD_CARDS = '2026-09-01.18';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -85,17 +85,22 @@ window.resetCardFields = async function(which){
 // 2. JULISTEEN SIJAINTI
 // ════════════════════════════════════════════════════════════
 
+// Juliste on AINA kortin taustana ja häivytetty tekstin alta pois.
+// Valinta koskee vain sitä mihin reunaan tausta asettuu. Erillistä
+// kuvaa tekstin vieressä ei tehdä — se rikkoo kortin ilmeen.
 const POSTER_POSITIONS = [
-  { id:'bg',     label:'Taustalla',    hint:'Häivytettynä kortin oikeassa reunassa' },
-  { id:'left',   label:'Vasemmalla',   hint:'Omana kuvanaan tekstin vieressä' },
-  { id:'right',  label:'Oikealla',     hint:'Omana kuvanaan tekstin vieressä' },
-  { id:'top',    label:'Yläreunassa',  hint:'Leveänä kuvana kortin päällä' },
-  { id:'bottom', label:'Alareunassa',  hint:'Leveänä kuvana kortin alla' }
+  { id:'right',  label:'Oikea',      hint:'Juliste kortin oikeassa reunassa, häivytettynä vasemmalle' },
+  { id:'left',   label:'Vasen',      hint:'Juliste kortin vasemmassa reunassa, häivytettynä oikealle' },
+  { id:'top',    label:'Ylä',        hint:'Juliste kortin yläreunassa, häivytettynä alaspäin' },
+  { id:'bottom', label:'Ala',        hint:'Juliste kortin alareunassa, häivytettynä ylöspäin' },
+  { id:'full',   label:'Koko kortti',hint:'Juliste täyttää koko kortin pohjan vaimennettuna' }
 ];
 
 window.posterPos = function(){
   const p = ensureSettings().posterPos;
-  return POSTER_POSITIONS.some(x => x.id === p) ? p : 'bg';
+  // Vanha 'bg' tarkoitti oikeaa reunaa. Migraatio ilman erillistä askelta.
+  if(p === 'bg' || p == null) return 'right';
+  return POSTER_POSITIONS.some(x => x.id === p) ? p : 'right';
 };
 
 window.setPosterPos = async function(pos){
@@ -110,11 +115,9 @@ window.setPosterPos = async function(pos){
 window.cardPosterHtml = function(r){
   if(!cf('poster') || !window.hasPoster(r)) return '';
   const pos = window.posterPos();
-  if(pos === 'bg'){
-    return `<div class="card-poster-bg" style="background-image:${window.posterCss(r,'w200')}"></div>`;
-  }
-  const size = (pos === 'top' || pos === 'bottom') ? 'w500' : 'w200';
-  return `<div class="card-poster-side"><img src="${esc(window.posterUrl(r, size))}" alt="" loading="lazy"></div>`;
+  // Vaaka-asennoissa tarvitaan leveämpi lähde, jottei kuva vetisty.
+  const size = (pos === 'top' || pos === 'bottom' || pos === 'full') ? 'w342' : 'w200';
+  return `<div class="card-poster-bg" style="background-image:${window.posterCss(r, size)}"></div>`;
 };
 
 // ════════════════════════════════════════════════════════════
@@ -239,11 +242,11 @@ function renderCardFieldSettings(){
 
     <div class="cfld-sep"></div>
     <label>Julisteen sijainti kortissa</label>
-    <div class="toggle-row-sub" style="margin-bottom:10px;">Koskee vain listan korttia. Jos juliste on piilotettu yltä, tällä ei ole vaikutusta.</div>
+    <div class="toggle-row-sub" style="margin-bottom:10px;">Juliste on aina kortin taustana ja häivytetty tekstin alta pois. Tämä valitsee vain reunan. Jos juliste on piilotettu yltä, valinnalla ei ole vaikutusta.</div>
     <div class="pos-grid">
       ${POSTER_POSITIONS.map(p => `
         <button type="button" class="pos-opt ${pos===p.id?'active':''}" onclick="setPosterPos('${p.id}')">
-          <span class="pos-preview pos-preview-${p.id}"><i></i></span>
+          <span class="pos-preview pos-preview-${p.id}"><i></i><b></b></span>
           <span class="pos-label">${esc(p.label)}</span>
         </button>`).join('')}
     </div>

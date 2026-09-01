@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-01.17';
+window.BUILD_VIEWS = '2026-09-01.18';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -460,14 +460,9 @@ window.renderCards = function(){
         ? `<div class="card-actions is-menu" id="acts-${r.id}" style="display:none;">${actionsInner}</div>`
         : `<div class="card-actions">${actionsInner}</div>`}`;
 
-    // Taustajuliste on absoluuttisesti sijoitettu, joten se voi olla suoraan
-    // kortin lapsi. Muut sijainnit ovat oikeita elementtejä rivissä tai
-    // pinossa, ja niiden järjestys ratkaisee tuleeko kuva ennen vai jälkeen.
-    const inner = (pPos === 'bg' || !posterHtml)
-      ? `${posterHtml}<div class="card-body">${body}</div>`
-      : (pPos === 'left' || pPos === 'top')
-        ? `${posterHtml}<div class="card-body">${body}</div>`
-        : `<div class="card-body">${body}</div>${posterHtml}`;
+    // Juliste on aina absoluuttisesti sijoitettu tausta, joten se on kortin
+    // ensimmäinen lapsi ja sijainti hoidetaan pp-luokalla CSS:n puolella.
+    const inner = `${posterHtml}<div class="card-body">${body}</div>`;
 
     return `<div class="review-card type-${typeClass} ${scoreCardCls} ${favCls}${pc.cls} pp-${posterHtml ? pPos : 'none'}"${pc.id} style="animation-delay:${Math.min(idx*0.06,0.5)}s;${pc.style}" ondblclick="openReadModal(${r.id})">${inner}</div>`;
   }).join('');

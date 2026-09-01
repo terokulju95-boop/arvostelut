@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · kysymyspankki ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_QUESTIONS = '2026-09-01.17';
+window.BUILD_QUESTIONS = '2026-09-01.18';
 //
 // Ohjattu kirjoittaminen elokuva-arvosteluihin. Sovelluksessa ei ole
 // tekoälyä, joten teksti kootaan säännöillä: kysymykset on kirjoitettu
