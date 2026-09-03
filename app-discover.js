@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-09-02.23';
+window.BUILD_DISCOVER = '2026-09-03.24';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.

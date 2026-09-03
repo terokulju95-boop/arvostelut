@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-02.23';
+window.BUILD_CARDS = '2026-09-03.24';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -41,10 +41,9 @@ const CARD_FIELDS = [
 
 // Listakortti on tiivis, joten siitä on oletuksena piilotettu ne kentät
 // jotka näkyvät kuitenkin isossa kortissa.
-// Suositus ja uusintakatselu ovat oletuksena piilossa listakortissa:
-// kortin merkkilapputila on rajallinen, ja molemmat näkyvät joka
-// tapauksessa luku-modaalissa.
-const CARD_DEFAULTS = { cast:false, country:false, tmdbScore:false, recommend:false, rewatch:false };
+// Suositus ja uusintakatselu näkyvät oletuksena, koska ne ovat omana
+// lohkonaan arvostelutekstin jälkeen eivätkä vie tilaa lapuilta.
+const CARD_DEFAULTS = { cast:false, country:false, tmdbScore:false };
 const READ_DEFAULTS = {};
 
 function fieldsFor(which){
@@ -499,6 +498,14 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-09-03.24', items:[
+    { icon:'🔎', title:'Suodata suosituksen ja uusinnan mukaan',
+      text:'Suodatinpaneelista voit nyt poimia esimerkiksi kaikki jotka katsoisit heti uudelleen. Rivit ilmestyvät vasta kun kentissä on tietoa.',
+      view:'reviews' },
+    { icon:'🔁', title:'Suositus ja uusinta omaksi lohkokseen',
+      text:'Ne eivät enää huku genrelappujen sekaan kortin ylälaidassa, vaan näkyvät selkeänä lohkona arvostelutekstin jälkeen.',
+      tab:'kortit', sec:'kortinkentat' }
+  ]},
   { build:'2026-09-02.23', items:[
     { icon:'👍', title:'Suosittelisitko ja katsoisitko uudelleen',
       text:'Kaksi uutta kenttää lomakkeelle. Molemmat ovat vapaaehtoisia: napauta valittua uudelleen jos haluat tyhjentää sen.',
