@@ -643,6 +643,21 @@ html[data-filmstrip="on"] body::before{
 .trio-btn:active{transform:scale(0.97);}
 .trio-hint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4;}
 
+/* SUOSITUS JA UUSINTA -LOHKO KORTISSA
+   Oma lohko arvostelutekstin jälkeen, ei merkkilappu ylälaidassa.
+   Väri kertoo suunnan: vihreä myönteinen, keltainen ehdollinen,
+   punainen kielteinen. */
+.card-verdict{margin-top:10px;background:var(--tint-03);border:1px solid var(--tint-07);border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;gap:6px;}
+.verdict-row{display:flex;align-items:baseline;gap:10px;}
+.verdict-label{flex-shrink:0;width:66px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;}
+.verdict-value{font-size:13.5px;font-weight:700;line-height:1.3;}
+.verdict-value.v-good{color:var(--sc-high);}
+.verdict-value.v-mid{color:var(--sc-mid);}
+.verdict-value.v-bad{color:var(--sc-low);}
+
+/* Lukumäärä suodatinlapussa */
+.chip-count{font-size:10.5px;font-weight:700;opacity:0.65;font-variant-numeric:tabular-nums;}
+
 /* ARVOSANA-RENGAS */
 .score-ring { position:relative; width:88px; height:88px; flex-shrink:0; }
 .score-ring svg { position:absolute; top:0; left:0; transform:rotate(-90deg); }

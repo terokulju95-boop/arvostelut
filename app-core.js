@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-04.25';
+window.BUILD_CORE = '2026-09-05.26';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -17,18 +17,19 @@ window.PLOT_CATS = PLOT_CATS;
 
 // ── SUOSITUS JA UUSINTAKATSELU ──
 // Kolme vaihtoehtoa kummallekin, eikä kumpikaan ole pakollinen. Tekstit
-// ovat kolmessa muodossa: nappi lomakkeella on lyhyt, kortin merkkilappu
-// keskipitkä ja luku-modaalin rivi kokonainen lause. Arvot (id) ovat
-// tallennettavia koodeja eivätkä saa muuttua — vain tekstit saa vaihtaa.
+// ovat kolmessa muodossa: nappi lomakkeella ja suodattimessa on lyhyt,
+// kortin lohkorivi keskipitkä ja luku-modaalin rivi kokonainen lause.
+// tone ohjaa värin: good = vihreä, mid = keltainen, bad = punainen.
+// Arvot (id) ovat tallennettavia koodeja eivätkä saa muuttua.
 const RECOMMEND_OPTS = [
-  { id:'yes',     btn:'👍 Kyllä',      chip:'👍 Suosittelen',   read:'👍 Kyllä, suosittelen' },
-  { id:'depends', btn:'🤔 Riippuu',    chip:'🤔 Riippuu',       read:'🤔 Riippuu' },
-  { id:'no',      btn:'👎 En',         chip:'👎 En suosittele', read:'👎 En suosittele' }
+  { id:'yes',     tone:'good', btn:'👍 Kyllä',      chip:'👍 Suosittelen',   read:'👍 Kyllä, suosittelen' },
+  { id:'depends', tone:'mid',  btn:'🤔 Riippuu',    chip:'🤔 Riippuu',       read:'🤔 Riippuu' },
+  { id:'no',      tone:'bad',  btn:'👎 En',         chip:'👎 En suosittele', read:'👎 En suosittele' }
 ];
 const REWATCH_OPTS = [
-  { id:'now',     btn:'⚡ Heti',       chip:'⚡ Uusinta heti',  read:'⚡ Katsoisin heti uudelleen' },
-  { id:'someday', btn:'🕐 Joskus',     chip:'🕐 Uusinta joskus',read:'🕐 Katsoisin joskus uudelleen' },
-  { id:'never',   btn:'🚫 En koskaan', chip:'🚫 Ei uusintaa',   read:'🚫 En katsoisi uudelleen' }
+  { id:'now',     tone:'good', btn:'⚡ Heti',       chip:'⚡ Heti uudelleen',   read:'⚡ Katsoisin heti uudelleen' },
+  { id:'someday', tone:'mid',  btn:'🕐 Joskus',     chip:'🕐 Joskus uudelleen', read:'🕐 Katsoisin joskus uudelleen' },
+  { id:'never',   tone:'bad',  btn:'🚫 En koskaan', chip:'🚫 En enää',          read:'🚫 En katsoisi uudelleen' }
 ];
 window.RECOMMEND_OPTS = RECOMMEND_OPTS;
 window.REWATCH_OPTS   = REWATCH_OPTS;
@@ -61,6 +62,10 @@ let sortMode = 'uusin';
 let activeGenreFilter = null;
 let activeScoreFilter = null;
 let activeMarkFilter = null;
+// Suositus- ja uusintasuodattimet. Arvo on RECOMMEND_OPTS / REWATCH_OPTS
+// -taulukon id tai null kun suodatin ei ole käytössä.
+let activeRecommendFilter = null;
+let activeRewatchFilter = null;
 let activeYearFilter = null;
 let activeDecadeFilter = null;
 // Ohjaajasuodatin. Ei osa suodatinpaneelia, vaan käynnistyy kortin
@@ -95,6 +100,7 @@ function initApp(){
   renderCatTabs();
   renderGenreFilters();
   renderYearFilters();
+  renderTrioFilters();
   if(window.updateViewModeBtn) window.updateViewModeBtn();
   renderAll();
 }
@@ -104,6 +110,7 @@ function renderAll(){
   renderGenreFilters();
   renderYearFilters();
   renderDecadeFilters();
+  renderTrioFilters();
   if(window.updateFilterBadge) window.updateFilterBadge();
   if(currentView==='reviews') renderCards();
   else if(currentView==='top') renderTop();
@@ -258,6 +265,8 @@ window.setActiveSub = function(val){
   activeSub = val;
   saveSubChoice(activeCat, val);
   renderSubTabs();
+  // Suodatinlappujen lukumäärät seuraavat auki olevaa alalajia
+  if(window.renderTrioFiltersPublic) window.renderTrioFiltersPublic();
   renderCards();
 };
 
@@ -306,10 +315,13 @@ window.setActiveCat = function(cat){
   activeGenreFilter = null;
   activeScoreFilter = null;
   activeMarkFilter = null;
+  activeRecommendFilter = null;
+  activeRewatchFilter = null;
   activeYearFilter = null;
   activeDecadeFilter = null;
   document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));
   renderCatTabs();
+  renderTrioFilters();
   renderCards();
   if(window.updateFilterBadge) window.updateFilterBadge();
 };
@@ -348,6 +360,78 @@ window.toggleMarkFilter = function(btn){
   renderCards();
   if(window.updateFilterBadge) window.updateFilterBadge();
 };
+
+// ── SUOSITUS- JA UUSINTASUODATTIMET ──
+// Molemmat rivit piiloutuvat kokonaan jos yhdelläkään arvostelulla ei ole
+// kyseistä kenttää täytettynä. Näin paneeli ei täyty riveistä jotka eivät
+// suodattaisi mitään. Lukumäärä lasketaan avoinna olevasta kategoriasta,
+// eli samasta joukosta jota lista näyttää.
+const TRIO_FILTERS = [
+  { field:'recommend', rowId:'recFilters',     labelId:'recFilterLabel',
+    attr:'rec', fn:'toggleRecommendFilter', opts:() => RECOMMEND_OPTS },
+  { field:'rewatch',   rowId:'rewatchFilters', labelId:'rewatchFilterLabel',
+    attr:'rw',  fn:'toggleRewatchFilter',   opts:() => REWATCH_OPTS }
+];
+
+function trioActive(field){
+  return field === 'recommend' ? activeRecommendFilter : activeRewatchFilter;
+}
+
+function renderTrioFilters(){
+  const all = appData.reviews || [];
+  // Lukumäärä lasketaan täsmälleen siitä joukosta jota lista näyttää:
+  // sekä kategoria että auki oleva alalajivälilehti rajaavat sitä.
+  // Ilman alalajirajausta lappu lupaisi enemmän osumia kuin niitä näkyy.
+  const sub = window.getActiveSub ? window.getActiveSub() : '';
+  let inCat = activeCat ? all.filter(r => r.category === activeCat) : all;
+  if(activeCat && subcatsFor(activeCat).length){
+    inCat = inCat.filter(r => subcatOf(r) === sub);
+  }
+
+  TRIO_FILTERS.forEach(t => {
+    const row = document.getElementById(t.rowId);
+    const lbl = document.getElementById(t.labelId);
+    if(!row) return;
+
+    const anyData = all.some(r => r[t.field]);
+    if(!anyData){
+      row.innerHTML = '';
+      row.style.display = 'none';
+      if(lbl) lbl.style.display = 'none';
+      return;
+    }
+    row.style.display = '';
+    if(lbl) lbl.style.display = '';
+
+    const active = trioActive(t.field);
+    row.innerHTML = t.opts().map(o => {
+      const n = inCat.filter(r => r[t.field] === o.id).length;
+      return `<button class="filter-chip${o.id === active ? ' active' : ''}" data-${t.attr}="${o.id}" onclick="${t.fn}(this)">${esc(o.btn)}${n ? ` <span class="chip-count">${n}</span>` : ''}</button>`;
+    }).join('');
+  });
+}
+
+window.toggleRecommendFilter = function(btn){
+  const v = btn.dataset.rec;
+  activeRecommendFilter = activeRecommendFilter === v ? null : v;
+  document.querySelectorAll('#recFilters .filter-chip').forEach(b => b.classList.remove('active'));
+  if(activeRecommendFilter) btn.classList.add('active');
+  renderCards();
+  if(window.updateFilterBadge) window.updateFilterBadge();
+};
+
+window.toggleRewatchFilter = function(btn){
+  const v = btn.dataset.rw;
+  activeRewatchFilter = activeRewatchFilter === v ? null : v;
+  document.querySelectorAll('#rewatchFilters .filter-chip').forEach(b => b.classList.remove('active'));
+  if(activeRewatchFilter) btn.classList.add('active');
+  renderCards();
+  if(window.updateFilterBadge) window.updateFilterBadge();
+};
+
+// setActiveSub on määritelty ennen tätä funktiota, joten se kutsuu
+// laskurien päivitystä ikkunan kautta.
+window.renderTrioFiltersPublic = renderTrioFilters;
 
 function renderDecadeFilters(){
   const el = document.getElementById('decadeFilters');
@@ -404,6 +488,7 @@ window.toggleFilter = function(){
     renderGenreFilters();
     renderYearFilters();
     renderDecadeFilters();
+    renderTrioFilters();
   }
 };
 
@@ -411,7 +496,9 @@ window.toggleFilter = function(){
 window.updateFilterBadge = function(){
   const btn = document.getElementById('filterToggleBtn');
   if(!btn) return;
-  const any = !!(activeGenreFilter || activeScoreFilter || activeMarkFilter || activeYearFilter || activeDecadeFilter);
+  const any = !!(activeGenreFilter || activeScoreFilter || activeMarkFilter ||
+                 activeRecommendFilter || activeRewatchFilter ||
+                 activeYearFilter || activeDecadeFilter);
   btn.classList.toggle('has-filters', any);
 };
 
@@ -419,6 +506,8 @@ window.clearAllFilters = function(){
   activeGenreFilter = null;
   activeScoreFilter = null;
   activeMarkFilter = null;
+  activeRecommendFilter = null;
+  activeRewatchFilter = null;
   activeYearFilter = null;
   activeDecadeFilter = null;
   document.querySelectorAll('.filter-chip').forEach(b=>b.classList.remove('active'));
