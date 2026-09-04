@@ -67,6 +67,7 @@
     <button class="view-tab" id="viewTabTop" onclick="setView('top')">🏆 Top-lista</button>
     <button class="view-tab" id="viewTabDiscover" onclick="setView('discover')">🔮 Löydä</button>
     <button class="view-tab" id="viewTabBudget" onclick="setView('budget')">💰 Budjetti</button>
+    <button class="view-tab" id="viewTabQuick" onclick="setView('quick')">🎚️ Pisteet</button>
   </div>
 
   <!-- KATEGORIATABS -->
@@ -102,10 +103,6 @@
       <button class="filter-chip" data-mark="heart" onclick="toggleMarkFilter(this)">❤️ Suosikit</button>
       <button class="filter-chip" data-mark="skull" onclick="toggleMarkFilter(this)">💀 Huonot</button>
     </div>
-    <div class="filter-label" style="margin-top:12px;" id="recFilterLabel">Suosittelisitko</div>
-    <div class="filter-row" id="recFilters"></div>
-    <div class="filter-label" style="margin-top:12px;" id="rewatchFilterLabel">Katsoisitko uudelleen</div>
-    <div class="filter-row" id="rewatchFilters"></div>
     <div class="filter-label" style="margin-top:12px;">Katseluvuosi</div>
     <div class="filter-row" id="yearFilters"></div>
     <div class="filter-label" style="margin-top:12px;" id="decadeFilterLabel">Julkaisuvuosikymmen</div>
@@ -116,6 +113,9 @@
   <div class="search-note" id="searchNote" style="display:none;"></div>
 
   <div class="cards-grid" id="cardsGrid"></div>
+
+  <!-- PISTEIDEN PIKAMUOKKAUS -->
+  <div class="quick-view" id="quickView" style="display:none;"></div>
 
   <!-- LÖYDÄ-NÄKYMÄ -->
   <div class="discover" id="discoverView" style="display:none;">
@@ -1062,6 +1062,7 @@
 <script src="app-plot.js"></script>
 <script src="app-extras.js"></script>
 <script src="app-cards.js"></script>
+<script src="app-quick.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 </body>

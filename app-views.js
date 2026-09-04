@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-03.24';
+window.BUILD_VIEWS = '2026-09-04.25';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -219,8 +219,6 @@ window.renderCards = function(){
     });
   }
   if(activeMarkFilter) reviews = reviews.filter(r=>r.mark===activeMarkFilter);
-  if(activeRecommendFilter) reviews = reviews.filter(r=>r.recommend===activeRecommendFilter);
-  if(activeRewatchFilter) reviews = reviews.filter(r=>r.rewatch===activeRewatchFilter);
   if(activeYearFilter) reviews = reviews.filter(r=>r.date&&new Date(r.date).getFullYear()===activeYearFilter);
   if(activeDecadeFilter) reviews = reviews.filter(r=>r.year&&Math.floor(r.year/10)*10===activeDecadeFilter);
 
@@ -441,21 +439,16 @@ window.renderCards = function(){
         return st ? `<span class="meta-chip status-chip status-${st.cls}">${st.icon} ${esc(st.fi)}</span>` : '';
       })() : '',
       (cf('mark') && r.mark==='heart') ? '<span class="meta-chip" style="background:rgba(255,100,130,0.18);color:#ff6482;">❤️ Suosikki</span>' : '',
-      (cf('mark') && r.mark==='skull') ? '<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>' : ''
+      (cf('mark') && r.mark==='skull') ? '<span class="meta-chip" style="background:rgba(160,160,160,0.12);color:#aaa;">💀 Huono</span>' : '',
+      cf('recommend') ? (()=>{
+        const o = window.recommendOpt ? window.recommendOpt(r.recommend) : null;
+        return o ? `<span class="meta-chip">${esc(o.chip)}</span>` : '';
+      })() : '',
+      cf('rewatch') ? (()=>{
+        const o = window.rewatchOpt ? window.rewatchOpt(r.rewatch) : null;
+        return o ? `<span class="meta-chip">${esc(o.chip)}</span>` : '';
+      })() : ''
     ].filter(Boolean).join('');
-
-    // Suositus ja uusintakatselu omana lohkonaan. Ne olivat aiemmin
-    // merkkilappuina ylälaidassa, missä ne hukkuivat genrelappujen sekaan.
-    // Nyt ne tulevat arvostelutekstin jälkeen omalla otsikollaan.
-    const verdictRows = [
-      { on: cf('recommend'), label: 'Suositus', opt: window.recommendOpt ? window.recommendOpt(r.recommend) : null },
-      { on: cf('rewatch'),   label: 'Uusinta',  opt: window.rewatchOpt   ? window.rewatchOpt(r.rewatch)   : null }
-    ].filter(v => v.on && v.opt)
-     .map(v => `<div class="verdict-row">
-        <span class="verdict-label">${v.label}</span>
-        <span class="verdict-value v-${v.opt.tone}">${esc(v.opt.chip)}</span>
-      </div>`).join('');
-    const verdictHtml = verdictRows ? `<div class="card-verdict">${verdictRows}</div>` : '';
 
     const body = `
       <div class="card-top">
@@ -467,7 +460,6 @@ window.renderCards = function(){
       ${tmdbScoreHtml}
       ${(r.plot && cf('plot'))?`<div class="card-plot"><span class="card-plot-label">📖 Juoni</span>${escNl(r.plot)}</div>`:''}
       ${(r.note && cf('note'))?`<div class="card-note" id="note-${r.id}">${mdText(r.note)}</div>`:''}
-      ${verdictHtml}
       ${cf('parts') ? partsHtml : ''}
       ${(dateStr && cf('date'))?`<div class="card-date">📅 ${dateStr}</div>`:''}
       <div class="card-actions">${actionsInner}</div>`;

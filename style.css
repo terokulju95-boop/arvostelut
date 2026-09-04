@@ -643,21 +643,6 @@ html[data-filmstrip="on"] body::before{
 .trio-btn:active{transform:scale(0.97);}
 .trio-hint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4;}
 
-/* SUOSITUS JA UUSINTA -LOHKO KORTISSA
-   Oma lohko arvostelutekstin jälkeen, ei merkkilappu ylälaidassa.
-   Väri kertoo suunnan: vihreä myönteinen, keltainen ehdollinen,
-   punainen kielteinen. */
-.card-verdict{margin-top:10px;background:var(--tint-03);border:1px solid var(--tint-07);border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;gap:6px;}
-.verdict-row{display:flex;align-items:baseline;gap:10px;}
-.verdict-label{flex-shrink:0;width:66px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;}
-.verdict-value{font-size:13.5px;font-weight:700;line-height:1.3;}
-.verdict-value.v-good{color:var(--sc-high);}
-.verdict-value.v-mid{color:var(--sc-mid);}
-.verdict-value.v-bad{color:var(--sc-low);}
-
-/* Lukumäärä suodatinlapussa */
-.chip-count{font-size:10.5px;font-weight:700;opacity:0.65;font-variant-numeric:tabular-nums;}
-
 /* ARVOSANA-RENGAS */
 .score-ring { position:relative; width:88px; height:88px; flex-shrink:0; }
 .score-ring svg { position:absolute; top:0; left:0; transform:rotate(-90deg); }
@@ -896,9 +881,51 @@ html[data-filmstrip="on"] body::before{
 .dup-score.score-bottom{color:var(--sc-bottom);}
 
 /* NÄKYMÄ NAPIT */
-.view-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
-.view-tab { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; font-family: "DM Sans",sans-serif; transition: all 0.2s; text-align: center; }
+/* Viisi tabia ei mahdu yhdelle riville puhelimen leveydellä ilman että
+   tekstit katkeaisivat, joten rivi kietoutuu: kolme ylle, kaksi alle.
+   Tabien oma ulkoasu, fonttikoko ja korostus säilyvät ennallaan. */
+.view-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.view-tab { flex: 1 1 calc(33.333% - 4px); padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; font-family: "DM Sans",sans-serif; transition: all 0.2s; text-align: center; white-space: nowrap; }
+.view-tab:nth-child(4), .view-tab:nth-child(5) { flex: 1 1 calc(50% - 3px); }
 .view-tab.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+/* Leveällä ruudulla kaikki viisi mahtuvat yhdelle riville */
+@media (min-width: 620px){
+  .view-tab, .view-tab:nth-child(4), .view-tab:nth-child(5) { flex: 1 1 0; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   PISTEIDEN PIKAMUOKKAUS
+   Kevyt lista jossa on vain nimi ja piste. Rivi on tarkoituksella
+   matala, jotta ruudulle mahtuu mahdollisimman monta kerralla.
+   ════════════════════════════════════════════════════════════ */
+.quick-view{padding-bottom:16px;}
+.qs-intro{font-size:12.5px;color:var(--muted);line-height:1.5;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:11px 13px;margin-bottom:12px;}
+.qs-subs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.qs-sub{padding:7px 13px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+.qs-sub.active{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+.qs-count{font-size:12px;color:var(--muted);margin-bottom:10px;font-variant-numeric:tabular-nums;}
+.qs-list{display:flex;flex-direction:column;gap:6px;}
+.qs-row{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:7px 9px;will-change:transform;}
+.qs-rank{flex-shrink:0;width:26px;text-align:right;font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.qs-name{flex:1;min-width:0;font-size:14px;font-weight:600;line-height:1.25;cursor:pointer;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.qs-year{color:var(--muted);font-weight:400;font-size:12.5px;}
+.qs-sub-tag{font-size:10px;color:var(--muted);background:var(--tint-07);border-radius:99px;padding:1px 6px;white-space:nowrap;}
+.qs-step{flex-shrink:0;width:34px;height:38px;border-radius:9px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:19px;line-height:1;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;padding:0;}
+.qs-step:active{background:var(--acc-15);border-color:var(--accent);color:var(--accent);}
+.qs-input{flex-shrink:0;width:52px;height:38px;text-align:center;background:var(--bg3);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:20px;outline:none;padding:0;-webkit-appearance:none;}
+.qs-input:focus{border-color:var(--accent);}
+.qs-input.score-top{color:var(--sc-top);}
+.qs-input.score-high{color:var(--sc-high);}
+.qs-input.score-mid{color:var(--sc-mid);}
+.qs-input.score-low{color:var(--sc-low);}
+.qs-input.score-bottom{color:var(--sc-bottom);}
+.qs-moved{animation:qsFlash 0.9s ease-out;}
+@keyframes qsFlash{
+  0%{background:var(--acc-20);border-color:var(--accent);}
+  100%{background:var(--card);border-color:var(--border);}
+}
+.qs-blank-head{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin:18px 0 8px;}
+.qs-empty{font-size:13px;color:var(--muted);padding:26px 14px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:12px;}
 
 /* ASETUKSET */
 .settings-btn{padding:8px 12px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:18px;cursor:pointer;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;}

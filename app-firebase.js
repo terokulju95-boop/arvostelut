@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-09-03.24';
+window.BUILD_FIREBASE = '2026-09-04.25';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
