@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-09-06.8';
+window.BUILD_DISCOVER = '2026-09-06.9';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.
@@ -851,6 +851,18 @@ window.unhideFromDiscover = async function(key){
 // katsotaan yksittäistä teosta jota harkitsee, ilman aikomusta arvostella.
 // Siksi tuloksista EI suodateta pois jo arvosteltuja eikä ohitettuja — jos
 // haet nimellä, haluat nähdä osuman vaikka teos olisi jo kirjastossasi.
+//
+// Tuloksilla on oma alue heti hakukentän alla, koska hakiessa katse on
+// kentässä eikä sivun pohjalla. Nappihaut kirjoittavat edelleen alas.
+
+function discSearchStatus(html, spinning){
+  const el = document.getElementById('discSearchStatus');
+  if(!el) return;
+  if(!html){ el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'block';
+  el.innerHTML = (spinning ? '<span class="disc-spin"></span>' : '') + html;
+}
+
 window.onDiscSearchKey = function(e){
   if(e && e.key === 'Enter'){ e.preventDefault(); window.runDiscSearch(); }
 };
@@ -858,60 +870,113 @@ window.onDiscSearchKey = function(e){
 window.clearDiscSearch = function(){
   const inp = document.getElementById('discSearchInput');
   if(inp){ inp.value = ''; inp.focus(); }
-  const out = document.getElementById('discResults');
+  const out = document.getElementById('discSearchResults');
   if(out) out.innerHTML = '';
-  discStatus('');
+  discSearchStatus('');
 };
+
+// TMDB:n oma haku ei siedä kirjoitusvirheitä juuri lainkaan. Siksi haetaan
+// tarvittaessa useammalla muunnelmalla ja lajitellaan tulokset lopuksi
+// sovelluksen omalla sumealla vertailulla. Kutsuja on enintään viisi.
+function searchVariants(q){
+  const out = [q];
+  const words = q.split(/\s+/).filter(Boolean);
+  const longest = words.slice().sort((a,b) => b.length - a.length)[0] || q;
+
+  // Lopusta lyhentäminen auttaa kun loppu on kirjoitettu väärin tai kesken.
+  if(q.length > 4) out.push(q.slice(0, -1));
+  if(q.length > 6) out.push(q.slice(0, -2));
+  // Pisin sana yksin auttaa kun virhe on jossain muussa sanassa.
+  if(words.length > 1 && longest.length > 3) out.push(longest);
+  // Väärä tai ylimääräinen kirjain sanan sisällä: poistetaan yksi kirjain
+  // parista kohdasta. Tämä on se muunnelma joka pelastaa lyhyet sanat —
+  // "fuury" muuttuu muotoon "fury", jota TMDB ei muuten löytäisi lainkaan.
+  if(longest.length > 4){
+    const mid = Math.floor(longest.length / 2);
+    [mid, mid + 1].forEach(i => {
+      if(i > 0 && i < longest.length) out.push(longest.slice(0, i) + longest.slice(i + 1));
+    });
+  }
+  return [...new Set(out)].slice(0, 5);
+}
 
 window.runDiscSearch = async function(){
   const inp = document.getElementById('discSearchInput');
   const q = (inp?.value || '').trim();
-  if(!q){ discStatus('Kirjoita ensin hakusana.'); setTimeout(()=>discStatus(''), 2000); return; }
+  const out = document.getElementById('discSearchResults');
+  if(!out) return;
+  if(!q){ discSearchStatus('Kirjoita ensin hakusana.'); setTimeout(()=>discSearchStatus(''), 2000); return; }
   if(!window.tmdbToken){ alert('TMDB-tunnus ei ole vielä latautunut. Yritä hetken kuluttua uudelleen.'); return; }
 
   window._discSubcat = '';
-  const out = document.getElementById('discResults');
   out.innerHTML = '';
-  discSetBusy(true);
-  discStatus(`Haetaan: ${esc(q)}`, true);
+  discSearchStatus(`Haetaan: ${esc(q)}`, true);
 
   try{
-    // multi löytää elokuvat ja sarjat samalla kutsulla. Henkilöosumat
-    // pudotetaan pois, koska niitä ei voi avata teoksena.
-    const res = await tmdbGet(`/search/multi?language=fi-FI&include_adult=false&query=${encodeURIComponent(q)}`);
-    const hits = ((res && res.results) || [])
-      .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
-      .slice(0, 12);
+    const variants = searchVariants(q);
+    const found = new Map();          // tyyppi:id -> teos
+    let usedFuzzy = false;
 
-    if(!hits.length){
-      discStatus('');
+    for(let i = 0; i < variants.length; i++){
+      // Muunnelmiin siirrytään vasta jos suora haku antoi vähän osumia.
+      if(i > 0 && found.size >= 5) break;
+      if(i > 0) usedFuzzy = true;
+
+      const res = await tmdbGet(
+        `/search/multi?language=fi-FI&include_adult=false&query=${encodeURIComponent(variants[i])}`
+      );
+      ((res && res.results) || [])
+        .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
+        .forEach(r => { if(!found.has(r.media_type + ':' + r.id)) found.set(r.media_type + ':' + r.id, r); });
+
+      if(i < variants.length - 1) await new Promise(r => setTimeout(r, 80));
+    }
+
+    if(!found.size){
+      discSearchStatus('');
       out.innerHTML = discEmpty(`Ei osumia haulla "${esc(q)}". Kokeile alkuperäistä nimeä tai lyhyempää hakusanaa.`);
       return;
     }
 
+    // Lajittelu sovelluksen omalla sumealla vertailulla. Vertaillaan sekä
+    // suomenkieliseen että alkuperäiseen nimeen, koska TMDB palauttaa
+    // molempia ja käyttäjä on voinut kirjoittaa kumman tahansa.
+    const nq = fuzzyNormCached(q);
+    const scored = [...found.values()].map(item => {
+      const t1 = fuzzyNormCached(item.title || item.name || '');
+      const t2 = fuzzyNormCached(item.original_title || item.original_name || '');
+      const s  = Math.max(fuzzyMatch(nq, t1), fuzzyMatch(nq, t2));
+      return { item, s, pop: item.popularity || 0 };
+    });
+
+    // Täysin osumattomat pudotetaan vain jos oikeita osumia on tarpeeksi.
+    // Muuten luotetaan TMDB:n omaan järjestykseen eikä jätetä tyhjää ruutua.
+    const good = scored.filter(x => x.s > 0);
+    const list = (good.length >= 3 ? good : scored)
+      .sort((a,b) => b.s - a.s || b.pop - a.pop)
+      .slice(0, 12);
+
     const ids   = reviewedTmdbIds();
     const names = reviewedNames();
-    const cards = hits.map(item => {
+    const cards = list.map(({ item }) => {
       const type = item.media_type;
-      // Merkintä kertoo tilan sen sijaan että osuma piilotettaisiin.
       let tag;
-      if(isHidden(type, item.id))                       tag = '🚫 Merkitty ohitetuksi';
-      else if(alreadyHaveRaw(item, ids, names))         tag = '✓ Tämä on jo arvostelussasi';
-      else                                              tag = type === 'tv' ? 'TV-sarja' : 'Elokuva';
+      if(isHidden(type, item.id))               tag = '🚫 Merkitty ohitetuksi';
+      else if(alreadyHaveRaw(item, ids, names)) tag = '✓ Tämä on jo arvostelussasi';
+      else                                      tag = type === 'tv' ? 'TV-sarja' : 'Elokuva';
       return discCard(item, tag);
     }).join('');
 
-    discStatus('');
+    discSearchStatus('');
     out.innerHTML = discSection(
       `🔎 Osumat haulla "${esc(q)}"`,
-      `${hits.length} tulosta · avaa teos nähdäksesi juonen ja missä sen voi katsoa Suomessa`,
+      `${list.length} tulosta${usedFuzzy ? ' · mukana sumeita osumia' : ''} · avaa teos nähdäksesi juonen ja missä sen voi katsoa Suomessa`,
       cards
     );
   } catch(e){
     console.error(e);
-    discStatus('❌ Haku epäonnistui. Tarkista internetyhteys.');
+    discSearchStatus('❌ Haku epäonnistui. Tarkista internetyhteys.');
   }
-  discSetBusy(false);
 };
 
 async function discoverEndedSeries(out){

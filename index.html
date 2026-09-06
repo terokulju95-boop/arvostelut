@@ -136,8 +136,11 @@
         <button type="button" class="disc-search-go" onclick="runDiscSearch()">Hae</button>
         <button type="button" class="disc-search-x" onclick="clearDiscSearch()" aria-label="Tyhjennä">✕</button>
       </div>
-      <div class="disc-search-hint">Hakee TMDB:stä ilman että mitään arvostellaan. Avaa osuma nähdäksesi juonen ja suoratoistopalvelut Suomessa.</div>
+      <div class="disc-search-hint">Hakee TMDB:stä ilman että mitään arvostellaan. Sietää kirjoitusvirheitä. Avaa osuma nähdäksesi juonen ja suoratoistopalvelut Suomessa.</div>
+      <div class="disc-status" id="discSearchStatus" style="display:none;"></div>
     </div>
+
+    <div id="discSearchResults"></div>
 
     <div class="disc-count">
       <span class="disc-count-label">Ehdotuksia lähdettä kohden</span>

@@ -7,7 +7,7 @@
 // se lukee ja kirjoittaa vain arvostelun score-kenttää, ja käyttää
 // samaa fbSave-tallennusta kuin muukin sovellus.
 
-window.BUILD_QUICK = '2026-09-06.8';
+window.BUILD_QUICK = '2026-09-06.9';
 
 // Vain elokuvat. Muut kategoriat eivät kuulu tähän näkymään.
 const QS_CAT = 'Elokuvat';
