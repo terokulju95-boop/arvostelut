@@ -1232,8 +1232,9 @@ const RATING_LEVELS = [
 ];
 
 // ══ LAAJENNETTU ARVIOINTI ══
-// Kysymyssarja valitaan ALALAJIN mukaan, koska animaatiota ja dokumenttia
-// ei arvioida samoilla mittareilla kuin näyteltyä elokuvaa. Sarja on sama
+// Kysymyssarja valitaan ALALAJIN mukaan, koska animaatiota, dokumenttia
+// tai tositarinaa ei arvioida samoilla mittareilla kuin keksittyä
+// näyteltyä elokuvaa. Sarja on sama
 // elokuvalle ja sarjalle: avain on pelkkä alalaji, ei kategoria.
 //
 // Ryhmätunnisteet ovat uniikkeja sarjojen välillä, jotta painokertoimet
@@ -1321,6 +1322,46 @@ const RATING_SETS = {
       {id:'doc_johtopaatos',  label:'🏁 Johtopäätös',         group:'doc_narr',  hint:'tyydyttävä loppu vai lässähdys'},
       {id:'tunnevaikutus',    label:'❤️ Tunnevaikutus',       group:'doc_impact'},
       {id:'doc_jalkivaikutus',label:'🌍 Jälkivaikutus',       group:'doc_impact', hint:'muuttiko ajatteluasi, jäikö mieleen'}
+    ]
+  },
+
+  // Tositapahtumiin perustuvat näytellyt elokuvat ja sarjat. Ei dokumentti
+  // eikä puhdas fiktio: mukana on siksi oma todenmukaisuusryhmä, jota
+  // perussarjassa ei ole, ja kerronnan mittarit on viritetty sille että
+  // katsoja tietää lopputuloksen jo etukäteen.
+  'Tositarinat': {
+    label: 'Tositarinat',
+    groups: [
+      {id:'tosi_craft',  label:'🎬 Toteutus'},
+      {id:'tosi_truth',  label:'📜 Todenmukaisuus'},
+      {id:'tosi_people', label:'🎭 Henkilöt'},
+      {id:'tosi_narr',   label:'📽️ Kerronta'},
+      {id:'tosi_impact', label:'💡 Vaikutus'}
+    ],
+    dims: [
+      {id:'kuvaus',            label:'🎥 Kuvaus',                    group:'tosi_craft'},
+      {id:'leikkaus',          label:'✂️ Leikkaus ja rytmi',         group:'tosi_craft',  hint:'pysyykö ote vai venyykö'},
+      {id:'puvustus',          label:'🏛️ Ajankuva',                  group:'tosi_craft',  hint:'puvustus, lavastus ja miljöö: uskotko aikakauteen'},
+      {id:'tosi_maskeeraus',   label:'💄 Maskeeraus ja muuntautuminen', group:'tosi_craft', hint:'ilmentymä vai irvikuva'},
+      {id:'musiikki',          label:'🎵 Musiikki',                  group:'tosi_craft',  hint:'tukeeko vai ohjaileeko tunnetta liikaa'},
+      {id:'tosi_uskollisuus',  label:'📖 Uskollisuus tapahtumille',  group:'tosi_truth',  hint:'kuinka lähellä totuutta pysytään'},
+      {id:'tosi_dramatisointi',label:'🎬 Dramatisoinnin oikeutus',   group:'tosi_truth',  hint:'palvelevatko vapaudet tarinaa vai vääristävätkö'},
+      {id:'tosi_rehellisyys',  label:'⚖️ Näkökulman rehellisyys',    group:'tosi_truth',  hint:'kaunistellaanko, syyllistetäänkö, sankaroidaanko'},
+      {id:'tosi_kunnioitus',   label:'🕊️ Kunnioitus',                group:'tosi_truth',  hint:'kohdellaanko oikeita ihmisiä ja uhreja asiallisesti'},
+      {id:'tosi_konteksti',    label:'🔍 Konteksti',                 group:'tosi_truth',  hint:'ymmärtääkö katsoja miksi näin kävi'},
+      {id:'nayttelijat',       label:'🎭 Näyttelijät',               group:'tosi_people'},
+      {id:'tosi_henkilokuva',  label:'👤 Henkilökuva',               group:'tosi_people', hint:'tuleeko ihmisestä kokonainen vai pelkkä imitaatio'},
+      {id:'tosi_motiivit',     label:'🧠 Motiivit',                  group:'tosi_people', hint:'ymmärrätkö miksi he toimivat niin'},
+      {id:'dialogi',           label:'💬 Dialogi',                   group:'tosi_people'},
+      {id:'kerronta',          label:'🎞️ Kerronta ja rakenne',       group:'tosi_narr'},
+      {id:'tosi_jannite',      label:'😰 Jännite',                   group:'tosi_narr',   hint:'kantaako, vaikka tietäisit lopputuloksen'},
+      {id:'tosi_rajaus',       label:'✍️ Tarinan rajaus',            group:'tosi_narr',   hint:'valittiinko oikea siivu tapahtumista'},
+      {id:'tosi_aikarakenne',  label:'⏱️ Aikarakenne',               group:'tosi_narr',   hint:'aikahypyt ja rinnakkaiset linjat'},
+      {id:'tosi_lopputekstit', label:'📝 Lopputekstit',              group:'tosi_narr',   hint:'”mitä heille tapahtui” -osuus ja arkistokuvat'},
+      {id:'tosi_ennakkotieto', label:'🙋 Toimiiko ilman ennakkotietoa', group:'tosi_narr', hint:'aukeaako tarina vaikket tuntisi tapausta'},
+      {id:'tosi_uusitieto',    label:'📚 Uusi tieto',                group:'tosi_impact', hint:'opitko jotain mitä et tiennyt'},
+      {id:'tosi_selvitin',     label:'🧭 Jäitkö selvittämään lisää', group:'tosi_impact', hint:'herättikö kiinnostuksen aiheeseen'},
+      {id:'tosi_jalkivaikutus',label:'🌍 Jälkivaikutus',             group:'tosi_impact', hint:'muuttiko ajatteluasi, jäikö vaivaamaan'}
     ]
   }
 };

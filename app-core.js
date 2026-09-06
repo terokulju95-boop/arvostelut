@@ -171,14 +171,22 @@ window.fabClick = function(){
 // Arvostelussa kenttä on `subcat`: tyhjä tai puuttuva tarkoittaa "Perus",
 // joten vanhat arvostelut toimivat sellaisenaan ilman migraatiota.
 const DEFAULT_SUBCATS = {
-  'Elokuvat':  ['Dokumentit', 'Animaatiot'],
-  'TV-sarjat': ['Dokumentit', 'Animaatiot']
+  'Elokuvat':  ['Dokumentit', 'Animaatiot', 'Tositarinat'],
+  'TV-sarjat': ['Dokumentit', 'Animaatiot', 'Tositarinat']
 };
 
 // Uusien oletusalalajien lisäys vanhaan dataan ajetaan kerran.
 // Merkki tallentuu subcats-objektiin, joten poistetut alalajit eivät
 // palaa takaisin seuraavalla latauksella.
-const SUBCAT_SEED = 1;   // 1 = Animaatiot
+const SUBCAT_SEED = 2;   // 1 = Animaatiot, 2 = Tositarinat
+
+// Kukin seed-taso lisää omat alalajinsa. Vanhalla datalla ajetaan kaikki
+// väliin jääneet tasot kerralla, joten seed 0 saa sekä Animaatiot että
+// Tositarinat, ja seed 1 pelkän Tositarinat-alalajin.
+const SUBCAT_SEED_ADDS = {
+  1: ['Animaatiot'],
+  2: ['Tositarinat']
+};
 
 function ensureSubcats(){
   if(!appData.subcats || typeof appData.subcats !== 'object'){
@@ -186,12 +194,19 @@ function ensureSubcats(){
     appData.subcats._seed = SUBCAT_SEED;
     return appData.subcats;
   }
-  if((Number(appData.subcats._seed) || 0) < 1){
+  const seed = Number(appData.subcats._seed) || 0;
+  if(seed < SUBCAT_SEED){
+    const add = [];
+    for(let lvl = seed + 1; lvl <= SUBCAT_SEED; lvl++){
+      (SUBCAT_SEED_ADDS[lvl] || []).forEach(n => add.push(n));
+    }
     ['Elokuvat','TV-sarjat'].forEach(c => {
       if(!Array.isArray(appData.subcats[c])) appData.subcats[c] = [];
-      if(!appData.subcats[c].includes('Animaatiot')) appData.subcats[c].push('Animaatiot');
+      add.forEach(name => {
+        if(!appData.subcats[c].includes(name)) appData.subcats[c].push(name);
+      });
     });
-    appData.subcats._seed = 1;
+    appData.subcats._seed = SUBCAT_SEED;
   }
   return appData.subcats;
 }
@@ -208,8 +223,8 @@ window.subcatsFor = subcatsFor;
 
 // ── VERTAILURYHMÄ ──
 // Kategoria JA alalaji yhdessä muodostavat ryhmän, jonka sisällä
-// arvosteluja verrataan toisiinsa. Perusleffat, dokumentit ja
-// animaatiot ovat siis eri ryhmiä, eivätkä ne kohtaa vertailussa,
+// arvosteluja verrataan toisiinsa. Perusleffat, dokumentit, animaatiot
+// ja tositarinat ovat siis eri ryhmiä, eivätkä ne kohtaa vertailussa,
 // pistejakaumassa, ennusteessa eivätkä lähimmissä arvosteluissa.
 function sameGroup(r, cat, sub){
   return r && r.category === cat && subcatOf(r) === (sub || '');
