@@ -1433,11 +1433,23 @@ function groupWeight(groupId){
   return Math.max(0.5, Math.min(2, v));   // vioittunut arvo rajataan, ei ohiteta
 }
 
+// Ohitettu kysymys. Tallennettu arvo on merkkijono, ei numero, jotta se ei
+// voi koskaan sekoittua asteikon arvoihin 1–6 eikä valua pistelaskuun.
+// Ohitus on eri asia kuin vastaamatta jättäminen: ohitettuun on otettu
+// kantaa ("ei koske tätä teosta"), tyhjä on vielä tekemättä.
+const RATING_SKIP = 'skip';
+
+const isSkipped  = v => v === RATING_SKIP;          // tietoisesti sivuutettu
+const isAnswered = v => v != null && v !== RATING_SKIP;  // mukana pisteessä
+const isHandled  = v => v != null;                  // käsitelty jommallakummalla tavalla
+
+window.RATING_SKIP = RATING_SKIP;
+
 function computeRatingsScore(stateObj, sub){
   let sum = 0, wsum = 0;
   ratingSet(sub).dims.forEach(d=>{
     const v = stateObj[d.id];
-    if(v == null) return;
+    if(!isAnswered(v)) return;   // ohitettu ei laske keskiarvoa alas
     const w = groupWeight(d.group);
     sum += v * w;
     wsum += w;
@@ -1517,18 +1529,27 @@ function renderRatingsGrid(containerId, stateObj, onChangeFnName){
     if(!(key in ratingsGroupOpenState)) ratingsGroupOpenState[key] = (gi===0);
     const isOpen = ratingsGroupOpenState[key];
     const dims = set.dims.filter(d=>d.group===g.id);
-    const answered = dims.filter(d=>stateObj[d.id]!=null).length;
+    const handled = dims.filter(d=>isHandled(stateObj[d.id])).length;
+    const skipped = dims.filter(d=>isSkipped(stateObj[d.id])).length;
     const rowsHtml = dims.map(d=>{
       const label = d.dynamic ? genreLupausLabel() : d.label;
+      const val = stateObj[d.id];
+      const skip = isSkipped(val);
       // Vastausvaihtoehdot tulevat kysymyksen omasta asteikosta. Arvot ovat
       // silti 1–6 kaikilla asteikoilla, joten sama tallennettu vastaus
       // säilyy vaikka kysymyksen asteikkoa myöhemmin vaihdettaisiin.
       const levels = ratingLevels(d.scale);
-      return `<div class="rating-dim-row">
-        <div class="rating-dim-label">${label}${d.hint?`<span class="rating-dim-hint">${esc(d.hint)}</span>`:''}</div>
-        <div class="rating-dim-opts">
-          ${levels.map(l=>`<button type="button" class="rating-opt${stateObj[d.id]===l.v?' active':''}" onclick="${onChangeFnName}('${d.id}',${l.v})">${l.label}</button>`).join('')}
+      // Ohitettuna napit korvataan selityksellä. Näin ei jää epäselväksi
+      // kumpi tila on voimassa, ja ruudukko lyhenee samalla.
+      const optsHtml = skip
+        ? `<div class="rating-skipped-note">Ohitettu — ei lasketa pisteeseen</div>`
+        : `<div class="rating-dim-opts">${levels.map(l=>`<button type="button" class="rating-opt${val===l.v?' active':''}" onclick="${onChangeFnName}('${d.id}',${l.v})">${l.label}</button>`).join('')}</div>`;
+      return `<div class="rating-dim-row${skip?' is-skipped':''}">
+        <div class="rating-dim-label">
+          <span class="rating-dim-title">${label}${d.hint?`<span class="rating-dim-hint">${esc(d.hint)}</span>`:''}</span>
+          <button type="button" class="rating-skip-btn${skip?' active':''}" title="${skip?'Palauta kysymys':'Ei koske tätä teosta'}" onclick="${onChangeFnName}('${d.id}','${RATING_SKIP}')">${skip?'↩︎':'⊘'}</button>
         </div>
+        ${optsHtml}
       </div>`;
     }).join('');
     // Sulkunappi jokaisen ryhmän viimeisen kysymyksen jälkeen. Ilman tätä
@@ -1540,7 +1561,7 @@ function renderRatingsGrid(containerId, stateObj, onChangeFnName){
     return `<div class="rating-group">
       <button type="button" class="rating-group-header" onclick="toggleRatingGroup('${containerId}','${g.id}','${onChangeFnName}')">
         <span>${g.label}</span>
-        <span class="rating-group-count">${answered}/${dims.length} ${isOpen?'▲':'▼'}</span>
+        <span class="rating-group-count">${handled}/${dims.length}${skipped?` · ${skipped} ohitettu`:''} ${isOpen?'▲':'▼'}</span>
       </button>
       <div class="rating-group-body" style="display:${isOpen?'block':'none'};">${rowsHtml}${footHtml}</div>
     </div>`;
@@ -1589,9 +1610,42 @@ let selectedRatings = {};
 window._ratingsSuggestedScore = null;
 window._compareSuggestedScore = null;
 
+// Ryhmä on valmis kun sen jokaiseen kysymykseen on otettu kantaa —
+// ohitus kelpaa yhtä hyvin kuin annettu arvo.
+function ratingGroupComplete(stateObj, set, groupId){
+  return set.dims.filter(d => d.group === groupId)
+                 .every(d => isHandled(stateObj[d.id]));
+}
+
+// Sulkee juuri valmistuneen ryhmän ja avaa seuraavan keskeneräisen.
+// Ehto `wasComplete` estää sen, että vanhaa arvostelua muokatessa ryhmä
+// romahtaisi kiinni heti kun yhtä vastausta korjaa.
+function advanceRatingGroup(containerId, stateObj, dimId, wasComplete){
+  if(wasComplete) return;
+  const set = ratingSet(formRatingSub());
+  const dim = set.dims.find(d => d.id === dimId);
+  if(!dim) return;
+  if(!ratingGroupComplete(stateObj, set, dim.group)) return;
+
+  ratingsGroupOpenState[containerId+'|'+dim.group] = false;
+
+  // Etsitään seuraava keskeneräinen ryhmä. Haku kiertää listan ympäri, jotta
+  // viimeisen ryhmän jälkeen palataan alkuun jos sinne jäi aukkoja.
+  const i = set.groups.findIndex(g => g.id === dim.group);
+  const order = set.groups.slice(i+1).concat(set.groups.slice(0, i));
+  const next = order.find(g => !ratingGroupComplete(stateObj, set, g.id));
+  if(next) ratingsGroupOpenState[containerId+'|'+next.id] = true;
+}
+
 window.onMainRatingChange = function(dim, val){
+  const set = ratingSet(formRatingSub());
+  const d = set.dims.find(x => x.id === dim);
+  const wasComplete = d ? ratingGroupComplete(selectedRatings, set, d.group) : true;
+
   if(selectedRatings[dim] === val) delete selectedRatings[dim];
   else selectedRatings[dim] = val;
+
+  advanceRatingGroup('mainRatingsGrid', selectedRatings, dim, wasComplete);
   renderRatingsGrid('mainRatingsGrid', selectedRatings, 'onMainRatingChange');
   window._ratingsSuggestedScore = computeRatingsScore(selectedRatings, formRatingSub());
   applyCombinedSuggestedScore();
@@ -1620,8 +1674,14 @@ window.togglePartRatings = function(){
 };
 
 window.onPartRatingChange = function(dim, val){
+  const set = ratingSet(formRatingSub());
+  const d = set.dims.find(x => x.id === dim);
+  const wasComplete = d ? ratingGroupComplete(selectedPartRatings, set, d.group) : true;
+
   if(selectedPartRatings[dim] === val) delete selectedPartRatings[dim];
   else selectedPartRatings[dim] = val;
+
+  advanceRatingGroup('partRatingsGrid', selectedPartRatings, dim, wasComplete);
   renderRatingsGrid('partRatingsGrid', selectedPartRatings, 'onPartRatingChange');
   const score = computeRatingsScore(selectedPartRatings, formRatingSub());
   if(score != null){
