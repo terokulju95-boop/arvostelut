@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-09-06.5';
+window.BUILD_DISCOVER = '2026-09-06.6';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.
@@ -105,7 +105,10 @@ function discEmpty(msg){
 }
 
 // Avaa lisäyslomakkeen valmiiksi täytetyllä nimellä.
-window.addFromDiscover = function(title, type){
+// Alalaji on valinnainen kolmas parametri. Tositarinat-haussa kaikki osumat
+// kuuluvat samaan alalajiin, joten sen esivalinta säästää yhden askeleen —
+// ja varmistaa että arvostelu saa heti oikean kysymyssarjan.
+window.addFromDiscover = function(title, type, subcat){
   window.setView('reviews');
   window.openAddModal();
   setTimeout(() => {
@@ -119,6 +122,14 @@ window.addFromDiscover = function(title, type){
     setTimeout(() => {
       const nameEl = document.getElementById('formName');
       if(nameEl) nameEl.value = String(title).toUpperCase();
+      // Alalaji vasta kategorian jälkeen: onCatChange rakentaa valikon uusiksi.
+      if(subcat){
+        const sub = document.getElementById('formSubcat');
+        if(sub && [...sub.options].some(o => o.value === subcat)){
+          sub.value = subcat;
+          if(window.onSubcatChange) window.onSubcatChange();
+        }
+      }
     }, 120);
   }, 60);
 };
@@ -141,6 +152,7 @@ window.runDiscover = async function(mode){
     else if(mode === 'ended')        await discoverEndedSeries(out);
     else if(mode === 'longtv')       await discoverLongSeries(out);
     else if(mode === 'shorttv')      await discoverShortStart(out);
+    else if(mode === 'truestory')    await discoverTrueStories(out);
   } catch(e){
     console.error(e);
     discStatus('❌ Haku epäonnistui. Tarkista internetyhteys.');
@@ -579,6 +591,96 @@ function bestTvGenres(){
 }
 
 const ENDED_VOTES = 200;   // sarjoilla on vähemmän ääniä kuin elokuvilla
+
+// ── TOSITARINAT ──
+// TMDB:llä ei ole "perustuu tositapahtumiin" -genreä, joten haku tehdään
+// avainsanalla 9672 (based on true story). Dokumentit ja animaatiot rajataan
+// pois, koska ne kuuluvat omiin alalajeihinsa — jäljelle jää juuri se mitä
+// Tositarinat tarkoittaa: näytelty elokuva tai sarja tositapahtumista.
+const TRUE_STORY_KEYWORD = 9672;
+const TRUE_STORY_EXCLUDE = '99,16';   // dokumentti, animaatio
+const TRUE_STORY_VOTES   = 300;
+
+// Ehdotuskortti joka esivalitsee Tositarinat-alalajin lisättäessä.
+function trueStoryCard(item, type, reason){
+  const html = discCard(Object.assign({ media_type: type }, item), reason);
+  const title = item.title || item.name || '';
+  return html.replace(
+    `addFromDiscover('${escJs(title)}', '${type}')`,
+    `addFromDiscover('${escJs(title)}', '${type}', 'Tositarinat')`
+  );
+}
+
+async function trueStoryPages(type, extraQuery, pages){
+  const out = [];
+  for(let page = 1; page <= pages; page++){
+    const res = await tmdbGet(
+      `/discover/${type}?language=fi-FI&page=${page}` +
+      `&with_keywords=${TRUE_STORY_KEYWORD}` +
+      `&without_genres=${TRUE_STORY_EXCLUDE}` +
+      extraQuery
+    );
+    if(res && res.results) out.push(...res.results);
+    if(!res || !res.results || res.results.length < 20) break;
+    await new Promise(r => setTimeout(r, 80));
+  }
+  return out;
+}
+
+async function discoverTrueStories(out){
+  const ids   = reviewedTmdbIds();
+  const names = reviewedNames();
+  const seen  = new Set();
+  const want  = discCount();
+  const sections = [];
+  const thisYear = new Date().getFullYear();
+
+  const pick = (list, type) => list
+    .filter(item => !alreadyHave(Object.assign({ media_type: type }, item), ids, names))
+    .filter(item => !seen.has(type + ':' + item.id))
+    .slice(0, want);
+
+  // 1. Arvostetuimmat. Äänikynnys karsii pois pienet tuntemattomat, joiden
+  //    keskiarvo on korkea vain kymmenen äänen takia.
+  discStatus('Haetaan arvostetuimpia tositarinoita…', true);
+  const best = pick(await trueStoryPages('movie',
+    `&sort_by=vote_average.desc&vote_count.gte=${TRUE_STORY_VOTES}`, 2), 'movie');
+  best.forEach(i => seen.add('movie:' + i.id));
+  if(best.length) sections.push(discSection(
+    '🏅 Arvostetuimmat tositarinat',
+    `Näyteltyjä elokuvia tositapahtumista · vähintään ${TRUE_STORY_VOTES} ääntä TMDB:ssä`,
+    best.map(i => trueStoryCard(i, 'movie', 'Tositapahtumiin perustuva elokuva jota et ole arvostellut')).join('')
+  ));
+
+  // 2. Tuoreet. Sama aihe, mutta viimeisiltä vuosilta ja matalammalla
+  //    äänikynnyksellä — uusi elokuva ei ehdi kerätä satoja ääniä.
+  discStatus('Haetaan tuoreita tositarinoita…', true);
+  const fresh = pick(await trueStoryPages('movie',
+    `&sort_by=popularity.desc&vote_count.gte=50` +
+    `&primary_release_date.gte=${thisYear - 3}-01-01`, 2), 'movie');
+  fresh.forEach(i => seen.add('movie:' + i.id));
+  if(fresh.length) sections.push(discSection(
+    '🆕 Tuoreet tositarinat',
+    `Vuodesta ${thisYear - 3} alkaen`,
+    fresh.map(i => trueStoryCard(i, 'movie', 'Uudehko tositapahtumiin perustuva elokuva')).join('')
+  ));
+
+  // 3. Sarjat. Sama avainsana toimii myös sarjapuolella.
+  discStatus('Haetaan tositarinoihin perustuvia sarjoja…', true);
+  const tv = pick(await trueStoryPages('tv',
+    `&sort_by=vote_average.desc&vote_count.gte=100`, 2), 'tv');
+  tv.forEach(i => seen.add('tv:' + i.id));
+  if(tv.length) sections.push(discSection(
+    '📺 Tositarinat sarjoina',
+    'Näyteltyjä sarjoja tositapahtumista',
+    tv.map(i => trueStoryCard(i, 'tv', 'Tositapahtumiin perustuva sarja jota et ole arvostellut')).join('')
+  ));
+
+  discStatus('');
+  out.innerHTML = sections.length
+    ? sections.join('')
+    : discEmpty('Kaikki löytyneet tositarinat ovat jo arvostelussasi. Nosta ehdotusten määrää valitsimesta, niin haetaan syvemmältä.');
+}
 
 async function discoverEndedSeries(out){
   const ids   = reviewedTmdbIds();
