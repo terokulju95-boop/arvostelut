@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-09-06.9';
+window.BUILD_DISCOVER = '2026-09-07.2';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.
@@ -592,12 +592,16 @@ function bestTvGenres(){
     const sc = getReviewScore(r);
     if(sc == null) return;
     const gs = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
+    // Useampi oma genre voi osoittaa samaan TMDB-tunnukseen (esim. toiminta ja
+    // seikkailu ovat molemmat 10759). Ne niputetaan yhteen, koska muuten sama
+    // haku tehtäisiin kahdesti ja veisi kaksi kolmesta hakupaikasta.
+    // Sama arvostelu lasketaan tunnusta kohden vain kerran.
+    const seenIds = new Set();
     gs.forEach(g => {
       const id = tvGenreId(g);
-      if(id == null) return;
-      // Useampi oma genre voi osoittaa samaan TMDB-tunnukseen
-      // (esim. toiminta ja seikkailu), joten ne niputetaan yhteen.
-      const key = id + '|' + g;
+      if(id == null || seenIds.has(id)) return;
+      seenIds.add(id);
+      const key = String(id);
       if(!stats.has(key)) stats.set(key, { name:g, id, sum:0, n:0 });
       const o = stats.get(key);
       o.sum += sc; o.n++;
@@ -721,10 +725,16 @@ window.hideFromDiscover = async function(type, id, title){
   await window.fbSave();
   window.closeModal('discDetailModal');
   // Kortti poistetaan heti näkyvistä, jotta valinta näkyy ilman uutta hakua.
+  // Alue luetaan ennen poistoa, koska irrotetulla elementillä ei ole enää
+  // vanhempaa josta sen tunnistaisi.
   const card = document.querySelector(`.disc-card[data-key="${type}:${id}"]`);
+  const fromSearch = !!(card && card.closest('#discSearchResults'));
   if(card) card.remove();
-  discStatus('🚫 Ei ehdoteta enää. Listan voi tyhjentää asetuksista.');
-  setTimeout(() => discStatus(''), 2600);
+  // Kuittaus siihen kohtaan josta ohitus tehtiin. Nimihaussa katse on
+  // hakukentässä, joten sivun pohjalle kirjoitettu viesti jäi huomaamatta.
+  const say = fromSearch ? discSearchStatus : discStatus;
+  say('🚫 Ei ehdoteta enää. Listan voi tyhjentää asetuksista.');
+  setTimeout(() => say(''), 2600);
 };
 
 window.hiddenCount = function(){ return Object.keys(hiddenMap()).length; };
@@ -1090,13 +1100,15 @@ async function discoverLongSeries(out){
       if(!d) continue;
       const eps  = Number(d.number_of_episodes) || 0;
       const seas = Number(d.number_of_seasons) || 0;
+      // Hylätty ehdokas merkitään myös nähdyksi, jottei seuraava genrekierros
+      // hae samaa sarjaa uudelleen vain hylätäkseen sen taas.
+      seen.add(item.id);
       if(eps < LONG_MIN_EPISODES || seas < LONG_MIN_SEASONS) continue;
       // Kesto arvioidaan jakson keskikestosta kun se on tiedossa
       const runtime = Array.isArray(d.episode_run_time) && d.episode_run_time.length
         ? d.episode_run_time[0] : null;
       const hours = runtime ? Math.round(eps * runtime / 60) : null;
       picks.push({ item, eps, seas, hours });
-      seen.add(item.id);
     }
 
     if(!picks.length) continue;
@@ -1183,6 +1195,8 @@ async function discoverShortStart(out){
       // eikä number_of_episodes kelpaa koska se kattaa koko sarjan.
       const s1  = (d.seasons || []).find(s => Number(s.season_number) === 1);
       const ep1 = s1 ? (Number(s1.episode_count) || 0) : 0;
+      // Kuten pitkissä sarjoissa: hylättyä ei haeta enää uudelleen.
+      seen.add(item.id);
       if(!ep1 || ep1 > SHORT_MAX_EP1) continue;
 
       const runtime = Array.isArray(d.episode_run_time) && d.episode_run_time.length
@@ -1191,7 +1205,6 @@ async function discoverShortStart(out){
       const seas = Number(d.number_of_seasons) || 0;
 
       picks.push({ item, ep1, seas, mins });
-      seen.add(item.id);
     }
 
     if(!picks.length) continue;

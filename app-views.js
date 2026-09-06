@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-06.9';
+window.BUILD_VIEWS = '2026-09-07.2';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -480,14 +480,6 @@ window.renderCards = function(){
   }).join('');
 };
 
-window.toggleNote = function(id){
-  const el = document.getElementById('note-'+id);
-  if(!el) return;
-  el.classList.toggle('collapsed');
-  const btn = el.querySelector('.btn-expand');
-  if(btn) btn.textContent = el.classList.contains('collapsed') ? 'Näytä lisää ▾' : 'Piilota ▴';
-};
-
 // ── LISÄÄ/MUOKKAA ──
 // ── LUONNOKSEN AUTOMAATTITALLENNUS ──
 // Pitkän laajan arvostelun täyttäminen kestää minuutteja. Jos välilehti
@@ -727,8 +719,12 @@ window.openAddModal = function(){
 };
 
 window.editReview = function(id){
-  const r = appData.reviews.find(x=>x.id===id); if(!r) return;
-  editingId = id;
+  const r = findReview(id); if(!r) return;
+  // Edellisen lomakkeen TMDB-haku ei saa vuotaa tähän arvosteluun. Ilman tätä
+  // A:lle haettu juoni tarttui seuraavaksi muokattuun B:hen, ja vanhentunut
+  // tmdb_id sai duplikaattitarkistuksen luulemaan uutta arvostelua kopioksi.
+  window._tmdbPending = null;
+  editingId = r.id;
   selectedScore = r.score!=null ? r.score : null;
   selectedTvType = r.tvType||'kokonaisuus';
   selectedMark = r.mark||null;
@@ -1132,7 +1128,7 @@ window.openCompareTune = function(){
       + groupLabel(cat, sub) + ' vertailua varten.');
     return;
   }
-  const poster = window._tmdbPending?.poster || (editingId ? appData.reviews.find(r=>r.id===editingId)?.poster : null) || null;
+  const poster = window._tmdbPending?.poster || (editingId ? findReview(editingId)?.poster : null) || null;
 
   compareState = {
     mode: 'tune',
@@ -1235,6 +1231,12 @@ window.compareChoose = function(side){
   if(!st) return;
   if(st.mode === 'tune' || st.mode === 'replace'){
     const idx = st.currentProbeIdx;
+    // Kierros on jo kirjattu (tai sitä ei ole vielä aloitettu). Ilman tätä
+    // nopea tuplanapautus laski saman vastauksen kahdesti sen 250 ms aikana
+    // jolloin modaali on kiinni mutta seuraava kierros ei ole vielä auennut,
+    // ja tasapelinappi kaatui kokonaan jos kierrosta ei ollut lainkaan.
+    if(idx == null || !st.candidates[idx]) return;
+    st.currentProbeIdx = null;
     if(side === 'a') st.loIdx = idx;
     else if(side === 'b') st.hiIdx = idx;
     else if(side === 'tie') st.tieScore = st.candidates[idx].finalScore;
@@ -1338,7 +1340,7 @@ function finishCompareTuning(){
 
 // ── SIJOITA LISTALLE: vanhan arvostelun pisteen tarkistus ──
 window.openRerank = function(id){
-  const r = appData.reviews.find(x => x.id === id);
+  const r = findReview(id);
   if(!r) return;
   const own = (!r.tvType || r.tvType === 'kokonaisuus') ? r.score : null;
   if(own == null){ alert('Tämä toimii vain arvosteluille joilla on oma piste.'); return; }
@@ -1406,7 +1408,7 @@ window.applyRerank = async function(){
   const p = window._rerankPending;
   window._rerankPending = null;
   if(!p) return;
-  const r = appData.reviews.find(x => x.id === p.id);
+  const r = findReview(p.id);
   if(r){
     if(!Array.isArray(r.scoreHistory)) r.scoreHistory = [];
     r.scoreHistory.push({ score: p.oldScore, date: new Date().toISOString() });
@@ -2081,7 +2083,7 @@ window.renderDimSettings = function(){
         </span>
       </div>`).join('');
     return `<div class="dim-group">
-        <span>${g.label}<span class="weight-count">${bi.length + oi.length}</span></span>
+        <span>${esc(g.label)}<span class="weight-count">${bi.length + oi.length}</span></span>
         ${isOwn ? `<button type="button" class="sc-mini" onclick="deleteCustomGroup('${escJs(dimSetKey)}','${escJs(g.id)}')">🗑️</button>` : ''}
       </div>${rows || '<div class="dim-empty">Ei kysymyksiä</div>'}`;
   }).join('');
@@ -2163,6 +2165,9 @@ window.toggleOrphanList = function(containerId, onChangeFnName){
 
 function genreLupausLabel(){
   const genres = getSelectedGenres();
+  // Palauttaa raakaa tekstiä. Ainoa kutsuja (renderRatingsGrid) suojaa sen
+  // esc():llä, joten täällä ei saa suojata toista kertaa — muuten
+  // käyttäjän kirjoittama '&' näkyisi muodossa '&amp;'.
   return genres.length ? `🎯 Onnistuiko genressään (${genres.join(', ')})?` : '🎯 Onnistuiko genressään?';
 }
 
@@ -2225,7 +2230,7 @@ window.renderWeightRows = function(){
     const v = groupWeight(g.id);
     const n = set.dims.filter(d=>d.group===g.id).length;
     return `<div class="weight-row">
-      <span class="weight-label">${g.label}<span class="weight-count">${n}</span></span>
+      <span class="weight-label">${esc(g.label)}<span class="weight-count">${n}</span></span>
       <input type="range" class="weight-slider" min="0.5" max="2" step="0.1" value="${v}"
         oninput="setGroupWeight('${g.id}', this.value, true)"
         onchange="setGroupWeight('${g.id}', this.value, false)">
@@ -2290,7 +2295,7 @@ function renderRatingsGrid(containerId, stateObj, onChangeFnName){
         : `<div class="rating-dim-opts">${levels.map(l=>`<button type="button" class="rating-opt${val===l.v?' active':''}" onclick="${onChangeFnName}('${d.id}',${l.v})">${l.label}</button>`).join('')}</div>`;
       return `<div class="rating-dim-row${skip?' is-skipped':''}">
         <div class="rating-dim-label">
-          <span class="rating-dim-title">${label}${d.hint?`<span class="rating-dim-hint">${esc(d.hint)}</span>`:''}</span>
+          <span class="rating-dim-title">${esc(label)}${d.hint?`<span class="rating-dim-hint">${esc(d.hint)}</span>`:''}</span>
           <button type="button" class="rating-skip-btn${skip?' active':''}" title="${skip?'Palauta kysymys':'Ei koske tätä teosta'}" onclick="${onChangeFnName}('${d.id}','${RATING_SKIP}')">${skip?'↩︎':'⊘'}</button>
         </div>
         ${optsHtml}
@@ -2304,7 +2309,7 @@ function renderRatingsGrid(containerId, stateObj, onChangeFnName){
     </div>`;
     return `<div class="rating-group">
       <button type="button" class="rating-group-header" onclick="toggleRatingGroup('${containerId}','${g.id}','${onChangeFnName}')">
-        <span>${g.label}</span>
+        <span>${esc(g.label)}</span>
         <span class="rating-group-count">${handled}/${dims.length}${skipped?` · ${skipped} ohitettu`:''} ${isOpen?'▲':'▼'}</span>
       </button>
       <div class="rating-group-body" style="display:${isOpen?'block':'none'};">${rowsHtml}${footHtml}</div>
@@ -2520,8 +2525,31 @@ window.saveReview = async function(){
     }
   }
 
+  // TMDB-tiedot yhdistetään kokonaisuudessaan. Aiemmin tästä poimittiin
+  // käsin vain kourallinen kenttiä, jolloin uudelta arvostelulta puuttui
+  // esimerkiksi tuotantotila, backdrop, kokoelma ja director_id — ne
+  // ilmestyivät vasta kun TMDB-haku ajettiin uudelleen tallennuksen
+  // jälkeen. Lomake omistaa nämä kentät, joten ne eivät saa tulla
+  // TMDB-datasta.
+  //
+  // Sama poiminta koskee myös muokkausta. Aiemmin muokkaushaara luki
+  // pendingistä vain juonen, joten lomakkeen TMDB-haulla haetut juliste,
+  // ohjaaja, kesto, näyttelijät ja tmdb_id katosivat äänettömästi.
+  const OWNED_BY_FORM = ['id','name','year','category','subcat','genre',
+                         'tvType','score','mark','recommend','rewatch',
+                         'note','date','ratings',
+                         'parts','plot','plotSource'];
+  const pending = window._tmdbPending || {};
+  const tmdbFields = {};
+  Object.keys(pending).forEach(k => {
+    if(OWNED_BY_FORM.includes(k)) return;
+    if(k === 'seasons') return;   // käsitellään erikseen alempana
+    if(pending[k] === undefined) return;
+    tmdbFields[k] = pending[k];
+  });
+
   if(editingId){
-    const r = appData.reviews.find(x=>x.id===editingId);
+    const r = findReview(editingId);
     if(r){
       r.name=name; r.year=year; r.category=cat;
       r.subcat = readFormSubcat(cat);
@@ -2535,33 +2563,22 @@ window.saveReview = async function(){
       r.note=document.getElementById('formNote').value;
       // Juoni tulee lomakkeen kentästä. Jos teksti on itse kirjoitettu,
       // TMDB-tuonti ei saa ylikirjoittaa sitä.
-      if(window._tmdbPending?.plot && !isOwnPlot(r) && window.fillFormPlotFromTmdb){
-        window.fillFormPlotFromTmdb(window._tmdbPending.plot);
+      if(pending.plot && !isOwnPlot(r) && window.fillFormPlotFromTmdb){
+        window.fillFormPlotFromTmdb(pending.plot);
       }
       if(window.applyFormPlot) window.applyFormPlot(r);
-      r.ratings = Object.keys(selectedRatings).length ? {...selectedRatings} : (r.ratings || null);
-      // Säilytä TMDB-tiedot jos niitä ei päivitetä
+      // Lomakkeella tehty TMDB-haku päivittää myös muut kentät
+      Object.assign(r, tmdbFields);
+      // Kaudet vain jos sarjaa oikeasti arvostellaan jaksoittain, eikä
+      // koskaan olemassa olevien päälle: siellä on jo omat pisteet.
+      if(isTv && selectedTvType==='jaksot' && pending.seasons && !(r.seasons||[]).length){
+        r.seasons = pending.seasons;
+      }
+      // Tyhjä joukko tarkoittaa muokatessa "poista kaikki". Aiemmin tässä
+      // palautettiin vanhat arvot, jolloin osa-arvioita ei saanut pois.
+      r.ratings = Object.keys(selectedRatings).length ? {...selectedRatings} : null;
     }
   } else {
-    // TMDB-tiedot yhdistetään kokonaisuudessaan. Aiemmin tästä poimittiin
-    // käsin vain kourallinen kenttiä, jolloin uudelta arvostelulta puuttui
-    // esimerkiksi tuotantotila, backdrop, kokoelma ja director_id — ne
-    // ilmestyivät vasta kun TMDB-haku ajettiin uudelleen tallennuksen
-    // jälkeen. Lomake omistaa nämä kentät, joten ne eivät saa tulla
-    // TMDB-datasta.
-    const OWNED_BY_FORM = ['id','name','year','category','subcat','genre',
-                           'tvType','score','mark','recommend','rewatch',
-                           'note','date','ratings',
-                           'parts','plot','plotSource'];
-    const pending = window._tmdbPending || {};
-    const tmdbFields = {};
-    Object.keys(pending).forEach(k => {
-      if(OWNED_BY_FORM.includes(k)) return;
-      if(k === 'seasons') return;   // käsitellään erikseen alempana
-      if(pending[k] === undefined) return;
-      tmdbFields[k] = pending[k];
-    });
-
     const newReview = Object.assign({
       id: Date.now(),
       date: (document.getElementById('formDate').value || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z',
@@ -2586,20 +2603,24 @@ window.saveReview = async function(){
     if(window.applyFormPlot) window.applyFormPlot(newReview);
     else newReview.plot = pending.plot || null;
     appData.reviews.push(newReview);
-    window._tmdbPending = null;
   }
+  // Nollaus koskee molempia haaroja. Aiemmin tämä oli vain uuden arvostelun
+  // puolella, joten muokkauksessa haetut tiedot jäivät roikkumaan seuraavaan.
+  window._tmdbPending = null;
   window.clearDraft();
   draftActive = false;
   hideDraftBanner();
   closeModal('addModal');
   await window.fbSave();
   renderCards();
-  if(selectedScore===100) setTimeout(launchConfetti, 300);
+  // Konfetti vain jos piste oikeasti annettiin tällä lomakkeella. Kausi- ja
+  // jaksosarjoilla selectedScore voi olla edellisestä lomakkeesta jäänyt 100.
+  if(needsScore && selectedScore===100) setTimeout(launchConfetti, 300);
 };
 
 // ── TMDB PÄIVITYS OLEMASSA OLEVAAN ARVOSTELUUN ──
 window.updateTmdbData = async function(id) {
-  const r = appData.reviews.find(x => x.id === id);
+  const r = findReview(id);
   if (!r) return;
   const token = window.tmdbToken;
   if (!token) { alert('TMDB-token ei ole vielä ladattu. Yritä hetken kuluttua uudelleen.'); return; }
@@ -2746,7 +2767,8 @@ window.updateTmdbData = async function(id) {
 
 window.deleteReview = async function(id){
   if(!confirm('Poistetaanko arvostelu?')) return;
-  appData.reviews = appData.reviews.filter(r=>r.id!==id);
+  const key = String(id);
+  appData.reviews = appData.reviews.filter(r=>String(r.id)!==key);
   await window.fbSave();
   renderCards();
 };
@@ -2756,8 +2778,8 @@ let editingSeasonIdx = null;
 
 // Kausi-modal
 window.openAddSeason = function(reviewId){
-  editingPartReviewId = reviewId;
-  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
+  const r = findReview(reviewId); if(!r) return;
+  editingPartReviewId = r.id;
   const nextNum = (r.seasons||[]).length + 1;
   document.getElementById('seasonModalTitle').textContent = 'Lisää kausi';
   document.getElementById('seasonName').value = `Kausi ${nextNum}`;
@@ -2767,7 +2789,7 @@ window.openAddSeason = function(reviewId){
 window.saveSeason = async function(){
   const name = document.getElementById('seasonName').value.trim();
   if(!name){ alert('Anna kauden nimi!'); return; }
-  const r = appData.reviews.find(x=>x.id===editingPartReviewId); if(!r) return;
+  const r = findReview(editingPartReviewId); if(!r) return;
   if(!r.seasons) r.seasons=[];
   r.seasons.push({ name, episodes:[] });
   closeModal('seasonModal');
@@ -2777,7 +2799,7 @@ window.saveSeason = async function(){
 
 window.deleteSeason = async function(reviewId, si){
   if(!confirm('Poistetaanko kausi ja kaikki sen jaksot?')) return;
-  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
+  const r = findReview(reviewId); if(!r || !r.seasons) return;
   r.seasons.splice(si,1);
   await window.fbSave();
   renderCards();
@@ -2802,7 +2824,7 @@ window.openAddPart = function(reviewId, seasonIdx){
   partRatingsEnabled = false;
   document.getElementById('partRatingsSection').style.display = 'none';
   document.getElementById('partRatingsToggleBtn').textContent = '📊 Arvostele laajasti (valinnainen)';
-  const r = appData.reviews.find(x=>x.id===reviewId);
+  const r = findReview(reviewId);
   const isJaksot = r&&r.tvType==='jaksot';
   document.getElementById('partModalTitle').textContent = isJaksot?'Lisää jakso':'Lisää kausi';
   document.getElementById('partNameLabel').textContent = isJaksot?'Jakson nimi':'Kauden nimi';
@@ -2842,7 +2864,7 @@ window.openAddPart = function(reviewId, seasonIdx){
 // Samalla haetaan jakson juoni näkyviin, jotta arvostelua kirjoittaessa
 // muistaa mistä jaksossa oli kyse.
 window.autoFillEpisodeName = function(initial) {
-  const r = appData.reviews.find(x => x.id === editingPartReviewId);
+  const r = findReview(editingPartReviewId);
   const epEl = document.getElementById('partEpisode');
   const siEl = document.getElementById('partSeasonSelect');
   if (!r || !r.seasons || !epEl || !siEl) { window.renderPartPlot(null); return; }
@@ -2897,9 +2919,11 @@ window.copyPlotToNote = function(){
 };
 
 window.editEpisode = function(reviewId, si, ei){
-  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
-  const ep = (r.seasons[si].episodes||[])[ei];
-  editingPartReviewId = reviewId;
+  const r = findReview(reviewId); if(!r) return;
+  const season = (r.seasons || [])[si];
+  const ep = season && (season.episodes || [])[ei];
+  if(!ep) return;
+  editingPartReviewId = r.id;
   editingSeasonIdx = si;
   editingPartId = ei;
   selectedPartScore = ep.score!=null ? ep.score : null;
@@ -2926,17 +2950,20 @@ window.editEpisode = function(reviewId, si, ei){
 
 window.deleteEpisode = async function(reviewId, si, ei){
   if(!confirm('Poistetaanko jakso?')) return;
-  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
-  r.seasons[si].episodes.splice(ei,1);
+  const r = findReview(reviewId); if(!r) return;
+  const season = (r.seasons || [])[si];
+  if(!season || !season.episodes) return;
+  season.episodes.splice(ei,1);
   await window.fbSave();
   renderCards();
 };
 
 // Kausittain editPart (ei muutosta)
 window.editPart = function(reviewId, partIdx){
-  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
-  const p = r.parts[partIdx];
-  editingPartReviewId = reviewId;
+  const r = findReview(reviewId); if(!r) return;
+  const p = (r.parts || [])[partIdx];
+  if(!p) return;
+  editingPartReviewId = r.id;
   editingPartId = partIdx;
   editingSeasonIdx = null;
   selectedPartScore = p.score!=null ? p.score : null;
@@ -2958,13 +2985,17 @@ window.editPart = function(reviewId, partIdx){
 };
 
 window.savePart = async function(){
-  const r = appData.reviews.find(x=>x.id===editingPartReviewId); if(!r) return;
+  const r = findReview(editingPartReviewId); if(!r) return;
   const isJaksot = r.tvType==='jaksot';
   const partInp=document.getElementById('partScoreInput'); selectedPartScore=partInp&&partInp.value!==''?+partInp.value:null;
   if(selectedPartScore===null){ alert('Anna arvosana (0–100)!'); return; }
 
   if(isJaksot){
-    const si = editingPartId!==null ? editingSeasonIdx : +document.getElementById('partSeasonSelect').value;
+    // Kausivalitsin ratkaisee kohteen myös muokattaessa. Aiemmin muokkaustilassa
+    // luettiin aina editingSeasonIdx, jolloin valitsin näkyi ja sitä sai
+    // käyttää, mutta jakso jäi silti vanhaan kauteen.
+    const sel = document.getElementById('partSeasonSelect');
+    const si = sel && sel.value !== '' ? +sel.value : editingSeasonIdx;
     if(!r.seasons||!r.seasons[si]){ alert('Valitse kausi!'); return; }
     const epData = {
       name: document.getElementById('partName').value.trim(),
@@ -2974,11 +3005,33 @@ window.savePart = async function(){
       ratings: partRatingsEnabled && Object.keys(selectedPartRatings).length ? {...selectedPartRatings} : null
     };
     if(!r.seasons[si].episodes) r.seasons[si].episodes=[];
+
+    // Kausi vaihtui muokatessa: jakso irrotetaan vanhasta kaudesta ja
+    // siirretään uuteen sellaisenaan, jotta TMDB:n kentät tulevat mukana.
+    const movedSeason = editingPartId !== null
+                        && editingSeasonIdx != null
+                        && si !== editingSeasonIdx;
+    if(movedSeason){
+      const from = r.seasons[editingSeasonIdx];
+      const ep = from && (from.episodes||[])[editingPartId];
+      if(ep){
+        from.episodes.splice(editingPartId, 1);
+        Object.assign(ep, epData);
+        r.seasons[si].episodes.push(ep);
+        r.seasons[si].episodes.sort((a,b)=>(a.episode||0)-(b.episode||0));
+      }
+      editingSeasonIdx = si;
+      editingPartId = r.seasons[si].episodes.indexOf(ep);
+    }
     // TÄRKEÄÄ: yhdistä olemassa olevaan olioon äläkä korvaa sitä. Muuten
     // TMDB:stä haetut kentät (juoni, ensiesityspäivä, kielitiedot) katoaisivat
     // heti kun jakso arvostellaan.
-    if(editingPartId!==null) {
-      Object.assign(r.seasons[si].episodes[editingPartId] || {}, epData);
+    else if(editingPartId!==null) {
+      const target = r.seasons[si].episodes[editingPartId];
+      // Puuttuva kohde tarkoitti aiemmin sitä, että muutokset kirjoitettiin
+      // väliaikaiseen olioon ja katosivat kertomatta siitä mitään.
+      if(target) Object.assign(target, epData);
+      else r.seasons[si].episodes.push(epData);
     } else {
       const existIdx = epData.episode != null
         ? r.seasons[si].episodes.findIndex(e => e.episode === epData.episode)
@@ -2991,7 +3044,10 @@ window.savePart = async function(){
     if(!name){ alert('Anna nimi!'); return; }
     if(!r.parts) r.parts=[];
     const partData = { name, score:selectedPartScore, note:document.getElementById('partNote').value, ratings: partRatingsEnabled && Object.keys(selectedPartRatings).length ? {...selectedPartRatings} : null };
-    if(editingPartId!==null) r.parts[editingPartId]=partData;
+    // Yhdistetään kuten jaksopuolellakin, jottei kauteen myöhemmin lisätty
+    // kenttä katoa pelkän pisteen muokkaamisesta.
+    if(editingPartId!==null && r.parts[editingPartId]) Object.assign(r.parts[editingPartId], partData);
+    else if(editingPartId!==null) r.parts[editingPartId] = partData;
     else r.parts.push(partData);
   }
   closeModal('partModal');
@@ -3001,7 +3057,7 @@ window.savePart = async function(){
 
 window.deletePart = async function(reviewId, partIdx){
   if(!confirm('Poistetaanko?')) return;
-  const r = appData.reviews.find(x=>x.id===reviewId); if(!r) return;
+  const r = findReview(reviewId); if(!r || !r.parts) return;
   r.parts.splice(partIdx,1);
   await window.fbSave();
   renderCards();

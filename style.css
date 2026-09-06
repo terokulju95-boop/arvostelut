@@ -470,13 +470,10 @@ html[data-filmstrip="on"] body::before{
 .btn-edit:active{background:var(--tint-15);}
 .btn-del{background:rgba(255,107,107,0.12);color:var(--accent2);}
 .btn-del:active{background:rgba(255,107,107,0.25);}
-.btn-expand{background:transparent;color:var(--muted);border:none;font-size:12px;cursor:pointer;padding:4px 0;font-family:'DM Sans',sans-serif;}
 
 /* TV SARJAN OSAT */
 .tv-parts{margin-top:10px;border-top:1px solid var(--border);padding-top:10px;}
 .tv-avg{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
-.tv-avg-label{font-size:13px;color:var(--muted);}
-.tv-avg-num{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--blue);}
 .tv-part{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--tint-04);}
 .tv-part:last-child{border-bottom:none;}
 .tv-part-name{flex:1;font-size:14px;line-height:1.3;}
@@ -723,9 +720,6 @@ html[data-filmstrip="on"] body::before{
 .form-group input,.form-group select,.form-group textarea{width:100%;padding:13px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;-webkit-appearance:none;}
 .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);}
 .form-group textarea{min-height:80px;resize:none;}
-.score-picker{display:flex;gap:6px;flex-wrap:wrap;}
-.score-opt{width:44px;height:44px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
-.score-opt.selected{background:var(--accent);color:var(--bg);border-color:var(--accent);}
 .modal-actions{display:flex;gap:10px;margin-top:16px;}
 .btn-primary{flex:1;padding:15px;background:var(--accent);color:var(--bg);border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;min-height:52px;}
 .btn-primary:active{filter:brightness(0.9);}
@@ -747,7 +741,6 @@ html[data-filmstrip="on"] body::before{
 .mark-btn { flex:1; padding:10px 8px; background:var(--bg3); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:13px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.15s; text-align:center; }
 .mark-btn.active-heart { background:rgba(var(--fav-rgb),0.18); border-color:var(--fav); color:var(--fav); }
 .mark-btn.active-skull { background:var(--tint-15); border-color:#aaa; color:#ccc; }
-.mark-btn.active-none { background:var(--bg3); border-color:var(--border); opacity:1!important; }
 
 /* KOLMEN VAIHTOEHDON VALINTA (suositus, uusintakatselu)
    Valintaa ei ole pakko tehdä: aktiivisen napin uudelleennapautus
@@ -805,14 +798,8 @@ html[data-filmstrip="on"] body::before{
   40% { transform:scale(0.92); }
   70% { transform:scale(1.06); }
 }
-.btn-primary:active, .btn-sm:active, .cat-tab:active, .score-opt:active {
+.btn-primary:active, .btn-sm:active, .cat-tab:active {
   animation: btnBounce 0.25s ease;
-}
-.score-opt {
-  transition: background 0.15s, transform 0.1s;
-}
-.score-opt.selected {
-  transform: scale(1.12);
 }
 
 /* TOP-LISTA */
@@ -918,7 +905,6 @@ html[data-filmstrip="on"] body::before{
 .tmdb-item-info { flex:1; min-width:0; }
 .tmdb-item-title { font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tmdb-item-meta { font-size:12px; color:var(--muted); margin-top:2px; }
-.tmdb-badge { display:inline-block; padding:2px 7px; border-radius:6px; font-size:11px; font-weight:700; background:var(--acc-15); color:var(--accent); margin-left:6px; }
 
 .card-extra-info{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6;}
 .card-extra-info span{margin-right:10px;}
@@ -929,7 +915,6 @@ html[data-filmstrip="on"] body::before{
 .tmdb-loading-overlay.open{display:flex;}
 .tmdb-loading-title{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent);letter-spacing:2px;}
 .tmdb-loading-sub{font-size:14px;color:var(--muted);}
-.tmdb-loading-spinner{width:48px;height:48px;border:4px solid var(--tint-10);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
 .tmdb-progress{width:200px;height:4px;background:var(--tint-10);border-radius:2px;overflow:hidden;}
 .tmdb-progress-bar{height:100%;background:var(--accent);border-radius:2px;transition:width 0.3s;width:0%;}
 
@@ -977,7 +962,6 @@ html[data-filmstrip="on"] body::before{
 .read-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:6px; }
 .read-value { font-size:15px; line-height:1.6; }
 .read-ring-row { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
-.read-chips { display:flex; flex-wrap:wrap; gap:6px; }
 
 /* ENNUSTUS */
 .score-prediction { display:flex; align-items:center; gap:8px; padding:8px 12px; background:rgba(var(--blue-rgb),0.08); border:1px solid rgba(var(--blue-rgb),0.2); border-radius:10px; margin-top:8px; font-size:13px; color:var(--blue); }
@@ -1392,7 +1376,6 @@ body.sandbox-on #fab{bottom:74px;}
 .bulk-tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:5px;background:var(--tint-06);color:var(--muted);}
 .bulk-tag.miss{background:rgba(var(--sc-low-rgb),0.15);color:var(--sc-low);}
 .bulk-tag.add{background:rgba(var(--sc-high-rgb),0.15);color:var(--sc-high);}
-.bulk-tag.chg{background:var(--acc-15);color:var(--accent);}
 .bulk-diff{margin-top:7px;border-top:1px dashed var(--border);padding-top:7px;display:flex;flex-direction:column;gap:4px;}
 .bulk-diff-row{display:flex;gap:7px;font-size:11.5px;line-height:1.45;align-items:baseline;}
 .bulk-diff-key{flex:0 0 84px;color:var(--muted);font-weight:600;}

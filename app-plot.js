@@ -1,5 +1,5 @@
 // ══ ARVOSTELUT · juonten muokkaus ══
-window.BUILD_PLOT = '2026-09-06.9';
+window.BUILD_PLOT = '2026-09-07.2';
 //
 // TMDB tuo juonet automaattisesti, mutta kaikkiin teoksiin niitä ei löydy.
 // Tässä tiedostossa juonen voi kirjoittaa itse. Ydinsääntö: itse kirjoitettua
@@ -73,7 +73,10 @@ window.setFormPlotOwn = function(v){
   window.renderPlotMeta();
 };
 
-function plotMetaHtml(text, own, tmdbBackup){
+// restoreFn kertoo kumpaan paikkaan palautusnappi kuuluu: lomakkeen juonikenttä
+// vai juonimodaali. Aiemmin tässä oli kiinteästi restoreFormPlot(), joten
+// juonimodaalin nappi kirjoitti lomakkeen kenttään eikä tehnyt mitään näkyvää.
+function plotMetaHtml(text, own, tmdbBackup, restoreFn){
   const n = String(text || '').trim().length;
   const badge = !n
     ? '<span class="plot-badge none">EI JUONTA</span>'
@@ -83,8 +86,9 @@ function plotMetaHtml(text, own, tmdbBackup){
     ? 'Kirjoita juoni itse, jos TMDB:stä ei löytynyt.'
     : (own ? 'Oma teksti. TMDB-päivitykset eivät ylikirjoita tätä.'
            : 'Tuotu TMDB:stä. Muokkaus tekee siitä oman.');
+  const fn = restoreFn || 'restoreFormPlot';
   const restore = (own && tmdbBackup)
-    ? '<button type="button" class="plot-restore" onclick="restoreFormPlot()">↩️ Palauta TMDB:n juoni</button>'
+    ? `<button type="button" class="plot-restore" onclick="${fn}()">↩️ Palauta TMDB:n juoni</button>`
     : '';
   return `${badge}<span>${n} merkkiä</span><span>·</span><span>${info}</span>${restore}`;
 }
@@ -93,7 +97,7 @@ window.renderPlotMeta = function(){
   const el = document.getElementById('plotMeta');
   const ta = document.getElementById('formPlot');
   if(!el || !ta) return;
-  el.innerHTML = plotMetaHtml(ta.value, formPlotOwn, formPlotTmdb);
+  el.innerHTML = plotMetaHtml(ta.value, formPlotOwn, formPlotTmdb, 'restoreFormPlot');
 };
 
 // Kutsutaan tallennuksesta. Kirjoittaa juonen arvosteluun oikein merkittynä.
@@ -131,9 +135,9 @@ let plotQueueIdx = 0;
 let plotQueueDone = 0;
 
 window.openPlotEditor = function(reviewId, queue){
-  const r = (appData.reviews || []).find(x => x.id === reviewId);
+  const r = window.findReview ? window.findReview(reviewId) : (appData.reviews||[]).find(x=>String(x.id)===String(reviewId));
   if(!r) return;
-  plotEditId = reviewId;
+  plotEditId = r.id;
   if(queue !== undefined) plotQueue = queue;
 
   document.getElementById('plotModalName').innerHTML =
@@ -146,7 +150,7 @@ window.openPlotEditor = function(reviewId, queue){
 };
 
 window.onPlotModalInput = function(){
-  const r = (appData.reviews || []).find(x => x.id === plotEditId);
+  const r = window.findReview ? window.findReview(plotEditId) : (appData.reviews||[]).find(x=>String(x.id)===String(plotEditId));
   const ta = document.getElementById('plotModalText');
   const el = document.getElementById('plotModalMeta');
   if(!ta || !el || !r) return;
@@ -154,18 +158,18 @@ window.onPlotModalInput = function(){
   const orig = String(r.plot || '').trim();
   // Muuttunut teksti on aina omaa; muuttumaton säilyttää alkuperäisen lähteen
   const own = t ? (t !== orig ? true : isOwnPlot(r)) : false;
-  el.innerHTML = plotMetaHtml(t, own, r.plot_tmdb || null);
+  el.innerHTML = plotMetaHtml(t, own, r.plot_tmdb || null, 'restorePlotModal');
 };
 
 window.restorePlotModal = function(){
-  const r = (appData.reviews || []).find(x => x.id === plotEditId);
+  const r = window.findReview ? window.findReview(plotEditId) : (appData.reviews||[]).find(x=>String(x.id)===String(plotEditId));
   if(!r || !r.plot_tmdb) return;
   document.getElementById('plotModalText').value = r.plot_tmdb;
   window.onPlotModalInput();
 };
 
 window.savePlotModal = async function(){
-  const r = (appData.reviews || []).find(x => x.id === plotEditId);
+  const r = window.findReview ? window.findReview(plotEditId) : (appData.reviews||[]).find(x=>String(x.id)===String(plotEditId));
   const ta = document.getElementById('plotModalText');
   if(!r || !ta) return;
   const t = ta.value.trim();

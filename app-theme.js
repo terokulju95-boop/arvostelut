@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-06.9';
+window.BUILD_THEME = '2026-09-07.2';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -268,7 +268,10 @@ window.setScoreBand = function(which, val, live){
       s.scoreBands.high = v;
       if(s.scoreBands.mid >= v) s.scoreBands.mid = v - 1;
     } else {
-      v = Math.max(0, Math.min(s.scoreBands.high - 1, v));
+      // Alaraja on 1, ei 0: alin luokka alkaa aina nollasta, joten mid=0
+      // jättäisi sen tyhjäksi. Sama raja on liukusäätimen min-arvossa —
+      // aiemmin koodi salli nollan, johon säädin ei yltänyt.
+      v = Math.max(1, Math.min(s.scoreBands.high - 1, v));
       s.scoreBands.mid = v;
     }
   } else {
@@ -277,15 +280,18 @@ window.setScoreBand = function(which, val, live){
     const order = ['c4','c3','c2','c1'];
     const i = order.indexOf(which);
     if(i < 0) return;
+    // Alaraja on sama kuin liukusäätimessä: kunkin rajan alapuolelle on
+    // mahduttava vähintään yksi piste jokaista alempaa luokkaa kohden.
+    const lowLimit = n => order.length - n;   // c4→4, c3→3, c2→2, c1→1
     const cur = { c4:85, c3:70, c2:50, c1:30, ...s.scoreBands };
-    cur[which] = Math.max(1, Math.min(100, v));
+    cur[which] = Math.max(lowLimit(i), Math.min(100, v));
     for(let k = i - 1; k >= 0; k--){         // ylempien on pysyttävä suurempina
       if(cur[order[k]] <= cur[order[k + 1]]) cur[order[k]] = cur[order[k + 1]] + 1;
     }
     for(let k = i + 1; k < order.length; k++){  // alempien pienempinä
       if(cur[order[k]] >= cur[order[k - 1]]) cur[order[k]] = cur[order[k - 1]] - 1;
     }
-    order.forEach(k => { s.scoreBands[k] = Math.max(1, Math.min(100, cur[k])); });
+    order.forEach((k, n) => { s.scoreBands[k] = Math.max(lowLimit(n), Math.min(100, cur[k])); });
   }
 
   window.renderScoreBandSettings(live ? which : null);

@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · TMDB-massapäivitys ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_BULK = '2026-09-06.9';
+window.BUILD_BULK = '2026-09-07.2';
 //
 // Kolme vaihetta, koska verkkokutsu on kallis ja peruuttamaton:
 //   1. TARKISTUS  – pelkkä paikallinen läpikäynti. Kertoo miltä puuttuu mitä.
@@ -49,7 +49,10 @@ const BULK_FIELDS = [
     show:v => v && v.date ? `K${v.season}J${v.episode} ${v.date}` : null }
 ];
 
-function fieldsFor(isTv){
+// Nimi on tarkoituksella pitkä: app-cards.js määrittelee oman fieldsFor()-
+// funktionsa samaan globaaliin skooppiin, ja koska se ladataan tämän jälkeen,
+// lyhyempi nimi jäisi sen alle eikä massapäivitys avautuisi lainkaan.
+function bulkFieldsFor(isTv){
   return BULK_FIELDS.filter(f => f.both || (isTv ? f.tv : f.movie));
 }
 
@@ -66,7 +69,7 @@ function scanReviews(){
   (appData.reviews || []).forEach(r => {
     if(!r || !BULK_CATS.includes(r.category)) return;
     const isTv = isTvReview(r);
-    const missing = fieldsFor(isTv)
+    const missing = bulkFieldsFor(isTv)
       .filter(f => !f.hidden && f.isEmpty(r[f.key]))
       .map(f => f.label);
     // Oma juoni on täytetty tieto, ei puute
@@ -208,7 +211,7 @@ function newValuesFrom(detail, isTv){
 function diffFor(r, detail, isTv){
   const nv = newValuesFrom(detail, isTv);
   const rows = [];
-  fieldsFor(isTv).forEach(f => {
+  bulkFieldsFor(isTv).forEach(f => {
     // Itse kirjoitettua juonta ei tarjota korvattavaksi missään tilassa.
     // TMDB:n versio pannaan hiljaa talteen, jotta sen voi halutessaan
     // palauttaa juonen muokkausikkunasta.

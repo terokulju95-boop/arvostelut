@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-06.9';
+window.BUILD_CARDS = '2026-09-07.2';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -498,7 +498,7 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-09-06.9', items:[
+  { build:'2026-09-07.2', items:[
     { icon:'🔤', title:'Haku sietää kirjoitusvirheet',
       text:'Nimihaku kokeilee tarvittaessa useampaa muunnelmaa ja lajittelee tulokset sovelluksen omalla sumealla vertailulla. "Fuury" löytää Furyn.',
       view:'discover' },
@@ -629,7 +629,7 @@ function looksLikeExistingInstall(){
 
 // Versioleimojen vertailu numeroina. Merkkijonovertailu menisi pieleen heti
 // kun saman päivän julkaisuja on yli yhdeksän: '2026-09-06.10' on
-// merkkijonona pienempi kuin '2026-09-06.9', vaikka se on uudempi.
+// merkkijonona pienempi kuin '2026-09-07.2', vaikka se on uudempi.
 function buildRank(b){
   const m = String(b || '').match(/^(\d{4})-(\d{2})-(\d{2})\.(\d+)/);
   if(!m) return -1;

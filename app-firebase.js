@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-09-06.9';
+window.BUILD_FIREBASE = '2026-09-07.2';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -485,7 +485,20 @@ window.fbSave = async function(){
   // esti myös varmuuskopion syntymisen.
   try{
     localStorage.setItem('arvostelut_bkp', JSON.stringify(appData));
-  } catch(e){ /* localStorage voi olla täynnä — ei kaadeta tallennusta */ }
+    window._bkpFull = false;
+  } catch(e){
+    // localStorage voi olla täynnä — tallennusta ei kaadeta, koska pilvi on
+    // ensisijainen. Aiemmin virhe niellään kokonaan, jolloin paikallinen
+    // varakopio jäi hiljaa vanhaksi. Omat julisteet ovat ~120 kt kappaleelta,
+    // joten noin 40 kuvaa täyttää selaimen ~5 Mt rajan.
+    if(!window._bkpFull){
+      window._bkpFull = true;
+      console.warn('Paikallista varmuuskopiota ei voitu kirjoittaa:', e && e.message);
+      if(window.showStatus){
+        window.showStatus('⚠️ Laitteen muisti täynnä — lataa varmuuskopio', '#f59e0b', 5000);
+      }
+    }
+  }
 
   if(isSaving){ saveQueued = true; return; }
   isSaving = true;

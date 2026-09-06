@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-06.9';
+window.BUILD_MODALS = '2026-09-07.2';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -534,7 +534,12 @@ function renderBackupInfo(){
       last = `<br><span style="color:${vari};">Edellinen varmuuskopio: ${teksti}</span>`;
     }
   }
-  el.innerHTML = `${st.reviews} arvostelua · ${st.kb} kt yhteensä${extra}${last}${cache}`;
+  // Paikallinen varakopio on viimeinen pelastusrengas, joten sen epäonnistuminen
+  // ei saa jäädä pelkäksi konsolivaroitukseksi.
+  const bkpFail = window._bkpFull
+    ? '<br><span style="color:var(--accent2);">⚠️ Laitteen muisti on täynnä eikä paikallista varakopiota voi enää päivittää. Pilvitallennus toimii normaalisti, mutta lataa varmuuskopio tiedostoon.</span>'
+    : '';
+  el.innerHTML = `${st.reviews} arvostelua · ${st.kb} kt yhteensä${extra}${last}${cache}${bkpFail}`;
 }
 
 // ── VARMUUSKOPIOMUISTUTUS ──
@@ -835,9 +840,18 @@ window.restoreBackup = function(input){
     if(!appData.categories) appData.categories = [...DEFAULT_CATS];
     if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
     if(!appData.budget) appData.budget = { monthlyPrice: 26.90, periods: [] };
+    // Asetus- ja alalajirakenteet varmistetaan heti, jottei myöhempi lukija
+    // törmää puuttuvaan kenttään. ensureSettings ottaa samalla käyttöön
+    // varmuuskopion oman TMDB-tunnuksen ja teemavalinnat.
+    if(window.ensureSettings) window.ensureSettings();
+    if(window.ensureSubcats) window.ensureSubcats();
     if(window.migrateYearField) window.migrateYearField();
     GENRES = [...appData.genres];
     if(!appData.categories.includes(activeCat)) activeCat = appData.categories[0] || null;
+    // Muistissa oleva alalajivalinta voi osoittaa alalajiin jota ei enää ole
+    if(typeof window.setActiveSub === 'function') window.setActiveSub('');
+    if(window.applyAccent && appData.settings) window.applyAccent(appData.settings.accent);
+    if(window.applyTheme) window.applyTheme();
 
     await window.fbSave();
     renderAll();
@@ -848,7 +862,7 @@ window.restoreBackup = function(input){
 };
 
 // ── ASETUKSET ──
-// Asetukset on jaettu neljään välilehteen. Valittu välilehti muistetaan,
+// Asetukset on jaettu kuuteen välilehteen. Valittu välilehti muistetaan,
 // jotta esim. varmuuskopiointi löytyy heti uudelleen avattaessa.
 const SETTINGS_TABS = ['ulkoasu','kortit','lomake','pisteet','tmdb','data'];
 let settingsTab = 'ulkoasu';
@@ -1210,7 +1224,7 @@ let _movePreselect = null;
 
 window.openMoveModal = function(preselectId){
   _movePreselect = preselectId != null ? preselectId : null;
-  const r = preselectId != null ? appData.reviews.find(x => x.id === preselectId) : null;
+  const r = preselectId != null ? findReview(preselectId) : null;
 
   const srcGroup = document.getElementById('moveSourceGroup');
   const info = document.getElementById('moveInfo');
@@ -1266,7 +1280,7 @@ window.onMoveTargetCatChange = function(){
   sel.style.display = subs.length ? 'block' : 'none';
   // Esivalitse siirrettävän nykyinen alalaji jos se löytyy kohteesta
   if(_movePreselect != null){
-    const r = appData.reviews.find(x => x.id === _movePreselect);
+    const r = findReview(_movePreselect);
     if(r && subs.includes(subcatOf(r))) sel.value = subcatOf(r);
   }
 };
@@ -1281,7 +1295,7 @@ window.renderMoveList = function(){
   if(!host) return;
 
   if(_movePreselect != null){
-    const r = appData.reviews.find(x => x.id === _movePreselect);
+    const r = findReview(_movePreselect);
     host.innerHTML = r
       ? `<input type="checkbox" class="mv-check" data-id="${r.id}" checked style="display:none;">`
       : '';
@@ -1315,8 +1329,10 @@ window.moveSelectAll = function(on){
 };
 
 window.runMove = async function(){
+  // Tunnus pidetään merkkijonona: Number() rikkoi siirron niissä
+  // arvosteluissa, joiden id on vanhasta varmuuskopiosta merkkijonona.
   const ids = [...document.querySelectorAll('#moveList .mv-check')]
-    .filter(c => c.checked).map(c => Number(c.dataset.id));
+    .filter(c => c.checked).map(c => c.dataset.id);
   if(!ids.length){ alert('Valitse ainakin yksi arvostelu.'); return; }
 
   const tCat = document.getElementById('moveTargetCat').value;
@@ -1325,7 +1341,7 @@ window.runMove = async function(){
 
   let moved = 0;
   ids.forEach(id => {
-    const r = appData.reviews.find(x => x.id === id);
+    const r = findReview(id);
     if(!r) return;
     const changedCat = r.category !== tCat;
     r.category = tCat;
@@ -1551,7 +1567,7 @@ document.addEventListener('click', e=>{
 // ── MODAALIT ──
 // ── LUKU-MODAALI ──
 window.openReadModal = function(id){
-  const r = appData.reviews.find(x=>x.id===id); if(!r) return;
+  const r = findReview(id); if(!r) return;
   const score = getReviewScore(r);
   const genres = Array.isArray(r.genre)?r.genre:(r.genre?[r.genre]:[]);
   const dateStr = r.date ? new Date(r.date).toLocaleDateString('fi-FI') : '';
@@ -1679,9 +1695,9 @@ let _trReviewId = null;
 let _trCancel = false;
 
 window.openTranslateModal = function(reviewId){
-  const r = appData.reviews.find(x => x.id === reviewId);
+  const r = findReview(reviewId);
   if(!r) return;
-  _trReviewId = reviewId;
+  _trReviewId = r.id;
   _trCancel = false;
   document.getElementById('trmSetup').style.display = 'block';
   document.getElementById('trmProgress').style.display = 'none';
@@ -1753,7 +1769,7 @@ function renderTranslateSetup(r){
 
 // Näyttää valinnan yhteismerkkimäärän ja varoittaa jos kiintiö ei riitä.
 window.updateTrmEstimate = function(){
-  const r = appData.reviews.find(x => x.id === _trReviewId);
+  const r = findReview(_trReviewId);
   if(!r) return;
   const sel = [...document.querySelectorAll('.trm-check')].filter(c => c.checked).map(c => +c.dataset.si);
   const jobs = pendingTranslations(r, sel);
@@ -1777,7 +1793,7 @@ window.trmSelectAll = function(on){
 window.cancelTranslate = function(){ _trCancel = true; };
 
 window.runTranslate = async function(){
-  const r = appData.reviews.find(x => x.id === _trReviewId);
+  const r = findReview(_trReviewId);
   if(!r) return;
   const sel = [...document.querySelectorAll('.trm-check')].filter(c => c.checked).map(c => +c.dataset.si);
   const jobs = pendingTranslations(r, sel);
@@ -1856,7 +1872,7 @@ window.runTranslate = async function(){
 let _seasonImport = null;   // { reviewId, tmdbId, seasons: [...] }
 
 window.openSeasonImport = async function(reviewId){
-  const r = appData.reviews.find(x => x.id === reviewId);
+  const r = findReview(reviewId);
   if(!r) return;
   if(!window.tmdbToken){ alert('TMDB-tunnus ei ole vielä latautunut. Yritä hetken kuluttua uudelleen.'); return; }
 
@@ -1945,7 +1961,7 @@ window.seasonImportSelectAll = function(on){
 
 window.runSeasonImport = async function(){
   if(!_seasonImport) return;
-  const r = appData.reviews.find(x => x.id === _seasonImport.reviewId);
+  const r = findReview(_seasonImport.reviewId);
   if(!r) return;
   const picked = [...document.querySelectorAll('#seasonImportList .si-check')]
     .filter(c => c.checked)
@@ -2103,7 +2119,10 @@ async function searchTmdb(query) {
     const res = await window.tmdbFetch(url, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } });
     const data = await res.json();
     spinner.style.display = 'none';
-    const items = (data.results || []).slice(0, 6).filter(i => i.media_type !== 'person');
+    // Suodatus ENNEN rajausta. Toisin päin TMDB:n kärkeen nostamat
+    // henkilöosumat söivät kuuden paikan kiintiön, ja näyttelijän nimellä
+    // haettaessa näkyviin jäi vain yksi elokuva kuuden sijaan.
+    const items = (data.results || []).filter(i => i.media_type !== 'person').slice(0, 6);
     if (!items.length) { results.style.display = 'none'; return; }
     // Tallennetaan tulokset muuttujaan — ei JSON-enkoodausta onclickiin
     window._tmdbSearchResults = items;

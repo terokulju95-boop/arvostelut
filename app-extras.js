@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · lisätoiminnot ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_EXTRAS = '2026-09-06.9';
+window.BUILD_EXTRAS = '2026-09-07.2';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä toisistaan riippumatonta osaa:
 //   1. Pull-to-refresh
@@ -218,16 +218,16 @@ const POSTER_MAX_BYTES = 120000;   // ~120 kt data-URL:na
 let _posterId = null;
 
 window.openPosterPicker = function(id){
-  const r = (appData.reviews || []).find(x => x.id === id);
+  const r = window.findReview ? window.findReview(id) : null;
   if(!r) return;
-  _posterId = id;
+  _posterId = r.id;
   renderPosterPicker();
   if(window.openModalOnTop) window.openModalOnTop('posterModal');
   else document.getElementById('posterModal').classList.add('open');
 };
 
 function posterReview(){
-  return (appData.reviews || []).find(x => x.id === _posterId) || null;
+  return window.findReview ? window.findReview(_posterId) : null;
 }
 
 function renderPosterPicker(extraHtml){

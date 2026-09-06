@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-06.9';
+window.BUILD_CORE = '2026-09-07.2';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -238,6 +238,17 @@ function groupLabel(cat, sub){
   return cat + ' · ' + (sub || 'Perus');
 }
 window.groupLabel = groupLabel;
+
+// Arvostelun haku tunnuksella. Vertailu tehdään AINA merkkijonoina, koska
+// tunnukset ovat uusissa arvosteluissa numeroita (Date.now()) mutta vanhoissa
+// varmuuskopioissa merkkijonoja. Tiukka vertailu (===) jätti silloin puolet
+// toiminnoista tekemättä mitään kertomatta siitä mitään.
+function findReview(id){
+  if(id == null) return null;
+  const key = String(id);
+  return (appData.reviews || []).find(r => String(r.id) === key) || null;
+}
+window.findReview = findReview;
 
 // Arvostelun alalaji normalisoituna. '' = Perus.
 function subcatOf(r){
@@ -1381,7 +1392,6 @@ window.resetTranslateQuotaFlag = function(){
   u.exhausted = false;
   trSaveUsage(u);
 };
-window.translateQuotaHit = function(){ return trUsage().exhausted; };
 
 // MyMemory palauttaa toisinaan HTML-entiteettejä (&#39;) raakana.
 function decodeEntities(s){

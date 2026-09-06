@@ -1140,5 +1140,22 @@
 <script src="app-quick.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
+<!-- Service worker: offline-tuki sekä julisteiden ja TMDB-vastausten välimuisti.
+     Rekisteröinti tehdään latauksen jälkeen, jottei se kilpaile ensimmäisen
+     piirron kanssa. sw.js:n VERSION on nostettava aina kun tiedostoja
+     päivitetään, muuten puhelin tarjoilee vanhaa versiota välimuistista. -->
+<script>
+(function registerSw(){
+  if(!('serviceWorker' in navigator)) return;
+  // file:// -protokollalla rekisteröinti heittää poikkeuksen
+  if(location.protocol !== 'https:' && location.hostname !== 'localhost') return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => {
+      console.warn('Service workerin rekisteröinti epäonnistui:', err);
+    });
+  });
+})();
+</script>
+
 </body>
 </html>
