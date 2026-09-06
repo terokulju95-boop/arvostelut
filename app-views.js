@@ -1222,14 +1222,36 @@ window.applyRerank = async function(){
 };
 
 // ── LAAJENNETTU ARVIOINTI (osa-arviot) ──
-const RATING_LEVELS = [
-  {v:1,label:'Surkea'},
-  {v:2,label:'Heikko'},
-  {v:3,label:'Kohtalainen'},
-  {v:4,label:'Hyvä'},
-  {v:5,label:'Erittäin hyvä'},
-  {v:6,label:'Erinomainen'}
-];
+// Vastausasteikot. Kaikissa on kuusi porrasta ja arvo 1 on aina huonoin,
+// 6 aina paras — pistelasku nojaa tähän, eikä tallennettu data muutu vaikka
+// kysymyksen asteikko vaihdettaisiin toiseksi.
+//
+// Asteikkoja on tarkoituksella vain kourallinen. Jos jokaisella kysymyksellä
+// olisi omat sanat, asteikko pitäisi lukea joka rivillä uudestaan; nyt sen
+// oppii kerran ja loput lomakkeesta täyttyy rutiinilla.
+const RATING_SCALES = {
+  laatu:        ['Surkea','Heikko','Kohtalainen','Hyvä','Erittäin hyvä','Erinomainen'],
+  maara:        ['Ei lainkaan','Tuskin','Vähän','Jonkin verran','Paljon','Valtavasti'],
+  onnistuminen: ['Epäonnistuu','Ontuu','Vaihtelee','Toimii','Toimii hyvin','Napakymppi'],
+  uskottavuus:  ['Naurettava','Ontto','Horjuu','Uskottava','Vakuuttava','Uppoat täysin'],
+  totuus:       ['Vääristelee','Löyhä','Venyttää','Pääosin tosi','Uskollinen','Tarkka'],
+  rehellisyys:  ['Propagandaa','Puolueellinen','Kallellaan','Melko reilu','Rehellinen','Tinkimätön'],
+  kunnioitus:   ['Loukkaava','Piittaamaton','Kömpelö','Asiallinen','Kunnioittava','Hienotunteinen'],
+  selkeys:      ['Käsittämätön','Sekava','Ohut','Riittävä','Selkeä','Kristallinen'],
+  omaperaisyys: ['Kliseinen','Kulunut','Tuttua','Tuoretta','Omaperäinen','Ainutlaatuinen']
+};
+
+const DEFAULT_SCALE = 'laatu';
+
+// Asteikko arvoina {v,label}. Tuntematon nimi putoaa laatuasteikkoon, jotta
+// kirjoitusvirhe kysymyksessä ei jätä riviä ilman nappeja.
+function ratingLevels(scale){
+  const words = RATING_SCALES[scale] || RATING_SCALES[DEFAULT_SCALE];
+  return words.map((label, i) => ({ v: i + 1, label }));
+}
+
+// Yhteensopivuus vanhaan koodiin: oletusasteikko samassa muodossa kuin ennen.
+const RATING_LEVELS = ratingLevels(DEFAULT_SCALE);
 
 // ══ LAAJENNETTU ARVIOINTI ══
 // Kysymyssarja valitaan ALALAJIN mukaan, koska animaatiota, dokumenttia
@@ -1240,6 +1262,11 @@ const RATING_LEVELS = [
 // Ryhmätunnisteet ovat uniikkeja sarjojen välillä, jotta painokertoimet
 // eivät sekoitu keskenään. Perus-sarjan tunnisteet (tech/story/cast)
 // säilyvät ennallaan, joten vanhat painotukset pysyvät voimassa.
+//
+// Kysymyksen valinnainen `scale` valitsee vastausvaihtoehdot RATING_SCALES-
+// listasta. Ilman sitä käytetään laatuasteikkoa. Asteikko on kysymyskohtainen
+// eikä tunnistekohtainen: `puvustus` on Perus-sarjassa lavastuksen laatua ja
+// Tositarinoissa ajankuvan uskottavuutta, vaikka tunniste on sama.
 
 const RATING_SETS = {
   '': {
@@ -1261,11 +1288,11 @@ const RATING_SETS = {
       {id:'kerronta',         label:'🎬 Kerronta',          group:'story'},
       {id:'hahmokehitys',     label:'🌱 Hahmokehitys',      group:'story'},
       {id:'dialogi',          label:'💬 Dialogi',           group:'story'},
-      {id:'omaperaisyys',     label:'✨ Omaperäisyys',      group:'story'},
-      {id:'maailmanrakennus', label:'🌍 Maailmanrakennus',  group:'story'},
-      {id:'genrelupaus',      label:'🎯 Genrelupaus',       group:'story', dynamic:true},
+      {id:'omaperaisyys',     label:'✨ Omaperäisyys',      group:'story', scale:'omaperaisyys'},
+      {id:'maailmanrakennus', label:'🌍 Maailmanrakennus',  group:'story', scale:'uskottavuus'},
+      {id:'genrelupaus',      label:'🎯 Genrelupaus',       group:'story', dynamic:true, scale:'onnistuminen'},
       {id:'nayttelijat',      label:'🎭 Näyttelijät',       group:'cast'},
-      {id:'tunnevaikutus',    label:'❤️ Tunnevaikutus',     group:'cast'}
+      {id:'tunnevaikutus',    label:'❤️ Tunnevaikutus',     group:'cast', scale:'maara'}
     ]
   },
 
@@ -1279,7 +1306,7 @@ const RATING_SETS = {
     ],
     dims: [
       {id:'anim_sujuvuus',    label:'🎞️ Animaation sujuvuus', group:'anim_visual', hint:'liikkeen paino ja ajoitus'},
-      {id:'anim_taidetyyli',  label:'🖌️ Taidetyyli',          group:'anim_visual', hint:'oma kädenjälki vai geneerinen'},
+      {id:'anim_taidetyyli',  label:'🖌️ Taidetyyli',          group:'anim_visual', hint:'oma kädenjälki vai geneerinen', scale:'omaperaisyys'},
       {id:'anim_hahmodesign', label:'👤 Hahmosuunnittelu',    group:'anim_visual', hint:'erottuvatko hahmot, kertooko ulkonäkö luonteesta'},
       {id:'anim_taustat',     label:'🏞️ Taustat ja värimaailma', group:'anim_visual', hint:'ympäristöt ja paletti'},
       {id:'anim_ilmeet',      label:'😀 Ilmeet ja eleet',     group:'anim_visual', hint:'animoitu näytteleminen'},
@@ -1290,10 +1317,10 @@ const RATING_SETS = {
       {id:'kerronta',         label:'🎬 Kerronta',            group:'anim_story'},
       {id:'loppuratkaisu',    label:'🏁 Loppuratkaisu',       group:'anim_story'},
       {id:'dialogi',          label:'💬 Dialogi',             group:'anim_story'},
-      {id:'maailmanrakennus', label:'🌍 Maailmanrakennus',    group:'anim_story'},
-      {id:'omaperaisyys',     label:'✨ Omaperäisyys',        group:'anim_story'},
-      {id:'tunnevaikutus',    label:'❤️ Tunnevaikutus',       group:'anim_feel'},
-      {id:'genrelupaus',      label:'🎯 Genrelupaus',         group:'anim_feel', dynamic:true}
+      {id:'maailmanrakennus', label:'🌍 Maailmanrakennus',    group:'anim_story', scale:'uskottavuus'},
+      {id:'omaperaisyys',     label:'✨ Omaperäisyys',        group:'anim_story', scale:'omaperaisyys'},
+      {id:'tunnevaikutus',    label:'❤️ Tunnevaikutus',       group:'anim_feel', scale:'maara'},
+      {id:'genrelupaus',      label:'🎯 Genrelupaus',         group:'anim_feel', dynamic:true, scale:'onnistuminen'}
     ]
   },
 
@@ -1312,16 +1339,16 @@ const RATING_SETS = {
       {id:'doc_kertoja',      label:'🎙️ Kertojaääni ja äänityö', group:'doc_craft', hint:'selostuksen sävy ja selkeys'},
       {id:'musiikki',         label:'🎵 Musiikki',            group:'doc_craft', hint:'tukeeko vai ohjaileeko liikaa'},
       {id:'doc_aihe',         label:'💡 Aihe',                group:'doc_trust', hint:'kuinka kiinnostava tai tärkeä'},
-      {id:'doc_uusitieto',    label:'📚 Uusi tieto',          group:'doc_trust', hint:'opitko jotain mitä et tiennyt'},
-      {id:'doc_syvyys',       label:'🔬 Syvyys',              group:'doc_trust', hint:'pintaa syvemmälle vai otsikkotasolle'},
-      {id:'doc_tasapuoli',    label:'⚖️ Tasapuolisuus',       group:'doc_trust', hint:'kuullaanko eri näkökulmia'},
-      {id:'doc_lahteet',      label:'🔎 Lähdekritiikki',      group:'doc_trust', hint:'perustuvatko väitteet johonkin'},
-      {id:'doc_argumentti',   label:'🧩 Argumentin rakenne',  group:'doc_trust', hint:'kulkeeko päättely loogisesti'},
+      {id:'doc_uusitieto',    label:'📚 Uusi tieto',          group:'doc_trust', hint:'opitko jotain mitä et tiennyt', scale:'maara'},
+      {id:'doc_syvyys',       label:'🔬 Syvyys',              group:'doc_trust', hint:'pintaa syvemmälle vai otsikkotasolle', scale:'maara'},
+      {id:'doc_tasapuoli',    label:'⚖️ Tasapuolisuus',       group:'doc_trust', hint:'kuullaanko eri näkökulmia', scale:'rehellisyys'},
+      {id:'doc_lahteet',      label:'🔎 Lähdekritiikki',      group:'doc_trust', hint:'perustuvatko väitteet johonkin', scale:'rehellisyys'},
+      {id:'doc_argumentti',   label:'🧩 Argumentin rakenne',  group:'doc_trust', hint:'kulkeeko päättely loogisesti', scale:'onnistuminen'},
       {id:'kerronta',         label:'🎬 Kerronta ja rakenne', group:'doc_narr'},
       {id:'doc_haastateltavat',label:'🎤 Haastateltavat',     group:'doc_narr',  hint:'kiinnostavia ja uskottavia'},
       {id:'doc_johtopaatos',  label:'🏁 Johtopäätös',         group:'doc_narr',  hint:'tyydyttävä loppu vai lässähdys'},
-      {id:'tunnevaikutus',    label:'❤️ Tunnevaikutus',       group:'doc_impact'},
-      {id:'doc_jalkivaikutus',label:'🌍 Jälkivaikutus',       group:'doc_impact', hint:'muuttiko ajatteluasi, jäikö mieleen'}
+      {id:'tunnevaikutus',    label:'❤️ Tunnevaikutus',       group:'doc_impact', scale:'maara'},
+      {id:'doc_jalkivaikutus',label:'🌍 Jälkivaikutus',       group:'doc_impact', hint:'muuttiko ajatteluasi, jäikö mieleen', scale:'maara'}
     ]
   },
 
@@ -1341,27 +1368,27 @@ const RATING_SETS = {
     dims: [
       {id:'kuvaus',            label:'🎥 Kuvaus',                    group:'tosi_craft'},
       {id:'leikkaus',          label:'✂️ Leikkaus ja rytmi',         group:'tosi_craft',  hint:'pysyykö ote vai venyykö'},
-      {id:'puvustus',          label:'🏛️ Ajankuva',                  group:'tosi_craft',  hint:'puvustus, lavastus ja miljöö: uskotko aikakauteen'},
-      {id:'tosi_maskeeraus',   label:'💄 Maskeeraus ja muuntautuminen', group:'tosi_craft', hint:'ilmentymä vai irvikuva'},
+      {id:'puvustus',          label:'🏛️ Ajankuva',                  group:'tosi_craft',  hint:'puvustus, lavastus ja miljöö: uskotko aikakauteen', scale:'uskottavuus'},
+      {id:'tosi_maskeeraus',   label:'💄 Maskeeraus ja muuntautuminen', group:'tosi_craft', hint:'ilmentymä vai irvikuva', scale:'uskottavuus'},
       {id:'musiikki',          label:'🎵 Musiikki',                  group:'tosi_craft',  hint:'tukeeko vai ohjaileeko tunnetta liikaa'},
-      {id:'tosi_uskollisuus',  label:'📖 Uskollisuus tapahtumille',  group:'tosi_truth',  hint:'kuinka lähellä totuutta pysytään'},
-      {id:'tosi_dramatisointi',label:'🎬 Dramatisoinnin oikeutus',   group:'tosi_truth',  hint:'palvelevatko vapaudet tarinaa vai vääristävätkö'},
-      {id:'tosi_rehellisyys',  label:'⚖️ Näkökulman rehellisyys',    group:'tosi_truth',  hint:'kaunistellaanko, syyllistetäänkö, sankaroidaanko'},
-      {id:'tosi_kunnioitus',   label:'🕊️ Kunnioitus',                group:'tosi_truth',  hint:'kohdellaanko oikeita ihmisiä ja uhreja asiallisesti'},
-      {id:'tosi_konteksti',    label:'🔍 Konteksti',                 group:'tosi_truth',  hint:'ymmärtääkö katsoja miksi näin kävi'},
+      {id:'tosi_uskollisuus',  label:'📖 Uskollisuus tapahtumille',  group:'tosi_truth',  hint:'kuinka lähellä totuutta pysytään', scale:'totuus'},
+      {id:'tosi_dramatisointi',label:'🎬 Dramatisoinnin oikeutus',   group:'tosi_truth',  hint:'palvelevatko vapaudet tarinaa vai vääristävätkö', scale:'onnistuminen'},
+      {id:'tosi_rehellisyys',  label:'⚖️ Näkökulman rehellisyys',    group:'tosi_truth',  hint:'kaunistellaanko, syyllistetäänkö, sankaroidaanko', scale:'rehellisyys'},
+      {id:'tosi_kunnioitus',   label:'🕊️ Kunnioitus',                group:'tosi_truth',  hint:'kohdellaanko oikeita ihmisiä ja uhreja asiallisesti', scale:'kunnioitus'},
+      {id:'tosi_konteksti',    label:'🔍 Konteksti',                 group:'tosi_truth',  hint:'ymmärtääkö katsoja miksi näin kävi', scale:'selkeys'},
       {id:'nayttelijat',       label:'🎭 Näyttelijät',               group:'tosi_people'},
-      {id:'tosi_henkilokuva',  label:'👤 Henkilökuva',               group:'tosi_people', hint:'tuleeko ihmisestä kokonainen vai pelkkä imitaatio'},
-      {id:'tosi_motiivit',     label:'🧠 Motiivit',                  group:'tosi_people', hint:'ymmärrätkö miksi he toimivat niin'},
+      {id:'tosi_henkilokuva',  label:'👤 Henkilökuva',               group:'tosi_people', hint:'tuleeko ihmisestä kokonainen vai pelkkä imitaatio', scale:'uskottavuus'},
+      {id:'tosi_motiivit',     label:'🧠 Motiivit',                  group:'tosi_people', hint:'ymmärrätkö miksi he toimivat niin', scale:'selkeys'},
       {id:'dialogi',           label:'💬 Dialogi',                   group:'tosi_people'},
       {id:'kerronta',          label:'🎞️ Kerronta ja rakenne',       group:'tosi_narr'},
-      {id:'tosi_jannite',      label:'😰 Jännite',                   group:'tosi_narr',   hint:'kantaako, vaikka tietäisit lopputuloksen'},
-      {id:'tosi_rajaus',       label:'✍️ Tarinan rajaus',            group:'tosi_narr',   hint:'valittiinko oikea siivu tapahtumista'},
+      {id:'tosi_jannite',      label:'😰 Jännite',                   group:'tosi_narr',   hint:'kantaako, vaikka tietäisit lopputuloksen', scale:'onnistuminen'},
+      {id:'tosi_rajaus',       label:'✍️ Tarinan rajaus',            group:'tosi_narr',   hint:'valittiinko oikea siivu tapahtumista', scale:'onnistuminen'},
       {id:'tosi_aikarakenne',  label:'⏱️ Aikarakenne',               group:'tosi_narr',   hint:'aikahypyt ja rinnakkaiset linjat'},
       {id:'tosi_lopputekstit', label:'📝 Lopputekstit',              group:'tosi_narr',   hint:'”mitä heille tapahtui” -osuus ja arkistokuvat'},
-      {id:'tosi_ennakkotieto', label:'🙋 Toimiiko ilman ennakkotietoa', group:'tosi_narr', hint:'aukeaako tarina vaikket tuntisi tapausta'},
-      {id:'tosi_uusitieto',    label:'📚 Uusi tieto',                group:'tosi_impact', hint:'opitko jotain mitä et tiennyt'},
-      {id:'tosi_selvitin',     label:'🧭 Jäitkö selvittämään lisää', group:'tosi_impact', hint:'herättikö kiinnostuksen aiheeseen'},
-      {id:'tosi_jalkivaikutus',label:'🌍 Jälkivaikutus',             group:'tosi_impact', hint:'muuttiko ajatteluasi, jäikö vaivaamaan'}
+      {id:'tosi_ennakkotieto', label:'🙋 Toimiiko ilman ennakkotietoa', group:'tosi_narr', hint:'aukeaako tarina vaikket tuntisi tapausta', scale:'onnistuminen'},
+      {id:'tosi_uusitieto',    label:'📚 Uusi tieto',                group:'tosi_impact', hint:'opitko jotain mitä et tiennyt', scale:'maara'},
+      {id:'tosi_selvitin',     label:'🧭 Jäitkö selvittämään lisää', group:'tosi_impact', hint:'herättikö kiinnostuksen aiheeseen', scale:'maara'},
+      {id:'tosi_jalkivaikutus',label:'🌍 Jälkivaikutus',             group:'tosi_impact', hint:'muuttiko ajatteluasi, jäikö vaivaamaan', scale:'maara'}
     ]
   }
 };
@@ -1493,10 +1520,14 @@ function renderRatingsGrid(containerId, stateObj, onChangeFnName){
     const answered = dims.filter(d=>stateObj[d.id]!=null).length;
     const rowsHtml = dims.map(d=>{
       const label = d.dynamic ? genreLupausLabel() : d.label;
+      // Vastausvaihtoehdot tulevat kysymyksen omasta asteikosta. Arvot ovat
+      // silti 1–6 kaikilla asteikoilla, joten sama tallennettu vastaus
+      // säilyy vaikka kysymyksen asteikkoa myöhemmin vaihdettaisiin.
+      const levels = ratingLevels(d.scale);
       return `<div class="rating-dim-row">
         <div class="rating-dim-label">${label}${d.hint?`<span class="rating-dim-hint">${esc(d.hint)}</span>`:''}</div>
         <div class="rating-dim-opts">
-          ${RATING_LEVELS.map(l=>`<button type="button" class="rating-opt${stateObj[d.id]===l.v?' active':''}" onclick="${onChangeFnName}('${d.id}',${l.v})">${l.label}</button>`).join('')}
+          ${levels.map(l=>`<button type="button" class="rating-opt${stateObj[d.id]===l.v?' active':''}" onclick="${onChangeFnName}('${d.id}',${l.v})">${l.label}</button>`).join('')}
         </div>
       </div>`;
     }).join('');
