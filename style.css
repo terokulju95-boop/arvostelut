@@ -547,6 +547,9 @@ html[data-filmstrip="on"] body::before{
 .rating-group-body{padding:14px;}
 .rating-dim-row{margin-bottom:14px;}
 .rating-dim-row:last-child{margin-bottom:0;}
+.rating-group-foot{padding-top:12px;border-top:1px solid var(--border);}
+.rating-close-btn{width:100%;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;}
+.rating-close-btn:active{transform:scale(0.98);}
 .rating-dim-label{font-size:13px;font-weight:600;margin-bottom:6px;}
 .rating-dim-hint{display:block;font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;line-height:1.35;}
 .ratings-orphan{background:var(--acc-08);border:1px solid var(--acc-30);border-radius:11px;padding:11px 13px;font-size:12px;color:var(--text);line-height:1.55;margin-bottom:10px;}

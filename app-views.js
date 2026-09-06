@@ -1531,12 +1531,18 @@ function renderRatingsGrid(containerId, stateObj, onChangeFnName){
         </div>
       </div>`;
     }).join('');
+    // Sulkunappi jokaisen ryhmän viimeisen kysymyksen jälkeen. Ilman tätä
+    // pitkän ryhmän täytettyään joutuisi kelaamaan takaisin ylös otsikkoon
+    // päästäkseen eteenpäin.
+    const footHtml = `<div class="rating-group-foot">
+      <button type="button" class="rating-close-btn" onclick="collapseAllRatingGroups('${containerId}','${onChangeFnName}')">▲ Piilota kysymykset</button>
+    </div>`;
     return `<div class="rating-group">
       <button type="button" class="rating-group-header" onclick="toggleRatingGroup('${containerId}','${g.id}','${onChangeFnName}')">
         <span>${g.label}</span>
         <span class="rating-group-count">${answered}/${dims.length} ${isOpen?'▲':'▼'}</span>
       </button>
-      <div class="rating-group-body" style="display:${isOpen?'block':'none'};">${rowsHtml}</div>
+      <div class="rating-group-body" style="display:${isOpen?'block':'none'};">${rowsHtml}${footHtml}</div>
     </div>`;
   }).join('');
 }
@@ -1546,6 +1552,21 @@ window.toggleRatingGroup = function(containerId, groupId, onChangeFnName){
   ratingsGroupOpenState[key] = !ratingsGroupOpenState[key];
   const stateObj = containerId==='mainRatingsGrid' ? selectedRatings : selectedPartRatings;
   renderRatingsGrid(containerId, stateObj, onChangeFnName);
+};
+
+// Piilottaa kaikkien ryhmien kysymykset. Ryhmien otsikot jäävät näkyviin,
+// joten minkä tahansa niistä saa auki painamalla otsikkoa uudestaan.
+window.collapseAllRatingGroups = function(containerId, onChangeFnName){
+  const set = ratingSet(formRatingSub());
+  set.groups.forEach(g => { ratingsGroupOpenState[containerId+'|'+g.id] = false; });
+  const stateObj = containerId==='mainRatingsGrid' ? selectedRatings : selectedPartRatings;
+  renderRatingsGrid(containerId, stateObj, onChangeFnName);
+  // Kelaus takaisin ryhmälistan alkuun, jotta näkymä ei jää tyhjän tilan
+  // kohdalle siitä mistä kysymykset juuri katosivat.
+  const el = document.getElementById(containerId);
+  if(el && typeof el.scrollIntoView === 'function'){
+    el.scrollIntoView({ block:'nearest', behavior:'smooth' });
+  }
 };
 
 function ratingsEligible(cat){
