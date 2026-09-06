@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-06.6';
+window.BUILD_MODALS = '2026-09-06.7';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1363,6 +1363,7 @@ window.openSettings = function(){
   safeRender('puuttuvat juonet', window.renderMissingPlots);
   safeRender('suorituskyky', window.renderPerfInfo);
   safeRender('versio', window.renderVersionInfo);
+  safeRender('eikiinnosta', window.renderHiddenInfo);
   safeRender('testitila', window.renderSandboxSettings);
   safeRender('tarkkuus', renderPrecisionRow);
   safeRender('painotukset', renderWeightRows);

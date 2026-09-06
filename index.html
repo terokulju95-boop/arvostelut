@@ -186,6 +186,17 @@
   </div>
 </div>
 
+<!-- LÖYDÄ: TEOKSEN TIEDOT -->
+<div class="modal-overlay" id="discDetailModal" onclick="closeModalIfOutside(event,'discDetailModal')">
+  <div class="modal-sheet">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div id="discDetailBody"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('discDetailModal')">Sulje</button>
+    </div>
+  </div>
+</div>
+
 <!-- FAB -->
 <button id="fab" onclick="fabClick()">+</button>
 
@@ -942,6 +953,16 @@
         </button>
         <div class="set-sec-body" id="sec-asteikot" hidden>
 <div id="scaleBox"></div>
+        </div>
+      </div>
+      <div class="set-sec" data-sec="eikiinnosta">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('eikiinnosta')" aria-expanded="false">
+          <span class="set-sec-icon">🚫</span>
+          <span class="set-sec-title">Ei kiinnosta<span class="set-sec-sum" id="sum-eikiinnosta"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-eikiinnosta" hidden>
+<div id="hiddenBox"></div>
         </div>
       </div>
       <div class="set-sec" data-sec="versio">

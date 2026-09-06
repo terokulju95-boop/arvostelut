@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-09-06.6';
+window.BUILD_DISCOVER = '2026-09-06.7';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.
@@ -27,6 +27,9 @@ function reviewedNames(){
 
 function alreadyHave(item, ids, names){
   const type = item.media_type || (item.title ? 'movie' : 'tv');
+  // Käyttäjän ohittamat käsitellään samalla tavalla kuin jo arvostellut:
+  // yksi suodatin kattaa kaikki haut, eikä yhtäkään tarvinnut muuttaa.
+  if(isHidden(type, item.id)) return true;
   if(ids.has(`${type}:${item.id}`)) return true;
   const title = item.title || item.name || '';
   return names.has(fuzzyNormCached(title));
@@ -78,14 +81,22 @@ function discCard(item, reason){
     : `<div class="disc-poster disc-poster-none">${type === 'tv' ? '📺' : '🎬'}</div>`;
   const overview = item.overview ? esc(item.overview) : '';
 
-  return `<div class="disc-card">
-    ${poster}
+  // Juliste ja teksti avaavat tiedot. Lisäysnappi on erikseen, jottei
+  // kortin selaaminen johda vahingossa lomakkeelle.
+  return `<div class="disc-card" data-key="${type}:${item.id}">
+    <div class="disc-open" onclick="openDiscoverDetail('${type}',${Number(item.id)})">${poster}</div>
     <div class="disc-body">
-      <div class="disc-title">${esc(title)}${year ? ` <span class="disc-year">${year}</span>` : ''}</div>
-      <div class="disc-reason">${reason}</div>
-      ${score ? `<div class="disc-score">⭐ ${score}/10 TMDB</div>` : ''}
-      ${overview ? `<div class="disc-overview">${overview}</div>` : ''}
-      <button class="disc-add" onclick="addFromDiscover('${escJs(title)}', '${type}')">+ Lisää arvosteluihin</button>
+      <div class="disc-open" onclick="openDiscoverDetail('${type}',${Number(item.id)})">
+        <div class="disc-title">${esc(title)}${year ? ` <span class="disc-year">${year}</span>` : ''}</div>
+        <div class="disc-reason">${reason}</div>
+        ${score ? `<div class="disc-score">⭐ ${score}/10 TMDB</div>` : ''}
+        ${overview ? `<div class="disc-overview">${overview}</div>` : ''}
+        <div class="disc-more">Lue lisää ›</div>
+      </div>
+      <div class="disc-actions">
+        <button class="disc-add" onclick="addFromDiscover('${escJs(title)}', '${type}')">+ Lisää arvosteluihin</button>
+        <button class="disc-skip" title="Ei kiinnosta" onclick="hideFromDiscover('${type}',${Number(item.id)},'${escJs(title)}')">🚫</button>
+      </div>
     </div>
   </div>`;
 }
@@ -142,6 +153,8 @@ window.runDiscover = async function(mode){
   }
   const out = document.getElementById('discResults');
   out.innerHTML = '';
+  // Tositarinat-haussa lisäys esivalitsee alalajin myös tietonäkymästä.
+  window._discSubcat = (mode === 'truestory') ? 'Tositarinat' : '';
   discSetBusy(true);
   try{
     if(mode === 'new-seasons')       await discoverNewSeasons(out);
@@ -681,6 +694,150 @@ async function discoverTrueStories(out){
     ? sections.join('')
     : discEmpty('Kaikki löytyneet tositarinat ovat jo arvostelussasi. Nosta ehdotusten määrää valitsimesta, niin haetaan syvemmältä.');
 }
+
+// ── EI KIINNOSTA -LISTA ──
+// Ohitetut teokset elävät asetuksissa, joten lista synkronoituu pilveen eikä
+// jää yhteen laitteeseen. Avain on tyyppi ja tunnus yhdessä, koska elokuvalla
+// ja sarjalla voi olla sama numero.
+function hiddenMap(){
+  try{
+    ensureSettings();
+    if(!appData.settings.discoverHidden) appData.settings.discoverHidden = {};
+    return appData.settings.discoverHidden;
+  }catch(e){ return {}; }
+}
+function isHidden(type, id){ return !!hiddenMap()[type + ':' + id]; }
+
+window.hideFromDiscover = async function(type, id, title){
+  const m = hiddenMap();
+  m[type + ':' + id] = title || true;
+  await window.fbSave();
+  window.closeModal('discDetailModal');
+  // Kortti poistetaan heti näkyvistä, jotta valinta näkyy ilman uutta hakua.
+  const card = document.querySelector(`.disc-card[data-key="${type}:${id}"]`);
+  if(card) card.remove();
+  discStatus('🚫 Ei ehdoteta enää. Listan voi tyhjentää asetuksista.');
+  setTimeout(() => discStatus(''), 2600);
+};
+
+window.hiddenCount = function(){ return Object.keys(hiddenMap()).length; };
+
+window.clearHiddenDiscover = async function(){
+  const n = window.hiddenCount();
+  if(!n){ alert('Lista on jo tyhjä.'); return; }
+  if(!confirm(`Tyhjennetäänkö "ei kiinnosta" -lista?\n\n${n} teosta voi taas tulla ehdotuksiin.`)) return;
+  appData.settings.discoverHidden = {};
+  await window.fbSave();
+  if(window.renderHiddenInfo) window.renderHiddenInfo();
+};
+
+// ── TEOKSEN TIEDOT ──
+// Ehdotuskortti näyttää vain katkaistun juonen. Tästä näkymästä saa koko
+// tekstin, tuotantotiedot ja sen mistä teoksen voi Suomessa katsoa.
+const PROVIDER_LOGO = 'https://image.tmdb.org/t/p/w45';
+
+function providerRow(label, list){
+  if(!list || !list.length) return '';
+  return `<div class="dd-prov-row">
+    <div class="dd-prov-label">${label}</div>
+    <div class="dd-prov-list">${list.map(p => `<span class="dd-prov">
+        ${p.logo_path ? `<img src="${PROVIDER_LOGO}${p.logo_path}" alt="" loading="lazy">` : ''}
+        ${esc(p.provider_name || '')}
+      </span>`).join('')}</div>
+  </div>`;
+}
+
+window.openDiscoverDetail = async function(type, id){
+  const modal = document.getElementById('discDetailModal');
+  const body  = document.getElementById('discDetailBody');
+  if(!modal || !body) return;
+  body.innerHTML = '<div class="dd-loading">Haetaan tietoja…</div>';
+  modal.classList.add('open');
+
+  const d = await tmdbGet(`/${type}/${id}?language=fi-FI&append_to_response=watch/providers,credits`);
+  if(!d){
+    body.innerHTML = '<div class="dd-loading">Tietojen haku ei onnistunut. Tarkista verkkoyhteys.</div>';
+    return;
+  }
+
+  const title = d.title || d.name || '';
+  const year  = (d.release_date || d.first_air_date || '').slice(0,4);
+  const genres = (d.genres || []).map(g => g.name).filter(Boolean);
+  const crew = (d.credits && d.credits.crew) || [];
+  const cast = ((d.credits && d.credits.cast) || []).slice(0, 6).map(c => c.name);
+  const director = crew.filter(c => c.job === 'Director').map(c => c.name);
+  const creators = (d.created_by || []).map(c => c.name);
+
+  // Kesto: elokuvalla minuutteina, sarjalla kausien ja jaksojen määrä.
+  const runtime = type === 'movie'
+    ? (d.runtime ? `${d.runtime} min` : '')
+    : [d.number_of_seasons ? `${d.number_of_seasons} kautta` : '',
+       d.number_of_episodes ? `${d.number_of_episodes} jaksoa` : ''].filter(Boolean).join(' · ');
+
+  // Suoratoisto. TMDB tarjoaa tiedot maittain ja ne tulevat JustWatchilta,
+  // joten lähde mainitaan kuten TMDB:n ehdot edellyttävät.
+  const wp = (d['watch/providers'] && d['watch/providers'].results) || {};
+  const fi = wp.FI || null;
+  let watch;
+  if(!fi){
+    watch = `<div class="dd-prov-none">Ei tietoa saatavuudesta Suomessa.</div>`;
+  } else {
+    const rows = providerRow('Suoratoistossa', fi.flatrate)
+               + providerRow('Vuokraa', fi.rent)
+               + providerRow('Osta', fi.buy);
+    watch = rows || `<div class="dd-prov-none">Ei tarjolla Suomessa juuri nyt.</div>`;
+  }
+
+  const meta = [year, runtime, genres.join(', ')].filter(Boolean).join(' · ');
+  const people = [
+    director.length ? `<div class="dd-line"><b>Ohjaus</b> ${esc(director.join(', '))}</div>` : '',
+    creators.length ? `<div class="dd-line"><b>Luonut</b> ${esc(creators.join(', '))}</div>` : '',
+    cast.length     ? `<div class="dd-line"><b>Roolissa</b> ${esc(cast.join(', '))}</div>` : ''
+  ].join('');
+
+  body.innerHTML = `
+    ${d.backdrop_path ? `<img class="dd-backdrop" src="https://image.tmdb.org/t/p/w780${d.backdrop_path}" alt="">` : ''}
+    <div class="dd-title">${esc(title)}</div>
+    <div class="dd-meta">${esc(meta)}</div>
+    ${d.vote_average ? `<div class="dd-score">⭐ ${Math.round(d.vote_average*10)/10}/10 TMDB · ${d.vote_count || 0} ääntä</div>` : ''}
+    ${d.overview ? `<div class="dd-overview">${esc(d.overview)}</div>`
+                 : `<div class="dd-overview dd-dim">Suomenkielistä kuvausta ei ole TMDB:ssä.</div>`}
+    ${people}
+    <div class="dd-sect">📺 Missä katsoa Suomessa</div>
+    ${watch}
+    <div class="dd-source">Saatavuustiedot: JustWatch TMDB:n kautta</div>
+    <div class="dd-btns">
+      <button class="dd-btn dd-btn-add" onclick="closeModal('discDetailModal'); addFromDiscover('${escJs(title)}','${type}','${escJs(window._discSubcat || '')}')">+ Lisää arvosteluihin</button>
+      <button class="dd-btn dd-btn-no" onclick="hideFromDiscover('${type}',${Number(id)},'${escJs(title)}')">🚫 Ei kiinnosta</button>
+    </div>`;
+};
+
+window.renderHiddenInfo = function(){
+  const el = document.getElementById('hiddenBox');
+  if(!el) return;
+  const m = hiddenMap();
+  const keys = Object.keys(m);
+  if(!keys.length){
+    el.innerHTML = `<div class="sc-note">Et ole vielä merkinnyt yhtään teosta ohitetuksi. Löydä-osiossa jokaisen ehdotuksen kohdalla on 🚫-nappi.</div>`;
+    return;
+  }
+  const rows = keys.map(k => {
+    const name = (typeof m[k] === 'string' && m[k]) ? m[k] : k;
+    const type = k.split(':')[0] === 'tv' ? '📺' : '🎬';
+    return `<div class="dim-row"><span class="dim-row-label">${type} ${esc(name)}</span>
+      <button type="button" class="sc-mini" onclick="unhideFromDiscover('${escJs(k)}')">↩︎</button></div>`;
+  }).join('');
+  el.innerHTML = `<div class="sc-note">Näitä ${keys.length} teosta ei ehdoteta Löydä-osiossa. Palauta yksittäinen ↩︎-napista tai tyhjennä koko lista.</div>
+    ${rows}
+    <button type="button" class="sc-add" onclick="clearHiddenDiscover()">🗑️ Tyhjennä lista</button>`;
+};
+
+window.unhideFromDiscover = async function(key){
+  const m = hiddenMap();
+  delete m[key];
+  await window.fbSave();
+  window.renderHiddenInfo();
+};
 
 async function discoverEndedSeries(out){
   const ids   = reviewedTmdbIds();

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-06.6';
+window.BUILD_CARDS = '2026-09-06.7';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -498,6 +498,62 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-09-06.7', items:[
+    { icon:'🔍', title:'Löydä: avaa teos ja lue lisää',
+      text:'Ehdotusta napauttamalla aukeaa koko juoni, genret, kesto ja ohjaaja. Enää tekstiä ei tarvitse arvata kolmen rivin perusteella.',
+      view:'discover' },
+    { icon:'📺', title:'Missä tämän voi katsoa Suomessa',
+      text:'Teoksen tiedoissa näkyy mitkä suoratoistopalvelut tarjoavat sen Suomessa, ja erikseen mitkä vuokraavat tai myyvät sen.',
+      view:'discover' },
+    { icon:'🚫', title:'Ei kiinnosta',
+      text:'Teoksen voi merkitä ohitetuksi, jolloin sitä ei ehdoteta enää koskaan. Listan voi tyhjentää asetuksista.',
+      view:'discover' }
+  ]},
+  { build:'2026-09-06.6', items:[
+    { icon:'🎭', title:'Löydä: tositarinat',
+      text:'Uusi haku etsii tositapahtumiin perustuvia näyteltyjä elokuvia ja sarjoja. Dokumentit ja animaatiot on rajattu pois, ja lisätessä alalaji tulee valmiiksi.',
+      view:'discover' }
+  ]},
+  { build:'2026-09-06.5', items:[
+    { icon:'🧩', title:'Omat kysymykset ja kysymyssarjat',
+      text:'Voit lisätä omia kysymyksiä mihin tahansa sarjaan tai rakentaa kokonaan oman sarjan omalle alalajille. Vakiokysymykset säilyvät koskemattomina.',
+      tab:'arviointi', sec:'kysymykset' }
+  ]},
+  { build:'2026-09-06.4', items:[
+    { icon:'🎚️', title:'Omat vastausasteikot',
+      text:'Voit luoda omia asteikkoja ja vaihtaa minkä tahansa kysymyksen asteikon. Vaihto muuttaa vain sanat — vastaukset ja pisteet säilyvät.',
+      tab:'arviointi', sec:'asteikot' }
+  ]},
+  { build:'2026-09-06.2', items:[
+    { icon:'💾', title:'Keskeneräinen lomake tallentuu itsestään',
+      text:'Pitkä laaja arvostelu ei enää katoa jos selain sulkeutuu. Lomakkeen yläreunaan ilmestyy palkki josta voit palauttaa tai hylätä keskeneräisen.',
+      view:'reviews' }
+  ]},
+  { build:'2026-09-06.1', items:[
+    { icon:'🏷️', title:'Versio näkyviin',
+      text:'Uusi osio kertoo mikä versio on käytössä ja ovatko kaikki tiedostot samaa versiota. Sieltä löytyy myös välimuistin tyhjennys.',
+      tab:'data', sec:'versio' },
+    { icon:'📦', title:'Vanhat osa-arviot näkyviin',
+      text:'Aiemmasta kysymyssarjasta jääneet vastaukset voi nyt avata luettavaksi. Ennen niistä näkyi vain lukumäärä.',
+      view:'reviews' },
+    { icon:'📊', title:'Vahvuudet ja heikkoudet',
+      text:'Arvostelun tiedoissa näkyy kolme parasta ja kolme heikointa osa-arviota sanoineen.',
+      view:'reviews' }
+  ]},
+  { build:'2026-09-06.0', items:[
+    { icon:'🎬', title:'Tositarinat-alalaji',
+      text:'Tositapahtumiin perustuville näytellyille elokuville ja sarjoille oma alalaji ja 23 omaa kysymystä. Vertailu tapahtuu vain alalajin sisällä.',
+      tab:'arviointi', sec:'alalajit' },
+    { icon:'🗣️', title:'Kysymyskohtaiset vastausvaihtoehdot',
+      text:'Vastausvaihtoehdot sopivat nyt kysymykseen. Kunnioitusta ei enää arvioida sanalla "Surkea" vaan asteikolla Loukkaava–Hienotunteinen.',
+      tab:'arviointi', sec:'asteikot' },
+    { icon:'⊘', title:'Ohita kysymys',
+      text:'Kysymyksen voi merkitä ohitetuksi kun se ei koske teosta. Ohitettu ei laske keskiarvoa eikä näy puutteena.',
+      view:'reviews' },
+    { icon:'▲', title:'Piilota kysymykset ja siirry seuraavaan',
+      text:'Ryhmä sulkeutuu ja seuraava aukeaa itsestään kun viimeiseen kysymykseen on vastattu. Viimeisen kysymyksen alla on myös piilotusnappi.',
+      view:'reviews' }
+  ]},
   { build:'2026-09-05.26', items:[
     { icon:'🔎', title:'Suodata suosituksen ja uusinnan mukaan',
       text:'Suodatinpaneelista voit poimia esimerkiksi kaikki jotka katsoisit heti uudelleen. Rivit ilmestyvät vasta kun kentissä on tietoa, ja lapussa näkyy lukumäärä.',
@@ -558,6 +614,15 @@ function looksLikeExistingInstall(){
   return !!(appData && Array.isArray(appData.reviews) && appData.reviews.length);
 }
 
+// Versioleimojen vertailu numeroina. Merkkijonovertailu menisi pieleen heti
+// kun saman päivän julkaisuja on yli yhdeksän: '2026-09-06.10' on
+// merkkijonona pienempi kuin '2026-09-06.9', vaikka se on uudempi.
+function buildRank(b){
+  const m = String(b || '').match(/^(\d{4})-(\d{2})-(\d{2})\.(\d+)/);
+  if(!m) return -1;
+  return ((+m[1] * 10000) + (+m[2] * 100) + (+m[3])) * 10000 + (+m[4]);
+}
+
 function newSinceSeen(){
   let seen = '';
   try{ seen = localStorage.getItem(SEEN_BUILD_KEY) || ''; } catch(e){}
@@ -567,13 +632,15 @@ function newSinceSeen(){
 
   if(!seen){
     if(!looksLikeExistingInstall()) return [];
-    // Vanha asennus ilman kuittausta: näytetään kaikki tiedossa olevat
-    return WHATS_NEW.flatMap(e => e.items);
+    // Vanha asennus ilman kuittausta. Koko historia olisi seinä tekstiä,
+    // joten näytetään kahden uusimman julkaisun asiat.
+    return WHATS_NEW.slice(0, 2).flatMap(e => e.items);
   }
 
+  const seenRank = buildRank(seen);
   const out = [];
   for(const entry of WHATS_NEW){
-    if(entry.build <= seen) break;
+    if(buildRank(entry.build) <= seenRank) break;
     out.push(...entry.items);
   }
   return out;
