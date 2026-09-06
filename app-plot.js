@@ -1,5 +1,5 @@
 // ══ ARVOSTELUT · juonten muokkaus ══
-window.BUILD_PLOT = '2026-09-06.1';
+window.BUILD_PLOT = '2026-09-06.2';
 //
 // TMDB tuo juonet automaattisesti, mutta kaikkiin teoksiin niitä ei löydy.
 // Tässä tiedostossa juonen voi kirjoittaa itse. Ydinsääntö: itse kirjoitettua
@@ -61,6 +61,15 @@ window.restoreFormPlot = function(){
   if(!ta || !formPlotTmdb) return;
   ta.value = formPlotTmdb;
   formPlotOwn = false;
+  window.renderPlotMeta();
+};
+
+// Luonnoksen palautus tarvitsee tiedon siitä, oliko juoni itse kirjoitettu.
+// Ilman tätä palautettu TMDB:n juoni leimautuisi omaksi tekstiksi eikä
+// päivittyisi enää TMDB-haussa.
+window.formPlotIsOwn = function(){ return formPlotOwn; };
+window.setFormPlotOwn = function(v){
+  formPlotOwn = !!v;
   window.renderPlotMeta();
 };
 

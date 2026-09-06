@@ -216,6 +216,7 @@
   <div class="modal-sheet">
     <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title" id="modalTitle">Lisää arvostelu</div>
+    <div class="draft-banner" id="draftBanner" style="display:none;"></div>
 
     <div class="form-group">
       <label>Kategoria</label>
@@ -367,7 +368,7 @@
     </div>
 
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal('addModal')">Peruuta</button>
+      <button class="btn-secondary" onclick="cancelAddModal()">Peruuta</button>
       <button class="btn-primary" onclick="saveReview()">Tallenna</button>
     </div>
   </div>

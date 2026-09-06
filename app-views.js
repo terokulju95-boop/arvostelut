@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-06.1';
+window.BUILD_VIEWS = '2026-09-06.2';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -489,6 +489,195 @@ window.toggleNote = function(id){
 };
 
 // ── LISÄÄ/MUOKKAA ──
+// ── LUONNOKSEN AUTOMAATTITALLENNUS ──
+// Pitkän laajan arvostelun täyttäminen kestää minuutteja. Jos välilehti
+// suljetaan, selain kaatuu tai puhelin tappaa taustan, kaikki 23 vastausta
+// katosivat aiemmin. Luonnos kirjoitetaan laitteen omaan muistiin (ei
+// Firebaseen), koska se on keskeneräinen eikä kuulu muille laitteille.
+const DRAFT_PREFIX  = 'arvostelut:draft:';
+const DRAFT_VERSION = 1;
+const DRAFT_MAX_AGE = 30 * 24 * 60 * 60 * 1000;   // 30 vrk
+
+let draftActive = false;    // lomake auki ja tallennus sallittu
+let draftTimer  = null;
+
+function draftKey(){ return DRAFT_PREFIX + (editingId ? 'id' + editingId : 'new'); }
+
+// Tyhjää lomaketta ei kannata tallentaa eikä tarjota palautettavaksi.
+function draftHasContent(d){
+  if(!d) return false;
+  return !!(String(d.name||'').trim() || String(d.note||'').trim() ||
+            String(d.plot||'').trim() || Object.keys(d.ratings||{}).length);
+}
+
+function captureDraft(){
+  const val = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  return {
+    v: DRAFT_VERSION,
+    at: Date.now(),
+    editingId: editingId || null,
+    cat: val('formCat'), subcat: val('formSubcat'),
+    name: val('formName'), year: val('formYear'),
+    note: val('formNote'), date: val('formDate'),
+    score: val('scoreInput'), plot: val('formPlot'),
+    plotOwn: window.formPlotIsOwn ? window.formPlotIsOwn() : false,
+    tvType: selectedTvType, mark: selectedMark,
+    recommend: selectedRecommend, rewatch: selectedRewatch,
+    genres: (typeof getSelectedGenres === 'function') ? getSelectedGenres() : [],
+    ratings: { ...selectedRatings },
+    tmdb: window._tmdbPending || null
+  };
+}
+
+// Kaikki localStorage-kutsut on suojattu: yksityisessä tilassa tai kiintiön
+// täyttyessä ne heittävät. Luonnos on lisä, joten sen epäonnistuminen ei saa
+// kaataa lomaketta.
+function writeDraft(){
+  if(!draftActive) return;
+  try{
+    const d = captureDraft();
+    if(draftHasContent(d)) localStorage.setItem(draftKey(), JSON.stringify(d));
+    else localStorage.removeItem(draftKey());
+  }catch(e){ /* ohitetaan tarkoituksella */ }
+}
+
+function readDraft(key){
+  try{
+    const raw = localStorage.getItem(key);
+    if(!raw) return null;
+    const d = JSON.parse(raw);
+    return (d && d.v === DRAFT_VERSION) ? d : null;
+  }catch(e){ return null; }
+}
+
+window.saveDraftSoon = function(){
+  if(!draftActive) return;
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(writeDraft, 700);
+};
+
+window.clearDraft = function(){
+  clearTimeout(draftTimer);
+  try{ localStorage.removeItem(draftKey()); }catch(e){}
+};
+
+// Muokkausluonnokset jäisivät muuten muistiin ikuisiksi ajoiksi, jos
+// arvostelua ei koskaan tallenneta loppuun.
+function pruneDrafts(){
+  try{
+    const now = Date.now();
+    Object.keys(localStorage).forEach(k => {
+      if(k.indexOf(DRAFT_PREFIX) !== 0) return;
+      const d = readDraft(k);
+      if(!d || !d.at || now - d.at > DRAFT_MAX_AGE) localStorage.removeItem(k);
+    });
+  }catch(e){}
+}
+
+function draftAgeText(at){
+  const min = Math.floor((Date.now() - at) / 60000);
+  if(min < 1)  return 'hetki sitten';
+  if(min < 60) return `${min} min sitten`;
+  const h = Math.floor(min / 60);
+  if(h < 24)   return `${h} t sitten`;
+  const d = Math.floor(h / 24);
+  return d === 1 ? 'eilen' : `${d} vrk sitten`;
+}
+
+// Luonnosta ei palauteta itsestään. Vanhaa arvostelua muokatessa luonnos voi
+// olla vanhentunut suhteessa tallennettuun versioon, joten valinta kuuluu
+// käyttäjälle.
+function offerDraft(){
+  const el = document.getElementById('draftBanner');
+  if(!el) return;
+  const d = readDraft(draftKey());
+  if(!draftHasContent(d)){ el.style.display = 'none'; el.innerHTML = ''; return; }
+  const n = Object.keys(d.ratings || {}).length;
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="draft-text">💾 Kesken jäänyt lomake: <strong>${esc(d.name || 'nimetön')}</strong>
+      <span class="draft-age">${esc(draftAgeText(d.at))}${n ? ` · ${n} osa-arviota` : ''}</span>
+    </div>
+    <div class="draft-btns">
+      <button type="button" class="draft-btn draft-yes" onclick="restoreDraft()">Palauta</button>
+      <button type="button" class="draft-btn" onclick="discardDraft()">Hylkää</button>
+    </div>`;
+}
+
+function hideDraftBanner(){
+  const el = document.getElementById('draftBanner');
+  if(el){ el.style.display = 'none'; el.innerHTML = ''; }
+}
+
+window.discardDraft = function(){
+  window.clearDraft();
+  hideDraftBanner();
+};
+
+window.restoreDraft = function(){
+  const d = readDraft(draftKey());
+  if(!d) return;
+  draftActive = false;   // ei tallenneta puolivalmista tilaa kesken palautuksen
+
+  window._tmdbPending = d.tmdb || null;
+
+  // Kategoria ensin: se rakentaa genrenapit ja alalajivalikon.
+  populateFormCat(d.cat);
+  window.onCatChange(d.genres || []);
+  populateFormSubcat(d.cat, d.subcat || '');
+
+  const put = (id, v) => { const el = document.getElementById(id); if(el) el.value = (v == null ? '' : v); };
+  put('formName', d.name); put('formYear', d.year); put('formNote', d.note);
+  put('formDate', d.date); put('scoreInput', d.score); put('formPlot', d.plot);
+
+  selectedScore = (d.score === '' || d.score == null) ? null : +d.score;
+  selectedTvType = d.tvType || 'kokonaisuus';
+  if(d.cat === 'TV-sarjat') selectTvTypeByValue(selectedTvType);
+
+  window.toggleMark(d.mark || null);
+  selectedRecommend = d.recommend || null;
+  selectedRewatch   = d.rewatch   || null;
+  paintTrio(REC_BTN_IDS, selectedRecommend);
+  paintTrio(RW_BTN_IDS,  selectedRewatch);
+  buildScorePicker('scorePicker', 'selectedScore');
+
+  if(window.setFormPlotOwn) window.setFormPlotOwn(!!d.plotOwn);
+  if(window.updatePlotSectionVisibility) window.updatePlotSectionVisibility();
+
+  selectedRatings = d.ratings ? { ...d.ratings } : {};
+  if(window.updateRatingsGridVisibility) window.updateRatingsGridVisibility();
+  renderRatingsGrid('mainRatingsGrid', selectedRatings, 'onMainRatingChange');
+  window._ratingsSuggestedScore = computeRatingsScore(selectedRatings, formRatingSub());
+  if(window.updateScorePreview) window.updateScorePreview();
+
+  hideDraftBanner();
+  draftActive = true;
+};
+
+// Yksi kuuntelija koko lomakkeelle. Tekstikentät antavat input-tapahtuman,
+// valikot change-tapahtuman ja arviointinapit click-tapahtuman, joten nämä
+// kolme kattavat lomakkeen ilman että jokaista nappia pitää käydä läpi.
+function bindDraftWatchers(){
+  const m = document.getElementById('addModal');
+  if(!m || m._draftBound) return;
+  m._draftBound = true;
+  ['input','change','click'].forEach(ev => m.addEventListener(ev, window.saveDraftSoon, true));
+}
+
+// Taustalle siirtyminen ja välilehden sulkeminen ovat juuri ne hetket joissa
+// työ katoaisi, joten silloin kirjoitetaan heti eikä odoteta viivettä.
+window.addEventListener('pagehide', writeDraft);
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden') writeDraft();
+});
+
+window.cancelAddModal = function(){
+  window.clearDraft();
+  draftActive = false;
+  hideDraftBanner();
+  closeModal('addModal');
+};
+
 window.openAddModal = function(){
   editingId = null;
   selectedScore = null;
@@ -531,6 +720,10 @@ window.openAddModal = function(){
   window.setRecommend(null);
   window.setRewatch(null);
   document.getElementById('addModal').classList.add('open');
+  bindDraftWatchers();
+  pruneDrafts();
+  draftActive = true;
+  offerDraft();
 };
 
 window.editReview = function(id){
@@ -563,6 +756,9 @@ window.editReview = function(id){
   paintTrio(REC_BTN_IDS, selectedRecommend);
   paintTrio(RW_BTN_IDS, selectedRewatch);
   document.getElementById('addModal').classList.add('open');
+  bindDraftWatchers();
+  draftActive = true;
+  offerDraft();
 };
 
 function populateFormCat(selected){
@@ -1861,6 +2057,11 @@ window.saveReview = async function(){
       const choice = await askDuplicate(dup);
       if(choice !== 'new'){
         if(choice === 'edit'){
+          // Uuden arvostelun luonnos ei ole enää ajankohtainen, kun siirrytään
+          // muokkaamaan jo olemassa olevaa teosta.
+          window.clearDraft();
+          draftActive = false;
+          hideDraftBanner();
           closeModal('addModal');
           setTimeout(()=>window.editReview(dup.id), 300);
         }
@@ -1937,6 +2138,9 @@ window.saveReview = async function(){
     appData.reviews.push(newReview);
     window._tmdbPending = null;
   }
+  window.clearDraft();
+  draftActive = false;
+  hideDraftBanner();
   closeModal('addModal');
   await window.fbSave();
   renderCards();
