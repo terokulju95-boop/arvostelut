@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-06.2';
+window.BUILD_VIEWS = '2026-09-06.4';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1439,10 +1439,57 @@ const RATING_SCALES = {
 
 const DEFAULT_SCALE = 'laatu';
 
+// Omat asteikot elävät asetuksissa. Tämä luetaan myös tiedoston latautuessa,
+// jolloin appData ei ole vielä olemassa — siksi try/catch eikä suora tarkistus.
+function customScales(){
+  try{ return (appData.settings && appData.settings.customScales) || {}; }
+  catch(e){ return {}; }
+}
+
+// Asteikon sanat nimen perusteella. Oma asteikko voittaa sisäänrakennetun,
+// jos tunnisteet sattuvat olemaan samat.
+function scaleWords(id){
+  const c = customScales()[id];
+  if(c && Array.isArray(c.words) && c.words.length === 6) return c.words;
+  return RATING_SCALES[id] || null;
+}
+
+// Kaikki valittavissa olevat asteikot yhtenä listana.
+function allScales(){
+  const out = Object.keys(RATING_SCALES).map(id => ({
+    id, label: SCALE_LABELS[id] || id, words: RATING_SCALES[id], custom: false
+  }));
+  const c = customScales();
+  Object.keys(c).forEach(id => {
+    if(!c[id] || !Array.isArray(c[id].words) || c[id].words.length !== 6) return;
+    out.push({ id, label: c[id].label || id, words: c[id].words, custom: true });
+  });
+  return out;
+}
+
+// Asteikkojen näyttönimet asetuksia varten.
+const SCALE_LABELS = {
+  laatu:'Laatu', maara:'Määrä', onnistuminen:'Onnistuminen',
+  uskottavuus:'Uskottavuus', totuus:'Todenmukaisuus', rehellisyys:'Rehellisyys',
+  kunnioitus:'Kunnioitus', selkeys:'Selkeys', omaperaisyys:'Omaperäisyys'
+};
+
+// Kysymyksen käytössä oleva asteikko. Asetuksissa tehty valinta ohittaa
+// kysymyssarjaan kirjoitetun oletuksen. Poistettuun asteikkoon osoittava
+// valinta hylätään, jolloin palataan oletukseen eikä rivi jää ilman nappeja.
+function dimScaleId(setKey, dim){
+  let ov = {};
+  try{ ov = (appData.settings && appData.settings.dimScales) || {}; }catch(e){}
+  const chosen = ov[setKey + '|' + dim.id];
+  if(chosen && scaleWords(chosen)) return chosen;
+  return dim.scale || DEFAULT_SCALE;
+}
+window.dimScaleId = dimScaleId;
+
 // Asteikko arvoina {v,label}. Tuntematon nimi putoaa laatuasteikkoon, jotta
 // kirjoitusvirhe kysymyksessä ei jätä riviä ilman nappeja.
 function ratingLevels(scale){
-  const words = RATING_SCALES[scale] || RATING_SCALES[DEFAULT_SCALE];
+  const words = scaleWords(scale) || RATING_SCALES[DEFAULT_SCALE];
   return words.map((label, i) => ({ v: i + 1, label }));
 }
 
@@ -1641,8 +1688,9 @@ window.ratingsSummaryHtml = function(r){
   const best  = ranked.slice(0, n);
   const worst = ranked.slice(-n).reverse();   // huonoin ensin
 
+  const setKey = ratingSetKey(subcatOf(r));
   const word = x => {
-    const lv = ratingLevels(x.d.scale).find(l => l.v === x.v);
+    const lv = ratingLevels(dimScaleId(setKey, x.d)).find(l => l.v === x.v);
     return lv ? lv.label : `${x.v}/6`;
   };
   const row = x => `<div class="rs-row">
@@ -1667,6 +1715,149 @@ window.ratingsSummaryHtml = function(r){
   </div>`;
 };
 
+// ── ASTEIKKOASETUKSET ──
+// Kolme asiaa samassa näkymässä: kaikkien asteikkojen esikatselu, omien
+// asteikkojen luonti, ja kysymyskohtainen asteikon vaihto.
+//
+// Arvot ovat aina 1–6 riippumatta asteikosta, joten asteikon vaihtaminen ei
+// muuta yhtään tallennettua vastausta eikä pistettä. Vain sanat vaihtuvat.
+let scaleSetKey = '';        // mikä kysymyssarja on auki
+let scaleEditId = null;      // muokattavan oman asteikon tunniste, '' = uusi
+
+window.setScaleSet = function(key){
+  scaleSetKey = RATING_SETS[key] ? key : '';
+  window.renderScaleSettings();
+};
+
+window.openScaleEditor = function(id){
+  scaleEditId = (id == null) ? '' : id;
+  window.renderScaleSettings();
+};
+
+window.closeScaleEditor = function(){
+  scaleEditId = null;
+  window.renderScaleSettings();
+};
+
+window.saveCustomScale = async function(){
+  ensureSettings();
+  const label = (document.getElementById('scaleName')?.value || '').trim();
+  const words = [];
+  for(let i = 0; i < 6; i++){
+    words.push((document.getElementById('scaleWord'+i)?.value || '').trim());
+  }
+  if(!label){ alert('Anna asteikolle nimi.'); return; }
+  if(words.some(w => !w)){ alert('Täytä kaikki kuusi vaihtoehtoa.'); return; }
+
+  // Uusi asteikko saa oman tunnisteen, jota ei voi sekoittaa sisäänrakennettuun.
+  const id = scaleEditId || ('oma_' + Date.now().toString(36));
+  appData.settings.customScales[id] = { label, words };
+  scaleEditId = null;
+  await window.fbSave();
+  window.renderScaleSettings();
+};
+
+window.deleteCustomScale = async function(id){
+  ensureSettings();
+  const c = appData.settings.customScales[id];
+  if(!c) return;
+  // Kysymykset jotka käyttivät tätä asteikkoa palaavat oletukseensa.
+  const used = Object.keys(appData.settings.dimScales || {})
+                     .filter(k => appData.settings.dimScales[k] === id);
+  const extra = used.length
+    ? `\n\n${used.length} kysymystä palaa oletusasteikkoonsa. Vastaukset säilyvät.`
+    : '';
+  if(!confirm(`Poistetaanko asteikko "${c.label}"?${extra}`)) return;
+  delete appData.settings.customScales[id];
+  used.forEach(k => { delete appData.settings.dimScales[k]; });
+  if(scaleEditId === id) scaleEditId = null;
+  await window.fbSave();
+  window.renderScaleSettings();
+};
+
+window.setDimScale = async function(setKey, dimId, scaleId){
+  ensureSettings();
+  const key = setKey + '|' + dimId;
+  const dim = (RATING_SETS[setKey]?.dims || []).find(d => d.id === dimId);
+  const def = (dim && dim.scale) || DEFAULT_SCALE;
+  // Oletukseksi palaava valinta poistetaan kokonaan, jottei asetuksiin kerry
+  // rivejä jotka eivät muuta mitään.
+  if(!scaleId || scaleId === def) delete appData.settings.dimScales[key];
+  else appData.settings.dimScales[key] = scaleId;
+  await window.fbSave();
+  window.renderScaleSettings();
+};
+
+window.renderScaleSettings = function(){
+  const el = document.getElementById('scaleBox');
+  if(!el) return;
+  ensureSettings();
+
+  const scales = allScales();
+
+  // 1. Esikatselu
+  const preview = scales.map(s => `<div class="sc-card">
+      <div class="sc-card-head">
+        <span class="sc-card-name">${esc(s.label)}${s.custom?'<span class="sc-tag">oma</span>':''}</span>
+        ${s.custom ? `<span class="sc-card-btns">
+            <button type="button" class="sc-mini" onclick="openScaleEditor('${escJs(s.id)}')">✏️</button>
+            <button type="button" class="sc-mini" onclick="deleteCustomScale('${escJs(s.id)}')">🗑️</button>
+          </span>` : ''}
+      </div>
+      <div class="sc-words">${s.words.map((w,i)=>`<span class="sc-word"><b>${i+1}</b>${esc(w)}</span>`).join('')}</div>
+    </div>`).join('');
+
+  // 2. Muokkain
+  let editor = `<button type="button" class="sc-add" onclick="openScaleEditor(null)">➕ Uusi asteikko</button>`;
+  if(scaleEditId !== null){
+    const cur = scaleEditId ? (customScales()[scaleEditId] || {}) : {};
+    const w = cur.words || ['','','','','',''];
+    editor = `<div class="sc-editor">
+      <div class="sc-editor-title">${scaleEditId ? 'Muokkaa asteikkoa' : 'Uusi asteikko'}</div>
+      <input type="text" id="scaleName" class="sc-input" placeholder="Asteikon nimi" value="${esc(cur.label||'')}">
+      <div class="sc-editor-hint">Kuusi vaihtoehtoa huonoimmasta parhaaseen. Kohta 6 on aina paras, koska pistelasku nojaa siihen.</div>
+      ${[0,1,2,3,4,5].map(i=>`<div class="sc-field">
+          <span class="sc-num">${i+1}</span>
+          <input type="text" id="scaleWord${i}" class="sc-input" maxlength="16" placeholder="${i===0?'huonoin':(i===5?'paras':'')}" value="${esc(w[i]||'')}">
+        </div>`).join('')}
+      <div class="sc-editor-btns">
+        <button type="button" class="sc-btn" onclick="closeScaleEditor()">Peruuta</button>
+        <button type="button" class="sc-btn sc-btn-ok" onclick="saveCustomScale()">Tallenna</button>
+      </div>
+    </div>`;
+  }
+
+  // 3. Kysymyskohtainen valinta
+  const tabs = Object.keys(RATING_SETS).map(k =>
+    `<button type="button" class="filter-chip ${k===scaleSetKey?'active':''}" onclick="setScaleSet('${escJs(k)}')">${esc(RATING_SETS[k].label)}</button>`
+  ).join('');
+
+  const set = RATING_SETS[scaleSetKey];
+  const rows = set.groups.map(g => {
+    const dims = set.dims.filter(d => d.group === g.id);
+    return `<div class="sc-group">${g.label}</div>` + dims.map(d => {
+      const cur = dimScaleId(scaleSetKey, d);
+      const def = d.scale || DEFAULT_SCALE;
+      const opts = scales.map(s =>
+        `<option value="${esc(s.id)}" ${s.id===cur?'selected':''}>${esc(s.label)}${s.id===def?' (oletus)':''}</option>`
+      ).join('');
+      return `<div class="sc-dim">
+        <span class="sc-dim-label">${d.dynamic ? '🎯 Genrelupaus' : d.label}</span>
+        <select class="sc-select${cur!==def?' changed':''}" onchange="setDimScale('${escJs(scaleSetKey)}','${escJs(d.id)}',this.value)">${opts}</select>
+      </div>`;
+    }).join('');
+  }).join('');
+
+  el.innerHTML = `
+    <div class="sc-sect-title">Asteikot</div>
+    ${preview}
+    ${editor}
+    <div class="sc-sect-title">Kysymysten asteikot</div>
+    <div class="sc-note">Asteikon vaihto muuttaa vain sanat. Tallennetut vastaukset ja pisteet säilyvät ennallaan.</div>
+    <div class="bulk-scope">${tabs}</div>
+    ${rows}`;
+};
+
 function orphanRatings(stateObj, sub){
   const known = new Set(ratingSet(sub).dims.map(d => d.id));
   return Object.keys(stateObj || {}).filter(k => !known.has(k) && stateObj[k] != null);
@@ -1680,7 +1871,7 @@ window.orphanRatings = orphanRatings;
 function findDimAnywhere(id){
   for(const key of Object.keys(RATING_SETS)){
     const d = RATING_SETS[key].dims.find(x => x.id === id);
-    if(d) return { dim: d, setLabel: RATING_SETS[key].label };
+    if(d) return { dim: d, setKey: key, setLabel: RATING_SETS[key].label };
   }
   return null;
 }
@@ -1694,7 +1885,7 @@ function orphanRowHtml(id, val){
   if(isSkipped(val)){
     shown = 'Ohitettu';
   } else if(found){
-    const lv = ratingLevels(found.dim.scale).find(l => l.v === val);
+    const lv = ratingLevels(dimScaleId(found.setKey, found.dim)).find(l => l.v === val);
     shown = lv ? `${lv.label} (${val}/6)` : `${val}/6`;
   } else {
     shown = `${val}/6`;
@@ -1832,7 +2023,7 @@ function renderRatingsGrid(containerId, stateObj, onChangeFnName){
       // Vastausvaihtoehdot tulevat kysymyksen omasta asteikosta. Arvot ovat
       // silti 1–6 kaikilla asteikoilla, joten sama tallennettu vastaus
       // säilyy vaikka kysymyksen asteikkoa myöhemmin vaihdettaisiin.
-      const levels = ratingLevels(d.scale);
+      const levels = ratingLevels(dimScaleId(ratingSetKey(sub), d));
       // Ohitettuna napit korvataan selityksellä. Näin ei jää epäselväksi
       // kumpi tila on voimassa, ja ruudukko lyhenee samalla.
       const optsHtml = skip

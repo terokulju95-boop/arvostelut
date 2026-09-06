@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-06.2';
+window.BUILD_MODALS = '2026-09-06.4';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1366,6 +1366,7 @@ window.openSettings = function(){
   safeRender('testitila', window.renderSandboxSettings);
   safeRender('tarkkuus', renderPrecisionRow);
   safeRender('painotukset', renderWeightRows);
+  safeRender('asteikot', window.renderScaleSettings);
   safeRender('julistevärit', updatePosterColorToggle);
   safeRender('filmiraita', window.updateFilmstripToggle);
   safeRender('kenttäjärjestys', window.renderFormOrderSettings);

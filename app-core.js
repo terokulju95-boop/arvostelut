@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-06.2';
+window.BUILD_CORE = '2026-09-06.4';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -662,6 +662,10 @@ function ensureSettings(){
   if(appData.settings.filmstrip == null) appData.settings.filmstrip = false;
   if(!appData.settings.precision) appData.settings.precision = 'normal';
   if(!appData.settings.weights) appData.settings.weights = {};
+  // Omat vastausasteikot ja kysymyskohtaiset asteikkovalinnat. Molemmat ovat
+  // settings-objektin sisällä, joten ne synkronoituvat pilveen metan mukana.
+  if(!appData.settings.customScales) appData.settings.customScales = {};
+  if(!appData.settings.dimScales) appData.settings.dimScales = {};
   if(appData.settings.topLimit == null) appData.settings.topLimit = 5;
   // Jaksotiedot: juonet käännetään oletuksena, nimiä ei — jaksojen nimet
   // ovat usein sanaleikkejä tai erisnimiä, joita konekäännös pilaa.
