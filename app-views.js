@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-05.26';
+window.BUILD_VIEWS = '2026-09-06.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1414,11 +1414,107 @@ window.formRatingSub = formRatingSub;
 // Osa-arviot, jotka eivät kuulu tähän kysymyssarjaan. Näitä ei poisteta
 // eikä lasketa mukaan pisteeseen — ne ovat vanhan sarjan vastauksia,
 // jotka jäävät talteen jos arvostelu on siirretty toiseen alalajiin.
+// ── VAHVUUDET JA HEIKKOUDET ──
+// Kolme parasta ja kolme heikointa osa-arviota. Ohitetut jätetään pois,
+// koska niihin ei ole otettu kantaa suuntaan eikä toiseen. Lista näytetään
+// vain jos vastauksia on tarpeeksi, jotta "paras ja huonoin" tarkoittaa
+// jotain — kahdesta vastauksesta ei saa kärkikolmikkoa.
+window.ratingsSummaryHtml = function(r){
+  if(!r || !r.ratings) return '';
+  const set = ratingSet(subcatOf(r));
+  const scored = set.dims
+    .map(d => ({ d, v: r.ratings[d.id] }))
+    .filter(x => isAnswered(x.v));
+  if(scored.length < 4) return '';
+
+  // Jos kaikki vastaukset ovat samoja, "parhaat" ja "heikoimmat" eivät
+  // tarkoita mitään eikä listaa näytetä lainkaan.
+  const vals = scored.map(x => x.v);
+  if(Math.max(...vals) === Math.min(...vals)) return '';
+
+  // Yksi järjestys, josta otetaan kärki ja häntä. Näin sama kysymys ei voi
+  // päätyä molempiin listoihin edes silloin kun arvot menevät tasan.
+  // Tasapelit ratkeavat kysymyssarjan järjestyksen mukaan, jotta sama
+  // arvostelu näyttää aina saman listan.
+  const order = new Map(set.dims.map((d, i) => [d.id, i]));
+  const ranked = scored.slice().sort((a,b) => b.v - a.v || order.get(a.d.id) - order.get(b.d.id));
+
+  // Enintään kolme kumpaankin. Puolikas pitää listat erillään myös silloin
+  // kun vastauksia on vain neljä tai viisi.
+  const n = Math.min(3, Math.floor(scored.length / 2));
+  const best  = ranked.slice(0, n);
+  const worst = ranked.slice(-n).reverse();   // huonoin ensin
+
+  const word = x => {
+    const lv = ratingLevels(x.d.scale).find(l => l.v === x.v);
+    return lv ? lv.label : `${x.v}/6`;
+  };
+  const row = x => `<div class="rs-row">
+      <span class="rs-name">${esc(x.d.dynamic ? '🎯 Genrelupaus' : x.d.label)}</span>
+      <span class="rs-val">${esc(word(x))}</span>
+    </div>`;
+
+  const skipped = set.dims.filter(d => isSkipped(r.ratings[d.id])).length;
+  return `<div class="read-section">
+    <div class="read-label">📊 Vahvuudet ja heikkoudet</div>
+    <div class="rs-box">
+      <div class="rs-col rs-good">
+        <div class="rs-head">Parhaat</div>
+        ${best.map(row).join('')}
+      </div>
+      <div class="rs-col rs-bad">
+        <div class="rs-head">Heikoimmat</div>
+        ${worst.map(row).join('')}
+      </div>
+    </div>
+    <div class="rs-foot">${scored.length}/${set.dims.length} osa-arviota vastattu${skipped?`, ${skipped} ohitettu`:''}</div>
+  </div>`;
+};
+
 function orphanRatings(stateObj, sub){
   const known = new Set(ratingSet(sub).dims.map(d => d.id));
   return Object.keys(stateObj || {}).filter(k => !known.has(k) && stateObj[k] != null);
 }
 window.orphanRatings = orphanRatings;
+
+// Etsii kysymyksen mistä tahansa sarjasta. Orpo vastaus on peräisin jostain
+// muusta sarjasta, joten sen oikea otsikko ja asteikko löytyvät yleensä
+// sieltä — jos ei löydy, kysymys on poistettu kokonaan ja jäljellä on vain
+// tunniste ja luku.
+function findDimAnywhere(id){
+  for(const key of Object.keys(RATING_SETS)){
+    const d = RATING_SETS[key].dims.find(x => x.id === id);
+    if(d) return { dim: d, setLabel: RATING_SETS[key].label };
+  }
+  return null;
+}
+
+// Orpon vastauksen luettava muoto: otsikko sekä valittu sana, ei pelkkä luku.
+function orphanRowHtml(id, val){
+  const found = findDimAnywhere(id);
+  const title = found ? found.dim.label : id;
+  const from  = found ? found.setLabel : 'poistettu kysymys';
+  let shown;
+  if(isSkipped(val)){
+    shown = 'Ohitettu';
+  } else if(found){
+    const lv = ratingLevels(found.dim.scale).find(l => l.v === val);
+    shown = lv ? `${lv.label} (${val}/6)` : `${val}/6`;
+  } else {
+    shown = `${val}/6`;
+  }
+  return `<div class="orphan-row">
+    <span class="orphan-name">${esc(title)}<span class="orphan-from">${esc(from)}</span></span>
+    <span class="orphan-val">${esc(shown)}</span>
+  </div>`;
+}
+
+let orphansOpen = false;
+window.toggleOrphanList = function(containerId, onChangeFnName){
+  orphansOpen = !orphansOpen;
+  const stateObj = containerId==='mainRatingsGrid' ? selectedRatings : selectedPartRatings;
+  renderRatingsGrid(containerId, stateObj, onChangeFnName);
+};
 
 function genreLupausLabel(){
   const genres = getSelectedGenres();
@@ -1522,6 +1618,8 @@ function renderRatingsGrid(containerId, stateObj, onChangeFnName){
       aiemmasta kysymyssarjasta. Ne on tallessa eikä niitä poisteta, mutta
       ne eivät kuulu ${esc(set.label)}-sarjaan eivätkä vaikuta pisteeseen.
       Täytä alla olevat silloin kun ehdit.
+      <button type="button" class="orphan-toggle" onclick="toggleOrphanList('${containerId}','${onChangeFnName}')">${orphansOpen?'▲ Piilota vastaukset':'▼ Näytä vastaukset'}</button>
+      ${orphansOpen ? `<div class="orphan-list">${orphans.map(id => orphanRowHtml(id, stateObj[id])).join('')}</div>` : ''}
     </div>` : '';
 
   el.innerHTML = notice + set.groups.map((g, gi)=>{

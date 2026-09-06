@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-05.26';
+window.BUILD_MODALS = '2026-09-06.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -981,6 +981,57 @@ function renderBuildCheck(){
   `;
 }
 
+// ── VERSIONÄKYMÄ ──
+// Kertoo yhdellä silmäyksellä onko GitHubiin työnnetty päivitys oikeasti
+// käytössä. Kaksi eri asiaa voi mennä pieleen: yksittäinen tiedosto jää
+// vanhaksi (versioleimat eroavat), tai service worker tarjoilee koko
+// sovellusta vanhasta välimuistista (välimuistiversio on jäljessä).
+function swVersion(){
+  return new Promise(resolve => {
+    const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if(!sw) return resolve(null);
+    const ch = new MessageChannel();
+    const t = setTimeout(() => resolve(null), 1500);   // ei jäädä roikkumaan
+    ch.port1.onmessage = ev => { clearTimeout(t); resolve(ev.data && ev.data.version); };
+    try { sw.postMessage('GET_VERSION', [ch.port2]); }
+    catch(err){ clearTimeout(t); resolve(null); }
+  });
+}
+
+window.renderVersionInfo = async function(){
+  const el = document.getElementById('versionBox');
+  if(!el) return;
+
+  const rows = BUILD_FILES.map(([file, key, required]) => ({ file, required, v: window[key] || null }));
+  const stamps = [...new Set(rows.filter(r => r.v).map(r => r.v))];
+  const main = rows.find(r => r.file === 'app-core.js');
+  const mismatch = stamps.length > 1 || rows.some(r => r.required && !r.v);
+
+  el.innerHTML = `<div class="ver-main">
+      <div class="ver-num">${esc((main && main.v) || 'tuntematon')}</div>
+      <div class="ver-cap">Sovelluksen versioleima</div>
+    </div>
+    <div class="ver-line" id="verSw">Välimuistin versio: <strong>tarkistetaan…</strong></div>
+    <div class="ver-line ${mismatch ? 'bad' : 'ok'}">
+      ${mismatch ? '⚠️ Tiedostot eivät ole samaa versiota' : '✅ Kaikki tiedostot samaa versiota'}
+    </div>
+    <div class="ver-files">${rows.map(r => `<div class="ver-row${r.v && r.v !== (main && main.v) ? ' bad' : ''}">
+        <span>${esc(r.file)}</span>
+        <span>${r.v ? esc(r.v) : (r.required ? '⚠️ puuttuu' : '– ei ladattu')}</span>
+      </div>`).join('')}</div>
+    <button class="btn-secondary ver-btn" onclick="forceReload()">🔄 Tyhjennä välimuisti ja lataa uudelleen</button>`;
+
+  // Välimuistiversio haetaan vasta tämän jälkeen, jotta lista näkyy heti
+  // eikä odota service workerin vastausta.
+  const v = await swVersion();
+  const line = document.getElementById('verSw');
+  if(line){
+    line.innerHTML = v == null
+      ? 'Välimuistin versio: <strong>ei tiedossa</strong> <span class="ver-hint">(service worker ei ole käytössä)</span>'
+      : `Välimuistin versio: <strong>v${esc(String(v))}</strong>`;
+  }
+};
+
 window.forceReload = function(){
   if(navigator.serviceWorker && navigator.serviceWorker.controller){
     navigator.serviceWorker.controller.postMessage('CLEAR_CACHES');
@@ -1311,6 +1362,7 @@ window.openSettings = function(){
   safeRender('tmdb-laskuri', window.renderTmdbCalls);
   safeRender('puuttuvat juonet', window.renderMissingPlots);
   safeRender('suorituskyky', window.renderPerfInfo);
+  safeRender('versio', window.renderVersionInfo);
   safeRender('testitila', window.renderSandboxSettings);
   safeRender('tarkkuus', renderPrecisionRow);
   safeRender('painotukset', renderWeightRows);
@@ -1594,6 +1646,7 @@ window.openReadModal = function(id){
       <div class="read-label">Arvostelu</div>
       <div class="read-value read-note">${mdText(r.note)}</div>
     </div>`:''}
+    ${window.ratingsSummaryHtml ? window.ratingsSummaryHtml(r) : ''}
     ${(dateStr&&rf('date'))?`<div class="read-section">
       <div class="read-label">Päivämäärä</div>
       <div class="read-value">📅 ${dateStr}</div>

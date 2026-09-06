@@ -1,7 +1,7 @@
 // ── ARVOSTELUT – SERVICE WORKER ──
 // TÄRKEÄÄ: nosta VERSION-numeroa aina kun muutat index.html:ää tai muita tiedostoja.
 // Muuten Android-puhelimen PWA voi tarjoilla vanhaa versiota välimuistista.
-const VERSION = 48;
+const VERSION = 49;
 
 const SHELL_CACHE = `arvostelut-shell-v${VERSION}`;
 const IMG_CACHE   = 'tmdb-img-v1';   // julisteet <img>-tagista (no-cors)
@@ -216,6 +216,12 @@ self.addEventListener('fetch', e => {
 // ── VIESTIT SOVELLUKSELTA ──
 self.addEventListener('message', e => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
+  // Sovellus kysyy tätä asetusten versionäkymää varten. Vastaus kertoo minkä
+  // version välimuisti on oikeasti aktiivinen — se voi olla eri kuin se, joka
+  // GitHubiin on juuri työnnetty.
+  if (e.data === 'GET_VERSION' && e.ports && e.ports[0]) {
+    e.ports[0].postMessage({ version: VERSION });
+  }
   if (e.data === 'CLEAR_CACHES') {
     e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))));
   }
