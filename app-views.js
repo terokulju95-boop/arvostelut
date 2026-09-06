@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-06.4';
+window.BUILD_VIEWS = '2026-09-06.5';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1638,13 +1638,72 @@ const RATING_SETS = {
 
 // Tuntematon alalaji käyttää perussarjaa, jotta uusi alalaji ei jää
 // ilman laajennettua arviointia.
+// ── OMAT KYSYMYKSET JA KYSYMYSSARJAT ──
+// Sisäänrakennetut sarjat ovat vakio. Käyttäjän lisäykset elävät asetuksissa
+// ja yhdistetään niihin vasta luettaessa, jolloin päivitys ei voi ylikirjoittaa
+// omia kysymyksiä eikä omat kysymykset voi rikkoa sisäänrakennettuja.
+//
+// customSets = { avain: { label, groups:[{id,label}] } }   ryhmät, ei kysymyksiä
+// customDims = { sarja-avain: [ {id,label,group,scale,hint} ] }
+// Kysymykset ovat kaikki samassa paikassa riippumatta siitä onko sarja oma vai
+// sisäänrakennettu — muuten lisäys ja poisto tarvitsisivat kaksi eri polkua.
+function customSetsRaw(){
+  try{ return (appData.settings && appData.settings.customSets) || {}; }catch(e){ return {}; }
+}
+function customDimsRaw(){
+  try{ return (appData.settings && appData.settings.customDims) || {}; }catch(e){ return {}; }
+}
+
+function ratingSets(){
+  const out = {};
+  Object.keys(RATING_SETS).forEach(k => {
+    out[k] = {
+      label:  RATING_SETS[k].label,
+      groups: RATING_SETS[k].groups.slice(),
+      dims:   RATING_SETS[k].dims.slice(),
+      builtin: true
+    };
+  });
+
+  const cs = customSetsRaw();
+  Object.keys(cs).forEach(k => {
+    if(RATING_SETS[k]) return;               // sisäänrakennettua ei saa korvata
+    const s = cs[k];
+    if(!s || !Array.isArray(s.groups) || !s.groups.length) return;
+    out[k] = { label: s.label || k, groups: s.groups.slice(), dims: [], builtin: false };
+  });
+
+  const cd = customDimsRaw();
+  Object.keys(cd).forEach(k => {
+    const set = out[k];
+    if(!set || !Array.isArray(cd[k])) return;
+    const groupIds = new Set(set.groups.map(g => g.id));
+    const seen = new Set(set.dims.map(d => d.id));
+    cd[k].forEach(d => {
+      if(!d || !d.id || !d.label) return;
+      if(seen.has(d.id)) return;             // sama tunniste vain kerran
+      if(!groupIds.has(d.group)) return;     // poistettuun ryhmään viittaava jätetään pois
+      set.dims.push(d);
+      seen.add(d.id);
+    });
+  });
+
+  // Keskeneräinen oma sarja (ei yhtään kysymystä) ei tule käyttöön, koska
+  // silloin lomake näyttäisi tyhjältä eikä pistettä voisi laskea.
+  Object.keys(out).forEach(k => {
+    if(!out[k].builtin && !out[k].dims.length) delete out[k];
+  });
+  return out;
+}
+window.ratingSets = ratingSets;
+
 function ratingSetKey(sub){
   const k = String(sub || '');
-  return RATING_SETS[k] ? k : '';
+  return ratingSets()[k] ? k : '';
 }
 window.ratingSetKey = ratingSetKey;
 
-function ratingSet(sub){ return RATING_SETS[ratingSetKey(sub)]; }
+function ratingSet(sub){ return ratingSets()[ratingSetKey(sub)]; }
 window.ratingSet = ratingSet;
 
 // Lomakkeen kysymyssarja tulee valitusta kategoriasta ja alalajista
@@ -1725,7 +1784,7 @@ let scaleSetKey = '';        // mikä kysymyssarja on auki
 let scaleEditId = null;      // muokattavan oman asteikon tunniste, '' = uusi
 
 window.setScaleSet = function(key){
-  scaleSetKey = RATING_SETS[key] ? key : '';
+  scaleSetKey = ratingSets()[key] ? key : '';
   window.renderScaleSettings();
 };
 
@@ -1778,7 +1837,7 @@ window.deleteCustomScale = async function(id){
 window.setDimScale = async function(setKey, dimId, scaleId){
   ensureSettings();
   const key = setKey + '|' + dimId;
-  const dim = (RATING_SETS[setKey]?.dims || []).find(d => d.id === dimId);
+  const dim = (ratingSets()[setKey]?.dims || []).find(d => d.id === dimId);
   const def = (dim && dim.scale) || DEFAULT_SCALE;
   // Oletukseksi palaava valinta poistetaan kokonaan, jottei asetuksiin kerry
   // rivejä jotka eivät muuta mitään.
@@ -1828,11 +1887,12 @@ window.renderScaleSettings = function(){
   }
 
   // 3. Kysymyskohtainen valinta
-  const tabs = Object.keys(RATING_SETS).map(k =>
-    `<button type="button" class="filter-chip ${k===scaleSetKey?'active':''}" onclick="setScaleSet('${escJs(k)}')">${esc(RATING_SETS[k].label)}</button>`
+  const sets = ratingSets();
+  const tabs = Object.keys(sets).map(k =>
+    `<button type="button" class="filter-chip ${k===scaleSetKey?'active':''}" onclick="setScaleSet('${escJs(k)}')">${esc(sets[k].label)}</button>`
   ).join('');
 
-  const set = RATING_SETS[scaleSetKey];
+  const set = sets[scaleSetKey] || sets[''];
   const rows = set.groups.map(g => {
     const dims = set.dims.filter(d => d.group === g.id);
     return `<div class="sc-group">${g.label}</div>` + dims.map(d => {
@@ -1858,6 +1918,203 @@ window.renderScaleSettings = function(){
     ${rows}`;
 };
 
+// ── KYSYMYSTEN MUOKKAUS ──
+let dimSetKey = '';
+let dimEditId = null;   // null = suljettu, '' = uusi kysymys
+
+function ensureCustomStores(){
+  ensureSettings();
+  if(!appData.settings.customSets)  appData.settings.customSets  = {};
+  if(!appData.settings.customDims)  appData.settings.customDims  = {};
+}
+
+window.setDimSet = function(key){
+  dimSetKey = ratingSets()[key] ? key : '';
+  dimEditId = null;
+  window.renderDimSettings();
+};
+
+// Oma sarja tunnistetaan alalajin nimestä, joten nimen pitää vastata alalajia
+// jotta se tulee käyttöön. Tästä kerrotaan myös näytöllä.
+window.newCustomSet = async function(){
+  ensureCustomStores();
+  const name = (prompt('Uuden kysymyssarjan nimi.\n\nNimen pitää olla sama kuin alalajin nimi, jotta sarja tulee käyttöön (esim. Lyhytelokuvat).') || '').trim();
+  if(!name) return;
+  if(RATING_SETS[name]){ alert('Sisäänrakennettua sarjaa ei voi korvata. Voit lisätä siihen omia kysymyksiä.'); return; }
+  if(appData.settings.customSets[name]){ alert('Samanniminen sarja on jo olemassa.'); return; }
+  appData.settings.customSets[name] = {
+    label: name,
+    groups: [{ id: 'omag_' + Date.now().toString(36), label: '📋 Yleinen' }]
+  };
+  appData.settings.customDims[name] = [];
+  dimSetKey = name;
+  await window.fbSave();
+  window.renderDimSettings();
+};
+
+window.deleteCustomSet = async function(key){
+  ensureCustomStores();
+  const s = appData.settings.customSets[key];
+  if(!s) return;
+  const n = (appData.settings.customDims[key] || []).length;
+  if(!confirm(`Poistetaanko sarja "${s.label}" ja sen ${n} kysymystä?\n\nAnnetut vastaukset säilyvät arvosteluissa, mutta ne siirtyvät aiemman kysymyssarjan vastauksiksi eivätkä vaikuta pisteeseen.`)) return;
+  delete appData.settings.customSets[key];
+  delete appData.settings.customDims[key];
+  dimSetKey = '';
+  await window.fbSave();
+  window.renderDimSettings();
+};
+
+window.addCustomGroup = async function(key){
+  ensureCustomStores();
+  const s = appData.settings.customSets[key];
+  if(!s) return;
+  const label = (prompt('Ryhmän nimi (emoji alussa toimii hyvin):') || '').trim();
+  if(!label) return;
+  s.groups.push({ id: 'omag_' + Date.now().toString(36), label });
+  await window.fbSave();
+  window.renderDimSettings();
+};
+
+window.deleteCustomGroup = async function(key, gid){
+  ensureCustomStores();
+  const s = appData.settings.customSets[key];
+  if(!s) return;
+  const used = (appData.settings.customDims[key] || []).filter(d => d.group === gid).length;
+  if(used){ alert(`Ryhmässä on ${used} kysymystä. Siirrä tai poista ne ensin.`); return; }
+  if(s.groups.length <= 1){ alert('Sarjassa pitää olla vähintään yksi ryhmä.'); return; }
+  s.groups = s.groups.filter(g => g.id !== gid);
+  await window.fbSave();
+  window.renderDimSettings();
+};
+
+window.openDimEditor = function(id){
+  dimEditId = (id == null) ? '' : id;
+  window.renderDimSettings();
+};
+window.closeDimEditor = function(){
+  dimEditId = null;
+  window.renderDimSettings();
+};
+
+window.saveCustomDim = async function(){
+  ensureCustomStores();
+  const label = (document.getElementById('dimLabel')?.value || '').trim();
+  const group = document.getElementById('dimGroup')?.value || '';
+  const scale = document.getElementById('dimScale')?.value || DEFAULT_SCALE;
+  const hint  = (document.getElementById('dimHint')?.value || '').trim();
+  if(!label){ alert('Anna kysymykselle otsikko.'); return; }
+  if(!group){ alert('Valitse ryhmä.'); return; }
+
+  if(!Array.isArray(appData.settings.customDims[dimSetKey])) appData.settings.customDims[dimSetKey] = [];
+  const list = appData.settings.customDims[dimSetKey];
+  const existing = dimEditId ? list.find(d => d.id === dimEditId) : null;
+
+  if(existing){
+    existing.label = label; existing.group = group; existing.scale = scale;
+    existing.hint = hint || undefined;
+  } else {
+    list.push({ id: 'omad_' + Date.now().toString(36), label, group, scale, hint: hint || undefined });
+  }
+  dimEditId = null;
+  await window.fbSave();
+  window.renderDimSettings();
+};
+
+window.deleteCustomDim = async function(id){
+  ensureCustomStores();
+  const list = appData.settings.customDims[dimSetKey] || [];
+  const d = list.find(x => x.id === id);
+  if(!d) return;
+  if(!confirm(`Poistetaanko kysymys "${d.label}"?\n\nAnnetut vastaukset säilyvät arvosteluissa, mutta ne eivät enää vaikuta pisteeseen. Näet ne arvostelun kohdalta.`)) return;
+  appData.settings.customDims[dimSetKey] = list.filter(x => x.id !== id);
+  if(dimEditId === id) dimEditId = null;
+  await window.fbSave();
+  window.renderDimSettings();
+};
+
+window.renderDimSettings = function(){
+  const el = document.getElementById('dimBox');
+  if(!el) return;
+  ensureCustomStores();
+
+  const sets = ratingSets();
+  // Keskeneräinen oma sarja ei näy ratingSets():ssä, mutta sen pitää näkyä
+  // muokkausnäkymässä — muuten juuri luotua sarjaa ei pääsisi täyttämään.
+  const keys = [...new Set([...Object.keys(sets), ...Object.keys(appData.settings.customSets)])];
+  if(!keys.includes(dimSetKey)) dimSetKey = '';
+
+  const setLabel = k => sets[k]?.label || appData.settings.customSets[k]?.label || k;
+  const tabs = keys.map(k =>
+    `<button type="button" class="filter-chip ${k===dimSetKey?'active':''}" onclick="setDimSet('${escJs(k)}')">${esc(setLabel(k))}</button>`
+  ).join('') + `<button type="button" class="filter-chip" onclick="newCustomSet()">➕ Uusi sarja</button>`;
+
+  const isOwn  = !!appData.settings.customSets[dimSetKey];
+  const groups = isOwn ? appData.settings.customSets[dimSetKey].groups
+                       : (sets[dimSetKey]?.groups || []);
+  const own    = appData.settings.customDims[dimSetKey] || [];
+  const ownIds = new Set(own.map(d => d.id));
+  const builtinDims = RATING_SETS[dimSetKey] ? RATING_SETS[dimSetKey].dims : [];
+
+  const scales = allScales();
+
+  const head = isOwn
+    ? `<div class="dim-head">
+         <span class="dim-head-name">${esc(setLabel(dimSetKey))}<span class="sc-tag">oma</span></span>
+         <button type="button" class="sc-mini" onclick="deleteCustomSet('${escJs(dimSetKey)}')">🗑️</button>
+       </div>
+       <div class="sc-note">Sarja on käytössä niissä arvosteluissa joiden alalaji on <strong>${esc(dimSetKey)}</strong>. Luo alalaji samalla nimellä kohdasta Alalajit, jos sitä ei vielä ole.${own.length ? '' : ' Sarja tulee käyttöön vasta kun siinä on vähintään yksi kysymys.'}</div>`
+    : `<div class="sc-note">Sisäänrakennetun sarjan kysymyksiä ei voi muuttaa, mutta voit lisätä omia niiden rinnalle.</div>`;
+
+  const groupRows = groups.map(g => {
+    const bi = builtinDims.filter(d => d.group === g.id);
+    const oi = own.filter(d => d.group === g.id);
+    const rows = bi.map(d => `<div class="dim-row locked">
+        <span class="dim-row-label">${d.dynamic ? '🎯 Genrelupaus' : d.label}</span>
+        <span class="dim-lock">vakio</span>
+      </div>`).join('')
+      + oi.map(d => `<div class="dim-row">
+        <span class="dim-row-label">${esc(d.label)}${d.hint?`<span class="dim-row-hint">${esc(d.hint)}</span>`:''}</span>
+        <span class="sc-card-btns">
+          <button type="button" class="sc-mini" onclick="openDimEditor('${escJs(d.id)}')">✏️</button>
+          <button type="button" class="sc-mini" onclick="deleteCustomDim('${escJs(d.id)}')">🗑️</button>
+        </span>
+      </div>`).join('');
+    return `<div class="dim-group">
+        <span>${g.label}<span class="weight-count">${bi.length + oi.length}</span></span>
+        ${isOwn ? `<button type="button" class="sc-mini" onclick="deleteCustomGroup('${escJs(dimSetKey)}','${escJs(g.id)}')">🗑️</button>` : ''}
+      </div>${rows || '<div class="dim-empty">Ei kysymyksiä</div>'}`;
+  }).join('');
+
+  let editor = `<button type="button" class="sc-add" onclick="openDimEditor(null)">➕ Lisää kysymys</button>`;
+  if(dimEditId !== null){
+    const cur = dimEditId ? (own.find(d => d.id === dimEditId) || {}) : {};
+    editor = `<div class="sc-editor">
+      <div class="sc-editor-title">${dimEditId ? 'Muokkaa kysymystä' : 'Uusi kysymys'}</div>
+      <input type="text" id="dimLabel" class="sc-input" maxlength="46" placeholder="Otsikko, esim. 🎪 Tunnelma" value="${esc(cur.label||'')}">
+      <div class="sc-field" style="margin-top:8px;">
+        <span class="dim-flabel">Ryhmä</span>
+        <select id="dimGroup" class="sc-input">${groups.map(g=>`<option value="${esc(g.id)}" ${g.id===cur.group?'selected':''}>${esc(g.label)}</option>`).join('')}</select>
+      </div>
+      <div class="sc-field">
+        <span class="dim-flabel">Asteikko</span>
+        <select id="dimScale" class="sc-input">${scales.map(s=>`<option value="${esc(s.id)}" ${s.id===(cur.scale||DEFAULT_SCALE)?'selected':''}>${esc(s.label)}</option>`).join('')}</select>
+      </div>
+      <input type="text" id="dimHint" class="sc-input" maxlength="70" style="margin-top:6px;" placeholder="Vihje (valinnainen)" value="${esc(cur.hint||'')}">
+      <div class="sc-editor-btns">
+        <button type="button" class="sc-btn" onclick="closeDimEditor()">Peruuta</button>
+        <button type="button" class="sc-btn sc-btn-ok" onclick="saveCustomDim()">Tallenna</button>
+      </div>
+    </div>`;
+  }
+
+  el.innerHTML = `<div class="bulk-scope">${tabs}</div>
+    ${head}
+    ${groupRows}
+    ${isOwn ? `<button type="button" class="sc-add" onclick="addCustomGroup('${escJs(dimSetKey)}')">➕ Lisää ryhmä</button>` : ''}
+    ${editor}`;
+};
+
 function orphanRatings(stateObj, sub){
   const known = new Set(ratingSet(sub).dims.map(d => d.id));
   return Object.keys(stateObj || {}).filter(k => !known.has(k) && stateObj[k] != null);
@@ -1869,9 +2126,10 @@ window.orphanRatings = orphanRatings;
 // sieltä — jos ei löydy, kysymys on poistettu kokonaan ja jäljellä on vain
 // tunniste ja luku.
 function findDimAnywhere(id){
-  for(const key of Object.keys(RATING_SETS)){
-    const d = RATING_SETS[key].dims.find(x => x.id === id);
-    if(d) return { dim: d, setKey: key, setLabel: RATING_SETS[key].label };
+  const sets = ratingSets();
+  for(const key of Object.keys(sets)){
+    const d = sets[key].dims.find(x => x.id === id);
+    if(d) return { dim: d, setKey: key, setLabel: sets[key].label };
   }
   return null;
 }
@@ -1948,7 +2206,7 @@ function computeRatingsScore(stateObj, sub){
 let weightSetKey = '';
 
 window.setWeightSet = function(key){
-  weightSetKey = RATING_SETS[key] ? key : '';
+  weightSetKey = ratingSets()[key] ? key : '';
   window.renderWeightRows();
 };
 
@@ -1958,8 +2216,9 @@ window.renderWeightRows = function(){
   ensureSettings();
   const set = ratingSet(weightSetKey);
 
-  const tabs = Object.keys(RATING_SETS).map(k =>
-    `<button type="button" class="filter-chip ${k===weightSetKey?'active':''}" onclick="setWeightSet('${escJs(k)}')">${esc(RATING_SETS[k].label)}</button>`
+  const sets = ratingSets();
+  const tabs = Object.keys(sets).map(k =>
+    `<button type="button" class="filter-chip ${k===weightSetKey?'active':''}" onclick="setWeightSet('${escJs(k)}')">${esc(sets[k].label)}</button>`
   ).join('');
 
   const rows = set.groups.map(g=>{
