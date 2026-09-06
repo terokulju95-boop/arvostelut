@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-09-07.2';
+window.BUILD_FIREBASE = '2026-09-07.3';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -98,6 +98,89 @@ let lastSavedMeta = null;           // JSON
 // Muuten tyhjästä välimuistista syntyvä puutteellinen tila voi ylikirjoittaa
 // kategoriat, genret, budjetin ja asetukset.
 let metaTrusted = false;
+
+// ── META-SUOJAUS ──
+// Syyskuussa 2026 koko meta-dokumentti nollautui koodin oletusarvoiksi:
+// kategoriat, genret, alalajit ja budjetti korvautuivat oletuksilla, ja
+// neljä arvostelua jäi orvoiksi kategoriaan jota ei enää ollut listalla.
+// Aiempi suoja esti vain TYHJÄN listan kirjoittamisen — ei oletusten
+// kirjoittamista oikean datan päälle. Nämä kolme asiaa korjaavat sen:
+//
+//   1. metaTrusted vaatii nyt sisältöä, ei pelkkää palvelimen vastausta
+//   2. viimeisin palvelimelta vahvistettu meta säilyy laitteella erikseen
+//   3. oletusten näköinen meta ei koskaan korvaa sisältöä ilman varoitusta
+const META_BKP_KEY = 'arvostelut_meta_v1';
+let lastGoodMeta = null;   // viimeisin palvelimelta vahvistettu meta, jossa oli sisältöä
+
+// Onko tässä istunnossa luettu palvelimelta meta jossa oli sisältöä.
+// Tämä erottaa kaksi muuten samannäköistä tilannetta toisistaan:
+//   · käyttäjä poistaa itse viimeisen budjettijakson → meta on luettu → sallitaan
+//   · metaa ei saatu luettua ja tila putosi oletuksiin → ei luettu → estetään
+let metaSeenThisSession = false;
+
+// Onko meta pelkkiä oletusarvoja. Juuri tämä yhdistelmä syntyy silloin kun
+// metaa ei saatu luettua ja assembleAppData() putosi oletuksiin.
+function looksLikeDefaults(m){
+  if(!m) return false;
+  const cats = m.categories || [];
+  const gens = m.genres || [];
+  const per  = (m.budget && m.budget.periods) || [];
+  const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  return sameList(cats, DEFAULT_CATS) && sameList(gens, DEFAULT_GENRES) && per.length === 0;
+}
+
+// Onko metassa jotain säilyttämisen arvoista
+function metaHasContent(m){
+  if(!m) return false;
+  return !looksLikeDefaults(m);
+}
+
+function rememberGoodMeta(m){
+  // Palvelimelta saatu meta = tila on aito, ei oletuksista johdettu.
+  // Merkintä tehdään myös oletusten näköiselle metalle: sekin on aito
+  // vastaus, jos se on oikeasti pilvessä sellaisena.
+  metaSeenThisSession = true;
+  if(!metaHasContent(m)) return;
+  lastGoodMeta = clean(m);
+  // Erillinen ja pieni: tämä ei sisällä arvosteluja, joten se mahtuu
+  // localStorageen silloinkin kun koko datan varmuuskopio ei enää mahdu.
+  try{ localStorage.setItem(META_BKP_KEY, JSON.stringify(lastGoodMeta)); } catch(e){}
+}
+
+function loadGoodMeta(){
+  if(lastGoodMeta) return lastGoodMeta;
+  try{
+    const raw = localStorage.getItem(META_BKP_KEY);
+    if(raw){
+      const m = JSON.parse(raw);
+      if(metaHasContent(m)) lastGoodMeta = m;
+    }
+  } catch(e){}
+  return lastGoodMeta;
+}
+
+// Estää oletusten kirjoittumisen sisällön päälle. Palauttaa syyn tai null.
+//
+// Ehto on tarkoituksella kapea. Estetään VAIN silloin kun kaikki kolme pätee:
+//   1. kirjoitettava meta on tarkalleen koodin oletusarvot
+//   2. laitteella on tiedossa aiempi meta jossa oli sisältöä
+//   3. tässä istunnossa ei ole kertaakaan luettu palvelimelta metaa
+// Kolmas ehto on se joka pitää käsin tehdyt poistot sallittuina: jos olet
+// nähnyt budjettisi ja poistat sen viimeisen jakson, meta on luettu eikä
+// kirjoitus esty. Ilman sitä ehtoa oletuskategorioilla elävä käyttäjä ei
+// olisi saanut tyhjentää budjettiaan lainkaan.
+function metaWouldWipe(meta){
+  if(metaSeenThisSession) return null;            // tila on aidosti palvelimelta
+  if(!looksLikeDefaults(meta)) return null;       // ei oletusten näköinen → sallitaan
+  const good = loadGoodMeta();
+  if(!good) return null;                          // ei mitään mitä menettää
+  const bits = [];
+  if((good.categories||[]).length !== (meta.categories||[]).length) bits.push('kategoriat');
+  if((good.genres||[]).length !== (meta.genres||[]).length) bits.push('genret');
+  if(((good.budget||{}).periods||[]).length) bits.push('budjetti');
+  return bits.length ? bits.join(', ') : null;
+}
+
 
 // Kirjoitukset jotka on annettu Firestorelle mutta joita palvelin EI ole
 // vielä kuitannut. Nämä elävät toistaiseksi vain selaimen paikallisessa
@@ -453,6 +536,7 @@ window.fbRefresh = async function(){
     appData.budget     = m.budget || appData.budget;
     appData.settings   = m.settings || appData.settings;
     metaTrusted = true;
+    rememberGoodMeta(m);
   }
 
   try{ if(typeof ensureSettings === 'function') ensureSettings(); } catch(e){}
@@ -558,13 +642,30 @@ window.fbSave = async function(){
     }
 
     if(metaChanged){
-      pendingMeta = metaJs;
-      const p = setDoc(META_DOC, clean(meta), { merge: true });
-      p.then(
-        () => { lastSavedMeta = metaJs; if(pendingMeta === metaJs) pendingMeta = null; updateSyncBanner(); },
-        () => { if(pendingMeta === metaJs) pendingMeta = null; updateSyncBanner(); }
-      );
-      commits.push(p);
+      // Viimeinen lukko ennen kirjoitusta: oletusten näköinen meta ei saa
+      // korvata sisältöä. Tämä on se kohta jossa budjetti, kategoriat ja
+      // genret aiemmin katosivat hiljaa.
+      const wipes = metaWouldWipe(meta);
+      if(wipes){
+        console.error('Meta-kirjoitus estetty: oletukset olisivat korvanneet sisällön (' + wipes + ')');
+        showStatus('🛡️ Asetusten ylikirjoitus estetty — avaa Asetukset → Data', '#dc2626', 8000);
+        window._metaWipeBlocked = wipes;
+        // Ei kirjoiteta metaa lainkaan. Arvostelut menevät silti läpi,
+        // koska ne ovat omia dokumenttejaan eikä niitä uhkaa mikään.
+      } else {
+        pendingMeta = metaJs;
+        const p = setDoc(META_DOC, clean(meta), { merge: true });
+        p.then(
+          () => {
+            lastSavedMeta = metaJs;
+            rememberGoodMeta(meta);
+            if(pendingMeta === metaJs) pendingMeta = null;
+            updateSyncBanner();
+          },
+          () => { if(pendingMeta === metaJs) pendingMeta = null; updateSyncBanner(); }
+        );
+        commits.push(p);
+      }
     }
 
     updateSyncBanner();
@@ -588,6 +689,38 @@ window.fbSave = async function(){
   updateSyncBanner();
   isSaving = false;
   if(saveQueued){ saveQueued = false; return window.fbSave(); }
+};
+
+// ── META-SUOJAUKSEN TILA JA PALAUTUS ──
+// Asetusten Data-välilehti näyttää tämän, jotta suojauksen laukeaminen ei
+// jää pelkäksi hetkeksi näkyväksi tilapalkiksi.
+window.fbMetaGuardState = function(){
+  const good = loadGoodMeta();
+  return {
+    blocked:  window._metaWipeBlocked || null,
+    missing:  !!window._metaMissing,
+    trusted:  metaTrusted,
+    hasLocal: !!good,
+    local: good ? {
+      categories: (good.categories || []).length,
+      genres:     (good.genres || []).length,
+      periods:    ((good.budget || {}).periods || []).length,
+      subcats:    Object.keys(good.subcats || {}).filter(k => k !== '_seed').length
+    } : null
+  };
+};
+
+// Palauttaa laitteelle talletetun metan pilveen. Käyttäjän tietoinen
+// toiminto, joten se ohittaa suojaukset — mutta arvosteluihin ei kosketa.
+window.fbRestoreLocalMeta = async function(){
+  const good = loadGoodMeta();
+  if(!good) return false;
+  const okDone = await window.fbRestoreMeta(good);
+  if(okDone){
+    window._metaWipeBlocked = null;
+    window._metaMissing = false;
+  }
+  return okDone;
 };
 
 // Kertoo asetuksille kuinka iso suurin yksittäinen dokumentti on
@@ -700,6 +833,9 @@ window.fbRestoreMeta = async function(src){
   }
   metaTrusted = true;
   lastSavedMeta = JSON.stringify(metaObject());
+  rememberGoodMeta(metaObject());
+  window._metaWipeBlocked = null;
+  window._metaMissing = false;
   if(appData.settings && appData.settings.accent && window.applyAccent) window.applyAccent(appData.settings.accent);
   if(window.renderAll) renderAll();
   return true;
@@ -768,6 +904,7 @@ async function fbLoad(){
       // jokaisen dokumentin lukuna kahteen kertaan.
       appData = assembleAppData(metaSnap.data(), []);
       metaTrusted = true;
+      rememberGoodMeta(metaSnap.data());
       await startReviewListener();
       loaded = true;
 
@@ -972,10 +1109,26 @@ function startMetaListener(){
   onSnapshot(META_DOC, snap => {
     if(window._sandbox) return;
     if(snap.metadata.hasPendingWrites) return;
+    if(!snap.exists()){
+      // Palvelin sanoo ettei metaa ole. Aiemmin metaTrusted meni tässä
+      // päälle, jolloin seuraava tallennus kirjoitti oletukset pilveen.
+      // Jos arvosteluja on olemassa, tilanne on rikki eikä oletuksia saa
+      // kirjoittaa. Tyhjällä tilillä kirjoitus on oikea toiminto.
+      if(!snap.metadata.fromCache){
+        const hasReviews = (appData.reviews || []).length > 0;
+        metaTrusted = !hasReviews;
+        if(hasReviews){
+          console.error('Meta-dokumenttia ei ole, mutta arvosteluja on. Metaa ei kirjoiteta.');
+          window._metaMissing = true;
+          showStatus('⚠️ Asetuksia ei löytynyt pilvestä — avaa Asetukset → Data', '#f59e0b', 8000);
+        }
+      }
+      return;
+    }
     // Palvelimelta tullut tilannekuva — vasta nyt metaa saa kirjoittaa
     if(!snap.metadata.fromCache) metaTrusted = true;
-    if(!snap.exists()) return;
     const m = snap.data();
+    if(!snap.metadata.fromCache) rememberGoodMeta(m);
     appData.categories = m.categories || appData.categories;
     appData.genres     = m.genres || appData.genres;
     if(m.subcats && typeof m.subcats === 'object') appData.subcats = m.subcats;

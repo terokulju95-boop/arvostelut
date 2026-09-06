@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-07.2';
+window.BUILD_MODALS = '2026-09-07.3';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -504,6 +504,56 @@ function backupStats(){
   const bytes = new Blob([JSON.stringify(appData)]).size;
   return { reviews, bytes, kb: Math.round(bytes/1024) };
 }
+
+// ── META-SUOJAUKSEN TILA ──
+// Kategoriat, genret, alalajit, budjetti ja asetukset elävät yhdessä
+// meta-dokumentissa. Jos se nollautuu, kaikki menee kerralla — ja aiemmin
+// se tapahtui täysin hiljaa. Tämä laatikko tekee tilanteesta näkyvän ja
+// tarjoaa palautuksen laitteelle talletetusta kopiosta.
+function renderMetaGuard(){
+  const el = document.getElementById('metaGuardBox');
+  if(!el) return;
+  if(!window.fbMetaGuardState){ el.innerHTML = ''; return; }
+  let st;
+  try{ st = window.fbMetaGuardState(); } catch(e){ el.innerHTML = ''; return; }
+
+  const btn = st.hasLocal
+    ? `<button class="btn-secondary" style="width:100%;padding:11px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;" onclick="restoreLocalMeta()">🛟 Palauta asetukset laitteen kopiosta</button>`
+    : '';
+
+  if(st.blocked){
+    el.innerHTML = `<div style="background:rgba(220,38,38,0.12);border:1px solid #dc2626;border-radius:10px;padding:12px 14px;color:var(--text);">
+      <strong>🛡️ Asetusten ylikirjoitus estettiin</strong><br>
+      Sovellus yritti kirjoittaa oletusarvot sisällön päälle (${esc(st.blocked)}).
+      Kirjoitus pysäytettiin eikä pilvessä oleva tieto muuttunut. Arvostelut eivät ole vaarassa.
+      ${st.local ? `<br><span style="color:var(--muted);">Laitteella tallessa: ${st.local.categories} kategoriaa · ${st.local.genres} genreä · ${st.local.periods} budjettijaksoa</span>` : ''}
+      ${btn}</div>`;
+    return;
+  }
+  if(st.missing){
+    el.innerHTML = `<div style="background:rgba(245,158,11,0.12);border:1px solid #f59e0b;border-radius:10px;padding:12px 14px;color:var(--text);">
+      <strong>⚠️ Asetuksia ei löytynyt pilvestä</strong><br>
+      Arvostelut ovat tallessa, mutta kategoriat, genret ja budjetti puuttuvat.
+      Oletuksia ei kirjoiteta niiden päälle.
+      ${st.local ? `<br><span style="color:var(--muted);">Laitteella tallessa: ${st.local.categories} kategoriaa · ${st.local.genres} genreä · ${st.local.periods} budjettijaksoa</span>` : ''}
+      ${btn}</div>`;
+    return;
+  }
+  el.innerHTML = st.hasLocal
+    ? `<div style="color:var(--muted);">🛡️ Asetussuoja päällä · laitteella kopio: ${st.local.categories} kategoriaa, ${st.local.genres} genreä, ${st.local.periods} budjettijaksoa</div>`
+    : `<div style="color:var(--muted);">🛡️ Asetussuoja päällä</div>`;
+}
+window.renderMetaGuard = renderMetaGuard;
+
+window.restoreLocalMeta = async function(){
+  if(!window.fbRestoreLocalMeta) return;
+  if(!confirm('Palautetaanko kategoriat, genret, alalajit, budjetti ja asetukset laitteelle talletetusta kopiosta?\n\nArvosteluihin EI kosketa.')) return;
+  const ok = await window.fbRestoreLocalMeta();
+  if(!ok){ alert('Palautus epäonnistui. Tarkista yhteys.'); return; }
+  showStatus('✅ Asetukset palautettu','#22c55e');
+  renderMetaGuard();
+  renderBackupInfo();
+};
 
 function renderBackupInfo(){
   const el = document.getElementById('backupInfo');
@@ -1390,6 +1440,7 @@ window.openSettings = function(){
   safeRender('kenttäjärjestys', window.renderFormOrderSettings);
   safeRender('korttien sisältö', window.renderCardSettings);
   safeRender('tmdb-tila', renderTmdbStatus);
+  safeRender('asetussuoja', renderMetaGuard);
   safeRender('varmuuskopio', renderBackupInfo);
   safeRender('tili', renderAccountInfo);
   safeRender('tallennustila', renderSyncSummary);
