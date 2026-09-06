@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-09-06.7';
+window.BUILD_DISCOVER = '2026-09-06.8';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.
@@ -25,14 +25,21 @@ function reviewedNames(){
   return set;
 }
 
+// Onko teos jo arvosteluissa. Erillään ohituslistasta, koska hakunäkymä
+// haluaa kertoa tilan mutta ei piilottaa osumaa.
+function alreadyHaveRaw(item, ids, names){
+  const type = item.media_type || (item.title ? 'movie' : 'tv');
+  if(ids.has(`${type}:${item.id}`)) return true;
+  const title = item.title || item.name || '';
+  return names.has(fuzzyNormCached(title));
+}
+
 function alreadyHave(item, ids, names){
   const type = item.media_type || (item.title ? 'movie' : 'tv');
   // Käyttäjän ohittamat käsitellään samalla tavalla kuin jo arvostellut:
   // yksi suodatin kattaa kaikki haut, eikä yhtäkään tarvinnut muuttaa.
   if(isHidden(type, item.id)) return true;
-  if(ids.has(`${type}:${item.id}`)) return true;
-  const title = item.title || item.name || '';
-  return names.has(fuzzyNormCached(title));
+  return alreadyHaveRaw(item, ids, names);
 }
 
 // Montako ehdotusta yhdestä lähteestä otetaan. Asetus elää Löydä-näkymän
@@ -93,7 +100,7 @@ function discCard(item, reason){
         ${overview ? `<div class="disc-overview">${overview}</div>` : ''}
         <div class="disc-more">Lue lisää ›</div>
       </div>
-      <div class="disc-actions">
+      <div class="disc-card-actions">
         <button class="disc-add" onclick="addFromDiscover('${escJs(title)}', '${type}')">+ Lisää arvosteluihin</button>
         <button class="disc-skip" title="Ei kiinnosta" onclick="hideFromDiscover('${type}',${Number(item.id)},'${escJs(title)}')">🚫</button>
       </div>
@@ -837,6 +844,74 @@ window.unhideFromDiscover = async function(key){
   delete m[key];
   await window.fbSave();
   window.renderHiddenInfo();
+};
+
+// ── SUORA HAKU NIMELLÄ ──
+// Löydä-osion muut haut lähtevät omista arvosteluista. Tämä on eri asia:
+// katsotaan yksittäistä teosta jota harkitsee, ilman aikomusta arvostella.
+// Siksi tuloksista EI suodateta pois jo arvosteltuja eikä ohitettuja — jos
+// haet nimellä, haluat nähdä osuman vaikka teos olisi jo kirjastossasi.
+window.onDiscSearchKey = function(e){
+  if(e && e.key === 'Enter'){ e.preventDefault(); window.runDiscSearch(); }
+};
+
+window.clearDiscSearch = function(){
+  const inp = document.getElementById('discSearchInput');
+  if(inp){ inp.value = ''; inp.focus(); }
+  const out = document.getElementById('discResults');
+  if(out) out.innerHTML = '';
+  discStatus('');
+};
+
+window.runDiscSearch = async function(){
+  const inp = document.getElementById('discSearchInput');
+  const q = (inp?.value || '').trim();
+  if(!q){ discStatus('Kirjoita ensin hakusana.'); setTimeout(()=>discStatus(''), 2000); return; }
+  if(!window.tmdbToken){ alert('TMDB-tunnus ei ole vielä latautunut. Yritä hetken kuluttua uudelleen.'); return; }
+
+  window._discSubcat = '';
+  const out = document.getElementById('discResults');
+  out.innerHTML = '';
+  discSetBusy(true);
+  discStatus(`Haetaan: ${esc(q)}`, true);
+
+  try{
+    // multi löytää elokuvat ja sarjat samalla kutsulla. Henkilöosumat
+    // pudotetaan pois, koska niitä ei voi avata teoksena.
+    const res = await tmdbGet(`/search/multi?language=fi-FI&include_adult=false&query=${encodeURIComponent(q)}`);
+    const hits = ((res && res.results) || [])
+      .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
+      .slice(0, 12);
+
+    if(!hits.length){
+      discStatus('');
+      out.innerHTML = discEmpty(`Ei osumia haulla "${esc(q)}". Kokeile alkuperäistä nimeä tai lyhyempää hakusanaa.`);
+      return;
+    }
+
+    const ids   = reviewedTmdbIds();
+    const names = reviewedNames();
+    const cards = hits.map(item => {
+      const type = item.media_type;
+      // Merkintä kertoo tilan sen sijaan että osuma piilotettaisiin.
+      let tag;
+      if(isHidden(type, item.id))                       tag = '🚫 Merkitty ohitetuksi';
+      else if(alreadyHaveRaw(item, ids, names))         tag = '✓ Tämä on jo arvostelussasi';
+      else                                              tag = type === 'tv' ? 'TV-sarja' : 'Elokuva';
+      return discCard(item, tag);
+    }).join('');
+
+    discStatus('');
+    out.innerHTML = discSection(
+      `🔎 Osumat haulla "${esc(q)}"`,
+      `${hits.length} tulosta · avaa teos nähdäksesi juonen ja missä sen voi katsoa Suomessa`,
+      cards
+    );
+  } catch(e){
+    console.error(e);
+    discStatus('❌ Haku epäonnistui. Tarkista internetyhteys.');
+  }
+  discSetBusy(false);
 };
 
 async function discoverEndedSeries(out){

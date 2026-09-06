@@ -128,6 +128,17 @@
       eivätkä ehdotukset näy muualla sovelluksessa.
     </div>
 
+    <div class="disc-search">
+      <div class="disc-search-label">🔎 Etsi teos nimellä</div>
+      <div class="disc-search-row">
+        <input type="text" id="discSearchInput" placeholder="Esim. Fury" autocomplete="off"
+               onkeydown="onDiscSearchKey(event)">
+        <button type="button" class="disc-search-go" onclick="runDiscSearch()">Hae</button>
+        <button type="button" class="disc-search-x" onclick="clearDiscSearch()" aria-label="Tyhjennä">✕</button>
+      </div>
+      <div class="disc-search-hint">Hakee TMDB:stä ilman että mitään arvostellaan. Avaa osuma nähdäksesi juonen ja suoratoistopalvelut Suomessa.</div>
+    </div>
+
     <div class="disc-count">
       <span class="disc-count-label">Ehdotuksia lähdettä kohden</span>
       <div class="filter-row" id="discCountRow"></div>

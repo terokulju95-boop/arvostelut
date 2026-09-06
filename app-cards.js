@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-06.7';
+window.BUILD_CARDS = '2026-09-06.8';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -498,6 +498,11 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-09-06.8', items:[
+    { icon:'🔎', title:'Etsi teos nimellä',
+      text:'Löydä-osion yläreunaan tuli hakukenttä. Kirjoita elokuvan tai sarjan nimi, niin näet juonen, tekijät ja suoratoistopalvelut Suomessa ilman että mitään arvostellaan.',
+      view:'discover' }
+  ]},
   { build:'2026-09-06.7', items:[
     { icon:'🔍', title:'Löydä: avaa teos ja lue lisää',
       text:'Ehdotusta napauttamalla aukeaa koko juoni, genret, kesto ja ohjaaja. Enää tekstiä ei tarvitse arvata kolmen rivin perusteella.',
