@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-08.1';
+window.BUILD_CARDS = '2026-09-08.4';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -547,6 +547,14 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-09-08.4', items:[
+    { icon:'🩹', title:'Datan tarkistus ja korjaukset',
+      text:'Uusi osio etsii rakenteellisia ongelmia: arvosteluja jotka eivät näy millään välilehdellä, päällekkäisiä tunnuksia, kelvottomia päivämääriä. Turvalliset korjaukset yhdellä napilla. Arvosanoihin ja teksteihin ei kosketa.',
+      tab:'data', sec:'korjaukset' },
+    { icon:'⬇️', title:'Alareunan napit eivät jää palkkien alle',
+      text:'Synkronointivaroitus, varmuuskopiomuistutus ja päivitysilmoitus siirtävät nyt lisäysnappia ja vieritysnappia oikein. Aiemmin sijainnit olivat kovakoodattuja eivätkä tienneet toisistaan.',
+      view:'reviews' }
+  ]},
   { build:'2026-09-08.1', items:[
     { icon:'🔄', title:'Sovellus kertoo kun uusi versio on valmiina',
       text:'Päivitystä ei tarvitse enää etsiä. Kun uusi versio on ladattu taustalle, alareunaan ilmestyy palkki. Sivua ei koskaan ladata uudelleen ilman että painat nappia.',
@@ -607,12 +615,12 @@ const WHATS_NEW = [
   { build:'2026-09-06.5', items:[
     { icon:'🧩', title:'Omat kysymykset ja kysymyssarjat',
       text:'Voit lisätä omia kysymyksiä mihin tahansa sarjaan tai rakentaa kokonaan oman sarjan omalle alalajille. Vakiokysymykset säilyvät koskemattomina.',
-      tab:'arviointi', sec:'kysymykset' }
+      tab:'data', sec:'kysymykset' }
   ]},
   { build:'2026-09-06.4', items:[
     { icon:'🎚️', title:'Omat vastausasteikot',
       text:'Voit luoda omia asteikkoja ja vaihtaa minkä tahansa kysymyksen asteikon. Vaihto muuttaa vain sanat — vastaukset ja pisteet säilyvät.',
-      tab:'arviointi', sec:'asteikot' }
+      tab:'data', sec:'asteikot' }
   ]},
   { build:'2026-09-06.2', items:[
     { icon:'💾', title:'Keskeneräinen lomake tallentuu itsestään',
@@ -633,10 +641,10 @@ const WHATS_NEW = [
   { build:'2026-09-06.0', items:[
     { icon:'🎬', title:'Tositarinat-alalaji',
       text:'Tositapahtumiin perustuville näytellyille elokuville ja sarjoille oma alalaji ja 23 omaa kysymystä. Vertailu tapahtuu vain alalajin sisällä.',
-      tab:'arviointi', sec:'alalajit' },
+      tab:'lomake', sec:'alalajit' },
     { icon:'🗣️', title:'Kysymyskohtaiset vastausvaihtoehdot',
       text:'Vastausvaihtoehdot sopivat nyt kysymykseen. Kunnioitusta ei enää arvioida sanalla "Surkea" vaan asteikolla Loukkaava–Hienotunteinen.',
-      tab:'arviointi', sec:'asteikot' },
+      tab:'data', sec:'asteikot' },
     { icon:'⊘', title:'Ohita kysymys',
       text:'Kysymyksen voi merkitä ohitetuksi kun se ei koske teosta. Ohitettu ei laske keskiarvoa eikä näy puutteena.',
       view:'reviews' },

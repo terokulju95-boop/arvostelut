@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-09-08.1';
+window.BUILD_FIREBASE = '2026-09-08.4';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -271,7 +271,6 @@ function updateSyncBanner(){
   const n = ids.size;
   const unsynced = n > 0 || pendingMeta !== null || queueStuck;
   const bar = ensureSyncBar();
-  const fab = document.getElementById('fab');
 
   if(unsynced){
     const msg = n > 0
@@ -282,16 +281,16 @@ function updateSyncBanner(){
     bar.style.display = 'flex';
     // Synkronointivaroitus on tärkeämpi kuin varmuuskopiomuistutus
     if(window.hideBackupReminder) window.hideBackupReminder();
-    if(fab) fab.style.bottom = '78px';
     syncWarnShown = true;
   } else {
     bar.style.display = 'none';
-    if(fab) fab.style.bottom = (window.backupBarVisible && window.backupBarVisible()) ? '82px' : '';
     if(syncWarnShown){
       syncWarnShown = false;
       showStatus('✅ Kaikki tallennettu pilveen','#22c55e', 3000);
     }
   }
+  // Palkin näkyvyys muuttui — kelluvat napit siirtyvät sen mukaan.
+  if(window.updateBottomStack) window.updateBottomStack();
 }
 window.fbSyncState = function(){
   const ids = new Set(pendingWrites.keys());

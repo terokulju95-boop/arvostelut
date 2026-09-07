@@ -9,6 +9,10 @@
   --bg: #0a0a0f;
   --bg-rgb: 10,10,15;
   --bg2: #111118;
+  /* Alareunan palkkien korkeus. Lasketaan ajossa (updateBottomStack,
+     app-core.js) jotta kelluvat napit eivät jää palkkien alle. */
+  --bottom-bar: 0px;
+  --bottom-stack: 0px;
   --bg3: #1a1a24;
   --card: #061529;
   --border: rgba(255,255,255,0.08);
@@ -708,7 +712,7 @@ html[data-filmstrip="on"] body::before{
 .best-worst-names{flex:1;font-size:calc(13px * var(--ts,1));font-weight:500;color:var(--text);}
 
 /* FAB */
-#fab{position:fixed;bottom:20px;right:16px;width:56px;height:56px;border-radius:20px;background:var(--accent);color:var(--bg);font-size:calc(28px * var(--ts,1));border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px var(--acc-40);z-index:100;transition:all 0.2s;font-weight:700;}
+#fab{position:fixed;bottom:calc(20px + var(--bottom-stack,0px));right:16px;width:56px;height:56px;border-radius:20px;background:var(--accent);color:var(--bg);font-size:calc(28px * var(--ts,1));border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px var(--acc-40);z-index:100;transition:all 0.2s;font-weight:700;}
 #fab:active{transform:scale(0.92);}
 
 /* VIERITÄ YLÖS
@@ -716,7 +720,7 @@ html[data-filmstrip="on"] body::before{
    jottei se kilpaile päätoiminnon kanssa. Näkyviin vain kun listaa on
    vieritetty niin pitkälle että ylös palaaminen on oikeasti työlästä. */
 #scrollTopBtn{
-  position:fixed; bottom:86px; right:16px;
+  position:fixed; bottom:calc(86px + var(--bottom-stack,0px)); right:16px;
   width:44px; height:44px; border-radius:16px;
   background:var(--bg2); color:var(--text);
   border:1px solid var(--border);
@@ -736,7 +740,7 @@ html[data-filmstrip="on"] body::before{
    oikeasti ladattu valmiiksi. */
 #updateBanner{
   position:fixed; left:12px; right:12px;
-  bottom:calc(14px + env(safe-area-inset-bottom));
+  bottom:calc(14px + env(safe-area-inset-bottom) + var(--bottom-bar,0px));
   z-index:900;
   display:none; align-items:center; gap:10px;
   background:var(--bg2); border:1px solid var(--accent);
@@ -1903,3 +1907,54 @@ body.sandbox-on #fab{bottom:74px;}
 [data-anim="off"] *,
 [data-anim="off"] *::before,
 [data-anim="off"] *::after{animation:none!important;transition:none!important;}
+
+/* ════════════════════════════════════════════════════════════
+   DATAN TARKISTUS
+   Vakavuusaste erottuu vasemman reunan värillä, ei pelkällä
+   kuvakkeella — värisokealle kuvake kertoo asian silti.
+   ════════════════════════════════════════════════════════════ */
+#dataCheckBox{margin-top:12px;}
+.dc-summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.dc-sum{font-size:calc(12.5px * var(--ts,1));font-weight:700;padding:4px 10px;border-radius:8px;background:var(--tint-07);}
+.dc-sum-virhe{color:var(--accent2);}
+.dc-sum-huomio{color:var(--accent);}
+.dc-sum-tieto{color:var(--muted);}
+.dc-scanned{font-size:calc(11.5px * var(--ts,1));color:var(--muted);margin-left:auto;}
+
+.dc-fixall{width:100%;padding:11px;margin-bottom:12px;border-radius:10px;
+  background:var(--accent);color:var(--bg);border:none;
+  font-family:'DM Sans',sans-serif;font-size:calc(13.5px * var(--ts,1));font-weight:700;cursor:pointer;}
+
+.dc-issue{border:1px solid var(--border);border-left-width:3px;border-radius:11px;
+  padding:12px;margin-bottom:10px;background:var(--bg3);}
+.dc-virhe{border-left-color:var(--accent2);}
+.dc-huomio{border-left-color:var(--accent);}
+.dc-tieto{border-left-color:var(--border);}
+
+.dc-head{display:flex;align-items:center;gap:8px;}
+.dc-ico{flex:0 0 auto;font-size:calc(15px * var(--ts,1));}
+.dc-title{flex:1;font-size:calc(13.5px * var(--ts,1));font-weight:700;color:var(--text);}
+.dc-count{flex:0 0 auto;font-size:calc(11.5px * var(--ts,1));color:var(--muted);
+  background:var(--tint-07);border-radius:7px;padding:2px 8px;}
+.dc-why{font-size:calc(11.5px * var(--ts,1));color:var(--muted);line-height:1.45;margin:6px 0 9px;}
+
+.dc-rows{display:flex;flex-direction:column;gap:4px;}
+.dc-row{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;
+  padding:7px 9px;border-radius:8px;background:var(--bg2);
+  border:1px solid var(--border);color:var(--text);
+  font-family:'DM Sans',sans-serif;cursor:pointer;}
+.dc-row:active{background:var(--tint-07);}
+.dc-row-name{flex:1;min-width:0;font-size:calc(12.5px * var(--ts,1));font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dc-row-detail{flex:0 0 auto;font-size:calc(11px * var(--ts,1));color:var(--muted);}
+.dc-more{font-size:calc(11px * var(--ts,1));color:var(--muted);padding:5px 9px;}
+
+.dc-fix{width:100%;margin-top:9px;padding:9px;border-radius:9px;
+  background:var(--tint-07);border:1px solid var(--border);color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:calc(12.5px * var(--ts,1));font-weight:600;cursor:pointer;}
+.dc-goto{background:transparent;color:var(--muted);}
+
+.dc-clean{text-align:center;padding:22px 12px;}
+.dc-clean-ico{font-size:calc(30px * var(--ts,1));}
+.dc-clean-title{font-size:calc(14px * var(--ts,1));font-weight:700;margin-top:6px;}
+.dc-clean-sub{font-size:calc(11.5px * var(--ts,1));color:var(--muted);margin-top:3px;}

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-08.1';
+window.BUILD_CORE = '2026-09-08.4';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1824,6 +1824,41 @@ function tvStatusInfo(status){
   return TV_STATUS_MAP[status] || { fi: status, icon: '⚪', cls: 'wip' };
 }
 window.tvStatusInfo = tvStatusInfo;
+
+// ── ALAREUNAN PINO ──
+// Sovelluksessa on useita alareunan palkkeja: synkronointivaroitus,
+// varmuuskopiomuistutus ja päivitysilmoitus. Jokainen niistä peittäisi
+// kelluvat napit (lisäysnappi ja vieritä ylös) ellei niitä siirretä.
+//
+// Aiemmin tämä hoidettiin kovakoodatuilla pikselimäärillä kussakin
+// moduulissa erikseen: app-firebase.js asetti fabille 78px, app-modals.js
+// 82px. Kumpikaan ei tiennyt toisistaan eikä uusista napeista mitään.
+//
+// Nyt korkeus mitataan ja välitetään CSS-muuttujina. Kaksi muuttujaa,
+// koska päivityspalkki nousee itse muiden palkkien päälle mutta työntää
+// nappeja ylemmäs:
+//   --bottom-bar   = alareunaan kiinnittyvien palkkien korkeus
+//   --bottom-stack = sama + päivityspalkki, kelluvia nappeja varten
+window.updateBottomStack = function(){
+  const h = id => {
+    const el = document.getElementById(id);
+    // offsetHeight on 0 kun elementti on display:none
+    return (el && el.offsetHeight) || 0;
+  };
+  // Palkit ovat molemmat bottom:0 eivätkä näy yhtä aikaa, mutta suurempi
+  // arvo on turvallinen jos logiikka joskus muuttuu.
+  const bars = Math.max(h('syncWarnBar'), h('backupReminderBar'));
+  const upd  = h('updateBanner');
+  const root = document.documentElement.style;
+  root.setProperty('--bottom-bar', bars + 'px');
+  root.setProperty('--bottom-stack', (bars + (upd ? upd + 10 : 0)) + 'px');
+};
+
+// Palkin teksti voi rivittyä eri tavalla kun ruutu kääntyy, jolloin
+// korkeus muuttuu eikä kukaan kutsu laskentaa.
+window.addEventListener('resize', () => {
+  try{ window.updateBottomStack(); } catch(e){}
+});
 
 // ── SEURAAVA JAKSO ──
 // next_air tulee TMDB:stä sarjan tietojen mukana ja kertoo milloin

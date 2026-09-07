@@ -1118,6 +1118,18 @@
 <div id="hiddenBox"></div>
         </div>
       </div>
+      <div class="set-sec" data-sec="korjaukset">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('korjaukset')" aria-expanded="false">
+          <span class="set-sec-icon">🩹</span>
+          <span class="set-sec-title">Datan tarkistus<span class="set-sec-sum" id="sum-korjaukset"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-korjaukset" hidden>
+<div class="toggle-row-sub" style="margin-bottom:10px;">Käy arvostelut läpi ja etsii rakenteellisia ongelmia: arvosteluja jotka eivät näy millään välilehdellä, päällekkäisiä tunnuksia, kelvottomia päivämääriä. Tarkistus tehdään laitteella eikä ota yhteyttä verkkoon. Mitään ei muuteta ennen kuin painat korjausnappia, eikä arvosanoihin, muistiinpanoihin tai jaksojen pisteisiin kosketa koskaan.</div>
+<button type="button" class="btn-secondary" onclick="runDataCheck()">🩹 Tarkista data</button>
+<div id="dataCheckBox"></div>
+        </div>
+      </div>
       <div class="set-sec" data-sec="versio">
         <button type="button" class="set-sec-head" onclick="toggleSetSec('versio')" aria-expanded="false">
           <span class="set-sec-icon">🏷️</span>
@@ -1277,6 +1289,7 @@
 <script src="app-extras.js"></script>
 <script src="app-cards.js"></script>
 <script src="app-quick.js"></script>
+<script src="app-datacheck.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 <!-- Service worker: offline-tuki sekä julisteiden ja TMDB-vastausten välimuisti.
@@ -1309,6 +1322,9 @@
     var x   = document.getElementById('updateDismiss');
     if(!el || !btn) return;
     el.classList.add('visible');
+    // Palkki työntää kelluvat napit ylemmäs. Mittaus vasta luokan
+    // lisäämisen jälkeen, koska sitä ennen korkeus on nolla.
+    if(window.updateBottomStack) window.updateBottomStack();
 
     btn.onclick = function(){
       btn.disabled = true;
@@ -1322,6 +1338,7 @@
     if(x) x.onclick = function(){
       dismissed = true;
       el.classList.remove('visible');
+      if(window.updateBottomStack) window.updateBottomStack();
     };
   }
 

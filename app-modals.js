@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-08.1';
+window.BUILD_MODALS = '2026-09-08.4';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -646,8 +646,9 @@ function ensureBackupBar(){
 function hideBackupReminder(){
   const el = document.getElementById('backupReminderBar');
   if(el) el.style.display = 'none';
-  const fab = document.getElementById('fab');
-  if(fab && !syncBarVisible()) fab.style.bottom = '';
+  // Kelluvien nappien sijainti tulee CSS-muuttujasta, joka lasketaan
+  // palkkien todellisista korkeuksista. Ks. updateBottomStack app-core.js.
+  if(window.updateBottomStack) window.updateBottomStack();
 }
 window.hideBackupReminder = hideBackupReminder;
 window.backupBarVisible = function(){
@@ -677,8 +678,7 @@ window.maybeShowBackupReminder = function(){
       ? '📦 Et ole vielä ladannut varmuuskopiota'
       : `📦 Edellisestä varmuuskopiosta on ${days} ${days === 1 ? 'päivä' : 'päivää'}`;
   el.style.display = 'flex';
-  const fab = document.getElementById('fab');
-  if(fab) fab.style.bottom = '82px';
+  if(window.updateBottomStack) window.updateBottomStack();
 };
 
 window.downloadBackup = function(){
@@ -1024,6 +1024,7 @@ const BUILD_FILES = [
   ['app-extras.js',    'BUILD_EXTRAS',   true],
   ['app-cards.js',     'BUILD_CARDS',    true],
   ['app-quick.js',     'BUILD_QUICK',    true],
+  ['app-datacheck.js', 'BUILD_DATACHECK', true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
 
