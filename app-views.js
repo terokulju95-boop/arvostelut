@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-07.9';
+window.BUILD_VIEWS = '2026-09-08.0';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -85,9 +85,9 @@ function statusDot(r){
   const st = tvStatusInfo(r && r.tv_status);
   if(!st) return '';
   let title = st.fi;
-  if(r.next_air && r.next_air.date){
-    const days = Math.ceil((new Date(r.next_air.date + 'T00:00:00') - new Date()) / 86400000);
-    if(days >= 0) title += ` · seuraava jakso ${days === 0 ? 'tänään' : days === 1 ? 'huomenna' : days + ' pv'}`;
+  const na = window.nextAirInfo ? window.nextAirInfo(r) : null;
+  if(na){
+    title += ` · seuraava jakso ${na.when}`;
   } else if(r.last_air_date){
     title += ` · viimeinen jakso ${r.last_air_date}`;
   }
@@ -163,6 +163,34 @@ window.toggleEpisodeTop = function(id){
   window._epTopOpen[id] = open;
 };
 
+// ── HENKILÖHAKU ──
+// Ohjaajan ja näyttelijöiden nimet mukaan hakuun. Palauttaa osuvuuspisteen
+// tai 0. Piste katetaan tarkoituksella nimiosumien alapuolelle (< 70), jotta
+// teos jonka omassa nimessä hakusana esiintyy on aina henkilöosumien yllä.
+//
+// HUOM: extractTmdbFields tallentaa vain viisi ensimmäistä näyttelijää,
+// joten haku osuu pääosiin eikä koko rooligalleriaan. Vanhoilta
+// arvosteluilta cast voi puuttua kokonaan — massapäivitys täydentää ne.
+const PERSON_MATCH_MAX = 62;
+function personMatch(nq, r){
+  if(!nq || !r) return 0;
+  let best = 0;
+  if(r.director){
+    best = fuzzyMatch(nq, fuzzyNormCached(r.director));
+  }
+  if(best < 90 && Array.isArray(r.cast)){
+    for(let i = 0; i < r.cast.length; i++){
+      const m = fuzzyMatch(nq, fuzzyNormCached(r.cast[i]));
+      if(m > best) best = m;
+      if(best >= 90) break;
+    }
+  }
+  // Vain selvät osumat kelpaavat. Sumea sinnepäin-osuma henkilön nimeen
+  // tuottaisi paljon satunnaista roskaa, koska nimiä on kuusi per teos.
+  if(best < 70) return 0;
+  return Math.min(PERSON_MATCH_MAX, best - 25);
+}
+
 window.renderCards = function(){
   const searchEl = document.getElementById('searchInput');
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
@@ -189,6 +217,7 @@ window.renderCards = function(){
   // osumat voidaan nostaa listan kärkeen. null = ei hakua käynnissä.
   let matchScore = null;
   let bestMatch = 0;
+  let personHits = 0;
   if(q){
     const nq = fuzzyNormCached(q);
     const digits = /^\d+$/.test(q.trim());
@@ -202,8 +231,21 @@ window.renderCards = function(){
       if(m > 0){
         matchScore.set(r.id, m);
         if(m > bestMatch) bestMatch = m;
+        return true;
       }
-      return m > 0;
+      // ── HENKILÖHAKU ──
+      // Teoksen oma nimi ei osunut. Kokeillaan vielä ohjaajaa ja
+      // näyttelijöitä, jotta "villeneuve" löytää DUNEn ilman että
+      // ohjaajan nimeä tarvitsee ensin nähdä jossain kortissa.
+      // Tämä ajetaan vasta nimihaun jälkeen, joten se ei hidasta
+      // tavallista hakua eikä voi syrjäyttää nimiosumaa.
+      const pm = personMatch(nq, r);
+      if(pm > 0){
+        matchScore.set(r.id, pm);
+        personHits++;
+        return true;
+      }
+      return false;
     });
   }
   if(activeGenreFilter) reviews = reviews.filter(r=>{
@@ -240,8 +282,20 @@ window.renderCards = function(){
   // että haku löysi jotain aivan muuta kuin mitä kirjoitit.
   const noteEl = document.getElementById('searchNote');
   if(noteEl){
-    if(matchScore && reviews.length && bestMatch < 70){
-      noteEl.innerHTML = `Ei tarkkoja osumia haulle <strong>${esc(q)}</strong> — näytetään samankaltaiset.`;
+    const bits = [];
+    // bestMatch > 0 on tarpeen: pelkkä henkilöhaku tuottaa tuloksia vaikka
+    // yksikään teoksen nimi ei osunut, eikä silloin pidä väittää että
+    // näytettäisiin sinnepäin-osumia.
+    if(matchScore && reviews.length && bestMatch > 0 && bestMatch < 70){
+      bits.push(`Ei tarkkoja osumia haulle <strong>${esc(q)}</strong> — näytetään samankaltaiset.`);
+    }
+    if(matchScore && personHits){
+      bits.push(personHits === 1
+        ? 'Yksi osuma tulee ohjaajan tai näyttelijän nimestä.'
+        : `${personHits} osumaa tulee ohjaajan tai näyttelijän nimestä.`);
+    }
+    if(bits.length){
+      noteEl.innerHTML = bits.join(' ');
       noteEl.style.display = 'block';
     } else {
       noteEl.style.display = 'none';
@@ -420,6 +474,14 @@ window.renderCards = function(){
       `<button type="button" class="dir-link" onclick="event.stopPropagation();filterByDirector('${escJs(r.director)}')">🎬 ${esc(r.director)}</button>`);
     if(r.runtime && cf('runtime')) extraInfo.push(`⏱️ ${r.runtime} min`);
     if(r.episodes_total && cf('episodes')) extraInfo.push(`📺 ${r.episodes_total} jaksoa`);
+    // Seuraava jakso oli aiemmen vain tuotantotilamerkin title-selitteessä,
+    // jota ei kosketusnäytöllä näe koskaan. Nyt se on luettavissa suoraan.
+    if(cf('nextair')){
+      const na = window.nextAirInfo ? window.nextAirInfo(r) : null;
+      if(na) extraInfo.push(
+        `<span class="next-air${na.days <= 1 ? ' is-soon' : ''}">🗓️ ${na.ep ? na.ep + ' ' : ''}${esc(na.when)}</span>`);
+    }
+    if(r.collection && r.collection.name && cf('collection')) extraInfo.push(`🗂️ ${esc(r.collection.name)}`);
     if(r.country && cf('country')) extraInfo.push(`🌍 ${esc(r.country)}`);
     if(r.cast && r.cast.length && cf('cast')) extraInfo.push(`🎭 ${esc(r.cast.slice(0,3).join(', '))}`);
     const tmdbScoreHtml = (r.tmdb_score && cf('tmdbScore')) ? `<span class="tmdb-score-compare">⭐ TMDB ${r.tmdb_score}</span>` : '';
@@ -478,6 +540,11 @@ window.renderCards = function(){
 
     return `<div class="review-card type-${typeClass} ${scoreCardCls} ${favCls}${pc.cls} pp-${posterHtml ? pPos : 'none'}"${pc.id} style="animation-delay:${Math.min(idx*0.06,0.5)}s;${pc.style}" ondblclick="openReadModal(${r.id})">${inner}</div>`;
   }).join('');
+
+  // Julisteet ladataan vasta kun kortti lähestyy ruutua. Tarkkailija on
+  // liitettävä uudelleen joka renderöinnillä, koska innerHTML korvaa
+  // kaikki solmut.
+  if(window.lazyPosters) window.lazyPosters();
 };
 
 // ── LISÄÄ/MUOKKAA ──

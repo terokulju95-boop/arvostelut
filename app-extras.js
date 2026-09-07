@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · lisätoiminnot ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_EXTRAS = '2026-09-07.9';
+window.BUILD_EXTRAS = '2026-09-08.0';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä toisistaan riippumatonta osaa:
 //   1. Pull-to-refresh
@@ -550,3 +550,54 @@ async function saveFormOrder(){
     return out;
   };
 });
+
+// ══════════════════════════════════════════════════════════════════
+// ── VIERITÄ YLÖS ──
+// Pitkässä listassa ylös palaaminen vaatii kymmeniä pyyhkäisyjä.
+// Nappi ilmestyy vasta kun sivua on vieritetty selvästi alas, jotta se
+// ei ole tiellä normaalissa käytössä.
+//
+// Kuuntelija on passiivinen ja rajattu yhteen tarkistukseen ruudun-
+// päivitystä kohden. Ilman rAF-rajausta selain kutsuisi käsittelijää
+// kymmeniä kertoja sekunnissa vierityksen aikana.
+// ══════════════════════════════════════════════════════════════════
+(function(){
+  const SHOW_AT = 600;           // px, noin kaksi ruudullista
+  let btn = null;
+  let ticking = false;
+  let shown = false;
+
+  function el(){
+    if(!btn) btn = document.getElementById('scrollTopBtn');
+    return btn;
+  }
+
+  function update(){
+    ticking = false;
+    const b = el();
+    if(!b) return;
+    // Modaalin ollessa auki nappi jäisi sen päälle, joten se piilotetaan.
+    const blocked = !!document.querySelector('.modal-overlay.open');
+    const want = !blocked && window.scrollY > SHOW_AT;
+    if(want === shown) return;
+    shown = want;
+    b.classList.toggle('visible', want);
+  }
+
+  function onScroll(){
+    if(ticking) return;
+    ticking = true;
+    requestAnimationFrame(update);
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  document.addEventListener('DOMContentLoaded', update);
+
+  document.addEventListener('click', function(e){
+    const b = e.target.closest && e.target.closest('#scrollTopBtn');
+    if(!b) return;
+    // Animaatiot pois -asetus koskee myös tätä: silloin hypätään suoraan.
+    const anim = document.documentElement.getAttribute('data-anim') !== 'off';
+    window.scrollTo({ top: 0, behavior: anim ? 'smooth' : 'auto' });
+  });
+})();

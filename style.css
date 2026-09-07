@@ -450,7 +450,11 @@ html[data-filmstrip="on"] body::before{
 .poster-tile.has-pc .tile-img{box-shadow:0 3px 14px var(--card-accent-soft);}
 .review-card.is-favorite{box-shadow:0 0 0 1.5px rgba(var(--fav-rgb),0.5), 0 4px 24px rgba(var(--fav-rgb),0.15);}
 /* Poster taustakuva */
-.card-poster-bg{position:absolute;background-size:cover;background-position:center top;pointer-events:none;z-index:0;}
+.card-poster-bg{position:absolute;background-size:cover;background-position:center top;pointer-events:none;z-index:0;opacity:1;transition:opacity 0.28s ease;}
+/* Laiska lataus: kortin juliste on tyhjä kunnes kortti lähestyy ruutua.
+   Häivytys tekee ilmestymisestä pehmeän. Animaatiot pois -asetus poistaa
+   siirtymän automaattisesti, jolloin kuva vain ilmestyy. */
+.card-poster-bg.is-lazy{background-image:none!important;opacity:0;}
 .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
 .card-title{font-size:calc(18px * var(--ts,1));font-weight:700;line-height:1.2;flex:1;}
 .card-score{font-family:'Bebas Neue',sans-serif;font-size:calc(36px * var(--ts,1));line-height:1;color:var(--accent);}
@@ -707,6 +711,25 @@ html[data-filmstrip="on"] body::before{
 #fab{position:fixed;bottom:20px;right:16px;width:56px;height:56px;border-radius:20px;background:var(--accent);color:var(--bg);font-size:calc(28px * var(--ts,1));border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px var(--acc-40);z-index:100;transition:all 0.2s;font-weight:700;}
 #fab:active{transform:scale(0.92);}
 
+/* VIERITÄ YLÖS
+   Lisäysnapin yläpuolella, hieman pienempänä ja hillitymmällä värillä
+   jottei se kilpaile päätoiminnon kanssa. Näkyviin vain kun listaa on
+   vieritetty niin pitkälle että ylös palaaminen on oikeasti työlästä. */
+#scrollTopBtn{
+  position:fixed; bottom:86px; right:16px;
+  width:44px; height:44px; border-radius:16px;
+  background:var(--bg2); color:var(--text);
+  border:1px solid var(--border);
+  font-size:calc(20px * var(--ts,1)); font-weight:700;
+  cursor:pointer; z-index:99;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  opacity:0; pointer-events:none; transform:translateY(8px);
+  transition:opacity 0.2s, transform 0.2s;
+}
+#scrollTopBtn.visible{opacity:1; pointer-events:auto; transform:translateY(0);}
+#scrollTopBtn:active{transform:scale(0.92);}
+
 /* BOTTOM SHEET MODAL */
 .modal-overlay{position:fixed;inset:0;background:var(--scrim);backdrop-filter:blur(4px);z-index:1000;display:none;align-items:flex-end;}
 .modal-overlay.open{display:flex;animation:fadeInM 0.2s;}
@@ -908,6 +931,10 @@ html[data-filmstrip="on"] body::before{
 
 .card-extra-info{font-size:calc(12px * var(--ts,1));color:var(--muted);margin-top:4px;line-height:1.6;}
 .card-extra-info span{margin-right:10px;}
+/* Seuraava jakso. Tänään tai huomenna ilmestyvä korostetaan, koska se on
+   ainoa tapaus jossa tieto vaatii toimenpiteen tänä iltana. */
+.next-air{color:var(--text);font-weight:600;}
+.next-air.is-soon{color:var(--green);}
 .tmdb-score-compare{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:rgba(var(--blue-rgb),0.1);color:var(--blue);font-size:calc(12px * var(--ts,1));font-weight:600;margin-top:4px;}
 
 /* TMDB latausindikaattori */

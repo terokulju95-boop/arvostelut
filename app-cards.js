@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-07.9';
+window.BUILD_CARDS = '2026-09-08.0';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -24,6 +24,8 @@ const CARD_FIELDS = [
   { id:'genre',      label:'Genret',             icon:'🏷️' },
   { id:'tvtype',     label:'Arvostelutapa',      icon:'📺' },
   { id:'status',     label:'Tuotantotila',       icon:'📡' },
+  { id:'nextair',    label:'Seuraava jakso',     icon:'🗓️' },
+  { id:'collection', label:'Elokuvasarja',       icon:'🗂️' },
   { id:'mark',       label:'Suosikki/huono',     icon:'❤️' },
   { id:'recommend',  label:'Suositus',           icon:'👍' },
   { id:'rewatch',    label:'Uusintakatselu',     icon:'🔁' },
@@ -43,7 +45,10 @@ const CARD_FIELDS = [
 // jotka näkyvät kuitenkin isossa kortissa.
 // Suositus ja uusintakatselu näkyvät oletuksena, koska ne ovat omana
 // lohkonaan arvostelutekstin jälkeen eivätkä vie tilaa lapuilta.
-const CARD_DEFAULTS = { cast:false, country:false, tmdbScore:false };
+// 'collection' on oletuksena pois listakortista: se on kiinnostava tieto
+// mutta harvoin niin kiireellinen että se ansaitsisi rivin joka kortissa.
+// Isossa lukunäkymässä se näkyy oletuksena.
+const CARD_DEFAULTS = { cast:false, country:false, tmdbScore:false, collection:false };
 const READ_DEFAULTS = {};
 
 function fieldsFor(which){
@@ -120,7 +125,51 @@ window.cardPosterHtml = function(r){
   const pos = window.posterPos();
   // Vaaka-asennoissa tarvitaan leveämpi lähde, jottei kuva vetisty.
   const size = (pos === 'top' || pos === 'bottom' || pos === 'full') ? 'w342' : 'w200';
-  return `<div class="card-poster-bg" style="background-image:${window.posterCss(r, size)}"></div>`;
+  const css = window.posterCss(r, size);
+  if(!css) return '';
+
+  // ── LAISKA LATAUS ──
+  // Aiemmin jokaisen kortin juliste alkoi latautua heti kun lista
+  // renderöitiin, myös niiden korttien joita ei koskaan vieritetty
+  // näkyviin. Sadan arvostelun listassa se on sata verkkopyyntöä
+  // kerralla. Nyt osoite odottaa data-attribuutissa ja siirtyy
+  // background-imageen vasta kun kortti lähestyy ruutua.
+  //
+  // Vanha selain ilman IntersectionObserveria saa kuvan heti kuten
+  // ennenkin — mieluummin hitaasti kuin ei lainkaan.
+  if(!('IntersectionObserver' in window)){
+    return `<div class="card-poster-bg" style="background-image:${css}"></div>`;
+  }
+  return `<div class="card-poster-bg is-lazy" data-bg="${esc(css)}"></div>`;
+};
+
+// Yksi jaettu tarkkailija koko sovellukselle. renderCards korvaa listan
+// innerHTML:n kokonaan joka kerta, joten vanhat solmut katoavat itsestään
+// eikä niitä tarvitse erikseen irrottaa — mutta uudet on aina liitettävä.
+let _posterIO = null;
+window.lazyPosters = function(){
+  if(!('IntersectionObserver' in window)) return;
+  if(!_posterIO){
+    _posterIO = new IntersectionObserver(entries => {
+      for(const en of entries){
+        if(!en.isIntersecting) continue;
+        const el = en.target;
+        const bg = el.getAttribute('data-bg');
+        if(bg){
+          el.style.backgroundImage = bg;
+          el.removeAttribute('data-bg');
+        }
+        el.classList.remove('is-lazy');
+        _posterIO.unobserve(el);
+      }
+    }, {
+      // Aloita lataus reilusti ennen kuin kortti on ruudussa, jotta
+      // juliste ehtii paikalleen ennen kuin käyttäjä näkee tyhjän kohdan.
+      rootMargin: '600px 0px'
+    });
+  }
+  const list = document.querySelectorAll('.card-poster-bg.is-lazy');
+  for(const el of list) _posterIO.observe(el);
 };
 
 // ════════════════════════════════════════════════════════════
@@ -498,6 +547,23 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-09-08.0', items:[
+    { icon:'🗓️', title:'Seuraava jakso näkyy kortissa',
+      text:'Sarjakortti kertoo milloin seuraava jakso ilmestyy. Tieto oli ennen vain tuotantotilamerkin selitteessä, jota kosketusnäytöllä ei näe. Vanhentunut päivä piilotetaan.',
+      tab:'kortit', sec:'kortinkentat' },
+    { icon:'🎭', title:'Haku löytää ohjaajan ja näyttelijät',
+      text:'Hakukenttä osuu nyt myös tekijöiden nimiin. Teoksen oma nimi on silti aina tulosten kärjessä. Haku kattaa ohjaajan ja viisi pääosaa.',
+      view:'reviews' },
+    { icon:'🗂️', title:'Elokuvasarja näkyviin',
+      text:'Teoksen kuuluminen isompaan elokuvasarjaan näkyy lukunäkymässä. Tieto on ollut tallessa alusta asti mutta sitä käytettiin vain Löydä-osiossa.',
+      tab:'kortit', sec:'kortinkentat' },
+    { icon:'⚡', title:'Julisteet latautuvat vasta tarvittaessa',
+      text:'Kortin juliste haetaan vasta kun kortti lähestyy ruutua. Pitkä lista ei enää käynnistä sataa latausta kerralla.',
+      view:'reviews' },
+    { icon:'⬆️', title:'Vieritä ylös -nappi',
+      text:'Pitkässä listassa alareunaan ilmestyy nappi joka vie kärkeen yhdellä napautuksella.',
+      view:'reviews' }
+  ]},
   { build:'2026-09-07.9', items:[
     { icon:'🔤', title:'Haku sietää kirjoitusvirheet',
       text:'Nimihaku kokeilee tarvittaessa useampaa muunnelmaa ja lajittelee tulokset sovelluksen omalla sumealla vertailulla. "Fuury" löytää Furyn.',

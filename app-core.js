@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-07.9';
+window.BUILD_CORE = '2026-09-08.0';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1824,6 +1824,34 @@ function tvStatusInfo(status){
   return TV_STATUS_MAP[status] || { fi: status, icon: '⚪', cls: 'wip' };
 }
 window.tvStatusInfo = tvStatusInfo;
+
+// ── SEURAAVA JAKSO ──
+// next_air tulee TMDB:stä sarjan tietojen mukana ja kertoo milloin
+// seuraava jakso ilmestyy. Sama tieto tarvitaan kortissa, lukunäkymässä
+// ja tuotantotilamerkin selitteessä, joten muotoilu tehdään yhdessä
+// paikassa eikä kolmena hieman erilaisena kopiona.
+//
+// Palauttaa null jos päivää ei ole TAI se on jo mennyt. Vanhentunut
+// päivä on tavallinen tilanne: tieto haettiin TMDB:stä joskus, ja jakso
+// on sittemmin ilmestynyt. Silloin on parempi olla sanomatta mitään kuin
+// väittää että jakso tulee menneisyydessä.
+window.nextAirInfo = function(r){
+  const na = r && r.next_air;
+  if(!na || !na.date) return null;
+  const d = new Date(na.date + 'T00:00:00');
+  if(isNaN(d.getTime())) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((d - today) / 86400000);
+  if(days < 0) return null;
+
+  const when = days === 0 ? 'tänään'
+             : days === 1 ? 'huomenna'
+             : `${days} päivän päästä`;
+  const ep = (na.season && na.episode) ? `K${na.season}J${na.episode}` : '';
+  return { days, when, ep, date: na.date, name: na.name || '' };
+};
 
 // ── DUPLIKAATTITARKISTUS ──
 function normName(s){

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-07.9';
+window.BUILD_MODALS = '2026-09-08.0';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1663,12 +1663,10 @@ window.openReadModal = function(id){
   const st = rf('status') ? tvStatusInfo(r.tv_status) : null;
   if(st){
     let extra = '';
-    if(r.next_air && r.next_air.date){
-      const d = new Date(r.next_air.date + 'T00:00:00');
-      const days = Math.ceil((d - new Date()) / 86400000);
-      const when = days > 1 ? `${days} päivän päästä` : (days === 1 ? 'huomenna' : (days === 0 ? 'tänään' : ''));
+    const na = window.nextAirInfo ? window.nextAirInfo(r) : null;
+    if(na){
       extra = `<div style="font-size:12px;color:var(--muted);margin-top:4px;">
-        Seuraava jakso K${r.next_air.season}J${r.next_air.episode} ${esc(r.next_air.date)}${when ? ' · ' + when : ''}
+        Seuraava jakso ${na.ep ? na.ep + ' ' : ''}${esc(na.date)} · ${esc(na.when)}${na.name ? ' · ' + esc(na.name) : ''}
       </div>`;
     } else if(r.tv_status === 'Ended' && r.last_air_date){
       extra = `<div style="font-size:12px;color:var(--muted);margin-top:4px;">Viimeinen jakso ${esc(r.last_air_date)}</div>`;
@@ -1677,6 +1675,13 @@ window.openReadModal = function(id){
     }
     extraRows.push(`<div class="read-section"><div class="read-label">📡 Tuotantotila</div>
       <div class="read-value">${st.icon} ${esc(st.fi)}${r.seasons_total ? ` · ${r.seasons_total} kautta` : ''}</div>${extra}</div>`);
+  }
+  // Elokuvasarja (TMDB:n belongs_to_collection) on ollut tallessa alusta
+  // asti, mutta sitä on käytetty vain Löydä-osion kokoelmahaussa. Tässä se
+  // kerrotaan myös suoraan: teos kuuluu johonkin isompaan sarjaan.
+  if(r.collection && r.collection.name && rf('collection')){
+    extraRows.push(`<div class="read-section"><div class="read-label">🗂️ Elokuvasarja</div>
+      <div class="read-value">${esc(r.collection.name)}</div></div>`);
   }
   if(subcatOf(r) && rf('subcat')) extraRows.push(`<div class="read-section"><div class="read-label">📂 Alalaji</div><div class="read-value">${esc(subcatOf(r))}</div></div>`);
   if(rf('recommend')){
