@@ -400,7 +400,7 @@ html[data-filmstrip="on"] body::before{
 .cards-grid{display:flex;flex-direction:column;gap:12px;}
 
 /* NÄKYMÄTILA: RUUDUKKO */
-.cards-grid.mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.cards-grid.mode-grid{display:grid;grid-template-columns:repeat(var(--grid-cols,3),1fr);gap:10px;}
 .poster-tile{position:relative;cursor:pointer;animation:cardSlideIn 0.35s ease both;}
 .poster-tile:active{transform:scale(0.97);}
 .tile-img{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:10px;background:var(--card);border:1px solid var(--border);display:block;}
@@ -1230,6 +1230,21 @@ html[data-filmstrip="on"] body::before{
 /* ALALAJIT */
 .sub-tabs{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;padding:2px 0 10px;}
 .sub-tabs::-webkit-scrollbar{display:none;}
+
+/* ── VÄLILEHTIEN TYYLI ──
+   data-tabs juuressa ratkaisee miten kategoria- ja alalajirivit käyttäytyvät
+   kun ne eivät mahdu ruudulle.
+     vierita = alkuperäinen vaakavieritys ilman vihjettä
+     haivyta = vieritys, mutta oikeaan reunaan häivytys joka kertoo lisästä
+     rivita  = kaikki näkyvissä kerralla usealla rivillä                     */
+[data-tabs="rivita"] .sub-tabs,
+[data-tabs="rivita"] .cat-tabs{flex-wrap:wrap;overflow-x:visible;}
+
+[data-tabs="haivyta"] .tabs-wrap{position:relative;}
+[data-tabs="haivyta"] .tabs-wrap::after{content:'';position:absolute;top:0;bottom:0;right:0;width:36px;pointer-events:none;background:linear-gradient(to right,transparent,var(--bg));opacity:0;transition:opacity .18s;}
+[data-tabs="haivyta"] .tabs-wrap.has-more::after{opacity:1;}
+[data-tabs="haivyta"] .tabs-more{position:absolute;top:50%;right:2px;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);color:var(--accent);font-size:calc(13px * var(--ts,1));line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:2;}
+[data-tabs="haivyta"] .tabs-wrap.has-more .tabs-more{display:flex;}
 .sub-tab{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:calc(12.5px * var(--ts,1));font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;}
 .sub-tab.active{background:var(--acc-15);border-color:var(--accent);color:var(--accent);}
 .sub-tab-count{font-size:calc(10.5px * var(--ts,1));opacity:0.7;background:var(--tint-07);border-radius:99px;padding:1px 6px;}
@@ -1784,3 +1799,10 @@ body.sandbox-on #fab{bottom:74px;}
 
 .settings-btn{position:relative;}
 .settings-dot{position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--bg);}
+
+
+/* Animaatiot pois asetuksista. Kattaa myös käyttöjärjestelmän oman
+   liikkeenvähennysasetuksen, jotta valinta on yhdenmukainen. */
+[data-anim="off"] *,
+[data-anim="off"] *::before,
+[data-anim="off"] *::after{animation:none!important;transition:none!important;}

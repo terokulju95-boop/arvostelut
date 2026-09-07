@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-07.6';
+window.BUILD_CORE = '2026-09-07.7';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -310,6 +310,7 @@ function renderCatTabs(){
   tabs.innerHTML = appData.categories.map(c=>`
     <button class="cat-tab ${c===activeCat?'active':''}" onclick="setActiveCat('${escJs(c)}')">${esc(c)}</button>
   `).join('');
+  setTimeout(updateTabsOverflow, 0);
   renderSubTabs();
 }
 
@@ -334,11 +335,49 @@ function renderSubTabs(){
   el.style.display = 'flex';
   el.innerHTML = opts.map(o => `
     <button class="sub-tab ${o.val === activeSub ? 'active' : ''}" onclick="setActiveSub('${escJs(o.val)}')">
-      ${esc(o.label)}<span class="sub-tab-count">${count(o.val)}</span>
+      ${esc(o.label)}${setOn('subCounts') ? `<span class="sub-tab-count">${count(o.val)}</span>` : ''}
     </button>
   `).join('');
+  setTimeout(updateTabsOverflow, 0);
 }
 window.renderSubTabs = renderSubTabs;
+
+// ── VÄLILEHTIEN YLIVUOTO ──
+// Häivytystyylissä reunahäivytys ja nuoli näkyvät vain jos rivi oikeasti
+// jatkuu näkyvän alueen ulkopuolelle. Ilman tätä ne olisivat aina näkyvissä
+// silloinkin kun kaikki mahtuu.
+function updateTabsOverflow(){
+  ['catTabsWrap','subTabsWrap'].forEach(id => {
+    const wrap = document.getElementById(id);
+    if(!wrap) return;
+    const row = wrap.firstElementChild;
+    if(!row){ wrap.classList.remove('has-more'); return; }
+    const hidden = row.scrollWidth - row.clientWidth - row.scrollLeft;
+    wrap.classList.toggle('has-more', hidden > 4);
+  });
+}
+window.updateTabsOverflow = updateTabsOverflow;
+
+// Nuoli vierittää yhden näkymällisen eteenpäin ja kiertää alkuun lopussa.
+window.scrollTabs = function(wrapId){
+  const wrap = document.getElementById(wrapId);
+  const row = wrap && wrap.firstElementChild;
+  if(!row) return;
+  const atEnd = row.scrollWidth - row.clientWidth - row.scrollLeft <= 4;
+  const target = atEnd ? 0 : row.scrollLeft + row.clientWidth * 0.8;
+  // Pehmeä vieritys jos selain tukee; muuten suora sijoitus.
+  if(typeof row.scrollTo === 'function') row.scrollTo({ left: target, behavior:'smooth' });
+  else row.scrollLeft = target;
+  setTimeout(updateTabsOverflow, 400);
+};
+
+['catTabs','subTabs'].forEach(id => {
+  document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('scroll', updateTabsOverflow, { passive:true });
+  });
+});
+window.addEventListener('resize', updateTabsOverflow);
 
 window.setActiveCat = function(cat){
   activeCat = cat;
@@ -718,6 +757,15 @@ function ensureSettings(){
   if(appData.settings.startSort == null) appData.settings.startSort = '';
   // Tekstin koko prosentteina. Skaalaa vain fonttikokoja, ei asetteluja.
   if(appData.settings.textScale == null) appData.settings.textScale = 100;
+  // Kategoria- ja alalajirivien käyttäytyminen kun ne eivät mahdu ruudulle.
+  // 'vierita' on alkuperäinen toiminta, joten oletus ei muuta mitään.
+  if(appData.settings.tabStyle == null) appData.settings.tabStyle = 'vierita';
+  // Ruudukkonäkymän sarakemäärä.
+  if(appData.settings.gridCols == null) appData.settings.gridCols = 3;
+  // Alalajien lukumäärät välilehdillä.
+  if(appData.settings.subCounts == null) appData.settings.subCounts = true;
+  // Animaatiot. Pois kytkettynä siirtymät ja konfetti jäävät pois.
+  if(appData.settings.animations == null) appData.settings.animations = true;
 
   // Poistettujen ominaisuuksien jäänteet pois, jotta tallennettu asetusdata
   // ei kanna mukanaan kenttiä joita mikään ei enää lue.

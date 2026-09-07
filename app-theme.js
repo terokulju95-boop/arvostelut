@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-07.6';
+window.BUILD_THEME = '2026-09-07.7';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -51,6 +51,10 @@ window.applyTheme = function(){
   // Filmiraita on pelkkä CSS-koriste: attribuutti riittää, mitään ei
   // piirretä JavaScriptillä eikä listaa tarvitse renderöidä uudelleen.
   root.setAttribute('data-filmstrip', s.filmstrip ? 'on' : 'off');
+  root.setAttribute('data-tabs', s.tabStyle || 'vierita');
+  root.setAttribute('data-anim', (s.animations !== false) ? 'on' : 'off');
+  root.style.setProperty('--grid-cols', String(s.gridCols || 3));
+  if(window.updateTabsOverflow) setTimeout(window.updateTabsOverflow, 0);
 
   // Androidin statusbar seuraa taustaväriä. Arvo pitää lukea vasta
   // attribuuttien asettamisen jälkeen, muuten saadaan edellinen väri.
@@ -633,6 +637,43 @@ window.setStartSort = async function(v){
   ensureSettings().startSort = v;
   window.renderBehaviourSettings();
   await window.fbSave();
+};
+
+const TAB_STYLE_OPTS = [
+  { v:'vierita', label:'Vieritys' },
+  { v:'haivyta', label:'Häivytys ja nuoli' },
+  { v:'rivita',  label:'Rivitys' }
+];
+const GRID_COL_OPTS = [{v:2,label:'2'},{v:3,label:'3'},{v:4,label:'4'}];
+
+window.setTabStyle = async function(v){
+  ensureSettings().tabStyle = v;
+  window.applyTheme();
+  if(window.renderCatTabs) window.renderCatTabs();
+  window.renderLayoutSettings();
+  await window.fbSave();
+};
+window.setGridCols = async function(v){
+  ensureSettings().gridCols = Number(v) || 3;
+  window.applyTheme();
+  window.renderLayoutSettings();
+  await window.fbSave();
+};
+window.toggleLayout = async function(key){
+  ensureSettings()[key] = !setOn(key);
+  window.applyTheme();
+  if(key === 'subCounts' && window.renderSubTabs) window.renderSubTabs();
+  window.renderLayoutSettings();
+  await window.fbSave();
+};
+
+window.renderLayoutSettings = function(){
+  const s = ensureSettings();
+  renderSeg('tabStyleBox', TAB_STYLE_OPTS, s.tabStyle || 'vierita', 'setTabStyle');
+  renderSeg('gridColsBox', GRID_COL_OPTS, s.gridCols || 3, 'setGridCols');
+  const sw = (id, key) => { const b = document.getElementById(id); if(b) b.classList.toggle('on', setOn(key)); };
+  sw('subCountsToggle', 'subCounts');
+  sw('animToggle', 'animations');
 };
 
 window.renderBehaviourSettings = function(){

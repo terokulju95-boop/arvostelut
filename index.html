@@ -71,10 +71,10 @@
   </div>
 
   <!-- KATEGORIATABS -->
-  <div class="cat-tabs" id="catTabs"></div>
+  <div class="tabs-wrap" id="catTabsWrap"><div class="cat-tabs" id="catTabs"></div><button type="button" class="tabs-more" onclick="scrollTabs('catTabsWrap')" aria-label="Näytä lisää">›</button></div>
 
   <!-- ALALAJIT (näkyy vain jos kategorialla on alalajeja) -->
-  <div class="sub-tabs" id="subTabs" style="display:none;"></div>
+  <div class="tabs-wrap" id="subTabsWrap"><div class="sub-tabs" id="subTabs" style="display:none;"></div><button type="button" class="tabs-more" onclick="scrollTabs('subTabsWrap')" aria-label="Näytä lisää">›</button></div>
 
   <!-- TOOLBAR -->
   <div class="toolbar">
@@ -657,6 +657,35 @@
         </div>
         </div>
       </div>
+      <div class="set-sec" data-sec="asettelu">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('asettelu')" aria-expanded="false">
+          <span class="set-sec-icon">📐</span>
+          <span class="set-sec-title">Asettelu<span class="set-sec-sum" id="sum-asettelu"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-asettelu" hidden>
+          <label>Kategoria- ja alalajirivit</label>
+          <div class="toggle-row-sub" style="margin-bottom:2px;">Miten rivi käyttäytyy kun se ei mahdu ruudulle. Vieritys on alkuperäinen: rivi vierittyy, mutta mikään ei kerro siitä. Häivytys lisää reunaan häivytyksen ja nuolen. Rivitys näyttää kaikki kerralla usealla rivillä.</div>
+          <div class="seg-row" id="tabStyleBox"></div>
+          <label style="margin-top:14px;">Ruudukon sarakkeet</label>
+          <div class="seg-row" id="gridColsBox"></div>
+          <div class="toggle-row" style="margin-top:14px;">
+            <div>
+              <div class="toggle-row-label">Lukumäärät alalajeissa</div>
+              <div class="toggle-row-sub">Näyttää kuinka monta arvostelua kussakin alalajissa on.</div>
+            </div>
+            <button type="button" class="toggle-switch" id="subCountsToggle" onclick="toggleLayout('subCounts')"></button>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-row-label">Animaatiot</div>
+              <div class="toggle-row-sub">Siirtymät, liukuvat avautumiset ja konfetti. Pois kytkettynä sovellus tuntuu nopeammalta.</div>
+            </div>
+            <button type="button" class="toggle-switch" id="animToggle" onclick="toggleLayout('animations')"></button>
+          </div>
+        </div>
+      </div>
+
       <div class="set-sec" data-sec="tekstikoko">
         <button type="button" class="set-sec-head" onclick="toggleSetSec('tekstikoko')" aria-expanded="false">
           <span class="set-sec-icon">🔠</span>

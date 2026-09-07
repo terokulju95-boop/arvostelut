@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-07.6';
+window.BUILD_MODALS = '2026-09-07.7';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1448,6 +1448,7 @@ window.openSettings = function(){
   safeRender('kenttäjärjestys', window.renderFormOrderSettings);
   safeRender('korttien sisältö', window.renderCardSettings);
   safeRender('tmdb-tila', renderTmdbStatus);
+  safeRender('asettelu', window.renderLayoutSettings);
   safeRender('tekstin koko', window.renderTextScaleSettings);
   safeRender('käyttäytyminen', window.renderBehaviourSettings);
   safeRender('asetussuoja', renderMetaGuard);
