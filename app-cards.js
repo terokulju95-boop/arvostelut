@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-08.0';
+window.BUILD_CARDS = '2026-09-08.1';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -547,6 +547,17 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-09-08.1', items:[
+    { icon:'🔄', title:'Sovellus kertoo kun uusi versio on valmiina',
+      text:'Päivitystä ei tarvitse enää etsiä. Kun uusi versio on ladattu taustalle, alareunaan ilmestyy palkki. Sivua ei koskaan ladata uudelleen ilman että painat nappia.',
+      tab:'data', sec:'versio' },
+    { icon:'🤖', title:'Versionumero nousee itsestään',
+      text:'GitHub nostaa versioleiman ja service workerin numeron jokaisen pushin jälkeen. Käsin muistamista ei enää tarvita.',
+      tab:'data', sec:'versio' },
+    { icon:'📜', title:'Muutosloki versioittain ja haulla',
+      text:'Kaikki muutokset -näkymä on ryhmitelty julkaisuittain, ja siitä voi hakea sanalla tai versionumerolla.',
+      tab:'data', sec:'versio' }
+  ]},
   { build:'2026-09-08.0', items:[
     { icon:'🗓️', title:'Seuraava jakso näkyy kortissa',
       text:'Sarjakortti kertoo milloin seuraava jakso ilmestyy. Tieto oli ennen vain tuotantotilamerkin selitteessä, jota kosketusnäytöllä ei näe. Vanhentunut päivä piilotetaan.',
@@ -747,7 +758,10 @@ window.updateNewsBadge = function(){
 
 // Listan voi avata uudelleen milloin tahansa, myös kuittauksen jälkeen.
 window.showAllNews = function(){
-  try{ localStorage.removeItem(SEEN_BUILD_KEY); } catch(e){}
+  // Kuittausmerkintään ei kosketa. Koko lokin selaaminen ei ole sama asia
+  // kuin uutuuksien jättäminen kuittaamatta. Aiemmin tämä nollasi
+  // merkinnän, jolloin asetusnappiin ilmestyi merkkipiste heti sen
+  // jälkeen kun olit lukenut kaiken.
   window.renderWhatsNew(true);
   window.updateNewsBadge();
   const box = document.getElementById('whatsNewBox');
@@ -775,18 +789,96 @@ window.openWhatsNewTarget = function(tab, sec, view){
   if(sec) setTimeout(() => window.toggleSetSec(sec), 60);
 };
 
+// Yksittäinen kohta. data-find sisältää hakua varten valmiiksi
+// pienaakkostetun tekstin, jottei sitä tarvitse laskea joka näppäimen
+// painalluksella uudelleen.
+function wnItemHtml(i){
+  const find = ((i.title || '') + ' ' + (i.text || '')).toLowerCase();
+  const args = `${i.tab ? `'${i.tab}'` : 'null'},${i.sec ? `'${i.sec}'` : 'null'},${i.view ? `'${i.view}'` : 'null'}`;
+  return `<button type="button" class="wn-item" data-find="${esc(find)}" onclick="openWhatsNewTarget(${args})">
+        <span class="wn-icon">${i.icon}</span>
+        <span class="wn-text">
+          <strong>${esc(i.title)}</strong>
+          <span>${esc(i.text)}</span>
+        </span>
+        <span class="wn-arrow">›</span>
+      </button>`;
+}
+
+// Koko historia versioittain. Ennen tämä oli yksi litteä lista, jossa
+// kolmenkymmenen kohdan jälkeen ei enää hahmottanut mikä kuului mihinkin
+// julkaisuun.
+function wnGroupsHtml(){
+  return WHATS_NEW.map(e => `
+    <div class="wn-group" data-build="${esc(String(e.build).toLowerCase())}">
+      <div class="wn-ver"><span class="wn-vnum">${esc(e.build)}</span><span class="wn-cnt">${e.items.length}</span></div>
+      ${e.items.map(wnItemHtml).join('')}
+    </div>`).join('');
+}
+
+// Haku muutoslokista. Kaikkien hakusanojen on löydyttävä samasta
+// kohdasta, mutta järjestyksellä ei ole väliä. Versionumerolla hakeminen
+// toimii myös: "09-06" rajaa yhteen päivään.
+window.filterWhatsNew = function(q){
+  const box = document.getElementById('wnGroups');
+  if(!box) return;
+  const words = String(q == null ? '' : q).trim().toLowerCase().split(/\s+/).filter(Boolean);
+  let hits = 0;
+
+  box.querySelectorAll('.wn-group').forEach(g => {
+    const build = g.getAttribute('data-build') || '';
+    let shown = 0;
+    g.querySelectorAll('.wn-item').forEach(it => {
+      const hay = (it.getAttribute('data-find') || '') + ' ' + build;
+      const ok = words.every(w => hay.indexOf(w) !== -1);
+      it.style.display = ok ? '' : 'none';
+      if(ok) shown++;
+    });
+    g.style.display = shown ? '' : 'none';
+    hits += shown;
+  });
+
+  const none = document.getElementById('wnNone');
+  if(none) none.style.display = hits ? 'none' : 'block';
+  const cnt = document.getElementById('wnCount');
+  if(cnt) cnt.textContent = words.length
+    ? `${hits} ${hits === 1 ? 'osuma' : 'osumaa'}`
+    : `${hits} ${hits === 1 ? 'muutos' : 'muutosta'} · napauta siirtyäksesi`;
+};
+
 // Palkki asetusten yläreunaan, heti versiovaroituksen alle.
 window.renderWhatsNew = function(force){
-  const items = force ? WHATS_NEW.flatMap(e => e.items) : newSinceSeen();
   const old = document.getElementById('whatsNewBox');
   if(old) old.remove();
-  if(!items.length) return;
 
   const warn = document.getElementById('buildWarning');
   if(!warn || !warn.parentNode) return;
 
   const box = document.createElement('div');
   box.id = 'whatsNewBox';
+
+  if(force){
+    // ── KOKO MUUTOSLOKI ──
+    const total = WHATS_NEW.reduce((n, e) => n + e.items.length, 0);
+    box.className = 'whats-new is-all';
+    box.innerHTML = `
+      <div class="wn-head">
+        <span class="wn-title">📜 Kaikki muutokset</span>
+        <button type="button" class="wn-close" onclick="markBuildSeen()" aria-label="Sulje">✕</button>
+      </div>
+      <input type="search" class="wn-search" id="wnSearch" placeholder="Hae muutoksista tai versiosta…"
+             autocomplete="off" oninput="filterWhatsNew(this.value)">
+      <div class="wn-sub" id="wnCount">${total} muutosta · napauta siirtyäksesi</div>
+      <div class="wn-groups" id="wnGroups">${wnGroupsHtml()}</div>
+      <div class="wn-none" id="wnNone" style="display:none;">Ei osumia.</div>
+      <button type="button" class="wn-done" onclick="markBuildSeen()">Sulje</button>`;
+    warn.parentNode.insertBefore(box, warn.nextSibling);
+    return;
+  }
+
+  // ── VAIN UUDET SITTEN VIIME KUITTAUKSEN ──
+  const items = newSinceSeen();
+  if(!items.length) return;
   box.className = 'whats-new';
   box.innerHTML = `
     <div class="wn-head">
@@ -794,15 +886,7 @@ window.renderWhatsNew = function(force){
       <button type="button" class="wn-close" onclick="markBuildSeen()" aria-label="Kuittaa luetuksi">✕</button>
     </div>
     <div class="wn-sub">${items.length} ${items.length === 1 ? 'uusi asia' : 'uutta asiaa'} · napauta siirtyäksesi</div>
-    ${items.map(i => `
-      <button type="button" class="wn-item" onclick="openWhatsNewTarget(${i.tab ? `'${i.tab}'` : 'null'},${i.sec ? `'${i.sec}'` : 'null'},${i.view ? `'${i.view}'` : 'null'})">
-        <span class="wn-icon">${i.icon}</span>
-        <span class="wn-text">
-          <strong>${esc(i.title)}</strong>
-          <span>${esc(i.text)}</span>
-        </span>
-        <span class="wn-arrow">›</span>
-      </button>`).join('')}
+    ${items.map(wnItemHtml).join('')}
     <button type="button" class="wn-done" onclick="markBuildSeen()">Selvä, kuittaa luetuksi</button>`;
   warn.parentNode.insertBefore(box, warn.nextSibling);
 };

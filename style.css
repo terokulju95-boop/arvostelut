@@ -730,6 +730,37 @@ html[data-filmstrip="on"] body::before{
 #scrollTopBtn.visible{opacity:1; pointer-events:auto; transform:translateY(0);}
 #scrollTopBtn:active{transform:scale(0.92);}
 
+/* PÄIVITYSPALKKI
+   Alareunassa FABin yläpuolella, koko leveydeltä jotta se erottuu
+   selvästi tavallisista ilmoituksista. Näkyy vain kun uusi versio on
+   oikeasti ladattu valmiiksi. */
+#updateBanner{
+  position:fixed; left:12px; right:12px;
+  bottom:calc(14px + env(safe-area-inset-bottom));
+  z-index:900;
+  display:none; align-items:center; gap:10px;
+  background:var(--bg2); border:1px solid var(--accent);
+  border-radius:16px; padding:12px 12px 12px 14px;
+  box-shadow:0 8px 28px rgba(0,0,0,0.45);
+}
+#updateBanner.visible{display:flex; animation:ubIn 0.25s ease;}
+@keyframes ubIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.ub-text{flex:1; min-width:0; line-height:1.35;}
+.ub-text strong{display:block; font-size:calc(14px * var(--ts,1)); color:var(--text);}
+.ub-text span{display:block; font-size:calc(12px * var(--ts,1)); color:var(--muted);}
+.ub-btn{
+  flex:0 0 auto; background:var(--accent); color:var(--bg);
+  border:none; border-radius:11px; padding:10px 16px;
+  font-family:inherit; font-size:calc(14px * var(--ts,1)); font-weight:700;
+  cursor:pointer;
+}
+.ub-btn:disabled{opacity:0.6;}
+.ub-x{
+  flex:0 0 auto; background:none; border:none; color:var(--muted);
+  font-size:calc(16px * var(--ts,1)); cursor:pointer;
+  padding:8px; line-height:1;
+}
+
 /* BOTTOM SHEET MODAL */
 .modal-overlay{position:fixed;inset:0;background:var(--scrim);backdrop-filter:blur(4px);z-index:1000;display:none;align-items:flex-end;}
 .modal-overlay.open{display:flex;animation:fadeInM 0.2s;}
@@ -1830,6 +1861,38 @@ body.sandbox-on #fab{bottom:74px;}
 .wn-text span{display:block;font-size:calc(11.5px * var(--ts,1));color:var(--muted);margin-top:2px;}
 .wn-arrow{flex-shrink:0;color:var(--muted);font-size:calc(16px * var(--ts,1));}
 .wn-done{width:100%;padding:10px;border-radius:9px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:calc(12.5px * var(--ts,1));font-weight:600;cursor:pointer;margin-top:2px;}
+
+/* KOKO MUUTOSLOKI
+   Versioittain ryhmitelty näkymä hakukentällä. Lista voi olla pitkä,
+   joten se vierii omassa laatikossaan eikä työnnä asetuksia alas. */
+.wn-search{
+  width:100%; margin:8px 0 6px; padding:9px 11px;
+  border-radius:9px; background:var(--bg3);
+  border:1px solid var(--border); color:var(--text);
+  font-family:'DM Sans',sans-serif; font-size:calc(13px * var(--ts,1));
+}
+.wn-search:focus{outline:none; border-color:var(--accent);}
+.whats-new.is-all .wn-groups{max-height:60vh; overflow-y:auto; padding-right:2px;}
+.wn-group{margin-bottom:4px;}
+.wn-ver{
+  display:flex; align-items:center; gap:8px;
+  margin:10px 0 6px; padding-bottom:4px;
+  border-bottom:1px solid var(--border);
+}
+.wn-vnum{
+  flex:1; font-family:'Bebas Neue',sans-serif;
+  font-size:calc(15px * var(--ts,1)); letter-spacing:1px;
+  color:var(--accent);
+}
+.wn-cnt{
+  flex:0 0 auto; font-size:calc(11px * var(--ts,1));
+  color:var(--muted); background:var(--tint-07);
+  border-radius:7px; padding:2px 8px;
+}
+.wn-none{
+  text-align:center; color:var(--muted);
+  font-size:calc(12.5px * var(--ts,1)); padding:18px 0;
+}
 
 .settings-btn{position:relative;}
 .settings-dot{position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--bg);}

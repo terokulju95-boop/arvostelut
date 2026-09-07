@@ -220,6 +220,18 @@
      ottaa sen haltuun. -->
 <button id="scrollTopBtn" type="button" aria-label="Vieritä ylös" title="Vieritä ylös">↑</button>
 
+<!-- PÄIVITYSPALKKI -->
+<!-- Näkyy vain kun uusi versio on ladattu valmiiksi taustalle. Sivua ei
+     koskaan ladata uudelleen ilman että tätä nappia painetaan. -->
+<div id="updateBanner" role="status" aria-live="polite">
+  <div class="ub-text">
+    <strong>Uusi versio on valmiina</strong>
+    <span>Se otetaan käyttöön kun sovellus ladataan uudelleen.</span>
+  </div>
+  <button type="button" id="updateBtn" class="ub-btn">Päivitä</button>
+  <button type="button" id="updateDismiss" class="ub-x" aria-label="Sulje">✕</button>
+</div>
+
 <!-- TMDB LATAUS -->
 <div class="tmdb-loading-overlay" id="tmdbLoadingOverlay">
   <div class="reel-wrap">
@@ -1276,8 +1288,85 @@
   if(!('serviceWorker' in navigator)) return;
   // file:// -protokollalla rekisteröinti heittää poikkeuksen
   if(location.protocol !== 'https:' && location.hostname !== 'localhost') return;
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(err => {
+
+  // ── PÄIVITYKSEN TUNNISTUS ──
+  // Tämä koodi on tarkoituksella index.html:n sisällä eikä moduulissa:
+  // sen pitää toimia myös silloin kun jokin app-*.js jää lataamatta.
+  // Juuri silloin päivitys on kaikkein tarpeellisin.
+  //
+  // Sivua EI ladata uudelleen automaattisesti missään tilanteessa.
+  // Lataus tapahtuu vain jos käyttäjä painaa Päivitä-nappia.
+
+  var CHECK_MS  = 15 * 60 * 1000;   // tarkistusten vähimmäisväli
+  var lastCheck = 0;
+  var wanted    = false;            // käyttäjä painoi Päivitä
+  var dismissed = false;            // käyttäjä sulki palkin tässä istunnossa
+
+  function showBanner(worker){
+    if(dismissed || !worker) return;
+    var el  = document.getElementById('updateBanner');
+    var btn = document.getElementById('updateBtn');
+    var x   = document.getElementById('updateDismiss');
+    if(!el || !btn) return;
+    el.classList.add('visible');
+
+    btn.onclick = function(){
+      btn.disabled = true;
+      btn.textContent = 'Päivitetään…';
+      wanted = true;
+      try { worker.postMessage('SKIP_WAITING'); } catch(e){}
+      // Varmistus: jos controllerchange ei jostain syystä laukea,
+      // ladataan silti uudelleen. Ilman tätä nappi jäisi jumiin.
+      setTimeout(function(){ location.reload(); }, 3000);
+    };
+    if(x) x.onclick = function(){
+      dismissed = true;
+      el.classList.remove('visible');
+    };
+  }
+
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    if(!wanted) return;   // ei koskaan automaattista uudelleenlatausta
+    wanted = false;
+    location.reload();
+  });
+
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      // Uusi versio saattoi asentua jo edellisellä käyntikerralla ja jäädä
+      // odottamaan. Silloin updatefound ei enää laukea, joten tilanne on
+      // tarkistettava erikseen heti.
+      if(reg.waiting && navigator.serviceWorker.controller){
+        showBanner(reg.waiting);
+      }
+
+      reg.addEventListener('updatefound', function(){
+        var nw = reg.installing;
+        if(!nw) return;
+        nw.addEventListener('statechange', function(){
+          // controller puuttuu ensiasennuksella. Silloin ei ole mitään
+          // päivitettävää eikä palkkia pidä näyttää.
+          if(nw.state === 'installed' && navigator.serviceWorker.controller){
+            showBanner(nw);
+          }
+        });
+      });
+
+      function check(){
+        var now = Date.now();
+        if(now - lastCheck < CHECK_MS) return;
+        lastCheck = now;
+        try { reg.update(); } catch(e){}
+      }
+
+      // Juuri rekisteröity, joten ensimmäinen tarkistus vasta puolen
+      // minuutin päästä. Sen jälkeen aina kun sovellus palaa etualalle.
+      setTimeout(check, 30000);
+      document.addEventListener('visibilitychange', function(){
+        if(document.visibilityState === 'visible') check();
+      });
+      window.addEventListener('focus', check);
+    }).catch(function(err){
       console.warn('Service workerin rekisteröinti epäonnistui:', err);
     });
   });

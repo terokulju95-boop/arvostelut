@@ -1,7 +1,7 @@
 // ── ARVOSTELUT – SERVICE WORKER ──
 // TÄRKEÄÄ: nosta VERSION-numeroa aina kun muutat index.html:ää tai muita tiedostoja.
 // Muuten Android-puhelimen PWA voi tarjoilla vanhaa versiota välimuistista.
-const VERSION = 66;
+const VERSION = 67;
 
 const SHELL_CACHE = `arvostelut-shell-v${VERSION}`;
 const IMG_CACHE   = 'tmdb-img-v1';   // julisteet <img>-tagista (no-cors)
@@ -36,13 +36,22 @@ const API_TTL = 24 * 60 * 60 * 1000; // 24 tuntia
 const IMG_MAX = 300;                 // enintään näin monta julistetta välimuistiin
 
 // ── ASENNUS ──
+// HUOM: täällä EI kutsuta self.skipWaiting(). Uusi service worker jää
+// odottamaan, ja sovellus näyttää päivityspalkin. Vasta kun käyttäjä
+// painaa Päivitä, sovellus lähettää SKIP_WAITING-viestin ja sivu ladataan
+// uudelleen.
+//
+// Aiemmin skipWaiting ajettiin heti asennuksessa. Se yhdistettynä
+// clients.claim()-kutsuun tarkoittaa että controllerchange laukeaa
+// itsestään — ja jos sovellus lataisi sivun sen perusteella, keskeneräinen
+// arvostelu voisi kadota kesken kirjoittamisen. Nyt hetken päättää
+// käyttäjä.
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(SHELL_CACHE)
       .then(c => c.addAll(ASSETS))
       .catch(() => {}) // yksi puuttuva tiedosto ei saa kaataa asennusta
   );
-  self.skipWaiting();
 });
 
 // ── AKTIVOINTI: siivoa vanhat välimuistit ──
