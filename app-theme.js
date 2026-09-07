@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-07.8';
+window.BUILD_THEME = '2026-09-07.9';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -674,6 +674,75 @@ window.renderLayoutSettings = function(){
   const sw = (id, key) => { const b = document.getElementById(id); if(b) b.classList.toggle('on', setOn(key)); };
   sw('subCountsToggle', 'subCounts');
   sw('animToggle', 'animations');
+};
+
+// ── KATEGORIAKOHTAISET OMINAISUUDET ──
+const CAT_FEATURES = [
+  { key:'genre', label:'Genret',  hint:'Genrevalinta lomakkeella ja genrepohjaiset ehdotukset' },
+  { key:'plot',  label:'Juoni',   hint:'Juonikenttä lomakkeella ja lukunäkymässä' },
+  { key:'tmdb',  label:'TMDB',    hint:'Massapäivitys hakee tiedot tälle kategorialle' }
+];
+
+window.toggleCatFeature = async function(cat, key){
+  const s = ensureSettings();
+  if(!s.catFeatures[cat]) s.catFeatures[cat] = { genre:false, plot:false, tmdb:false };
+  s.catFeatures[cat][key] = !s.catFeatures[cat][key];
+  window.renderCatFeatureSettings();
+  if(window.renderCards) window.renderCards();
+  await window.fbSave();
+};
+
+window.renderCatFeatureSettings = function(){
+  const host = document.getElementById('catFeatureBox');
+  if(!host) return;
+  const s = ensureSettings();
+  host.innerHTML = (appData.categories || []).map(c => {
+    const f = s.catFeatures[c] || {};
+    const chips = CAT_FEATURES.map(ft =>
+      `<button type="button" class="seg-btn${f[ft.key] ? ' active' : ''}"
+        onclick="toggleCatFeature('${escJs(c)}','${ft.key}')" title="${esc(ft.hint)}">${esc(ft.label)}</button>`
+    ).join('');
+    return `<div style="margin-bottom:12px;">
+      <div class="toggle-row-label" style="margin-bottom:6px;">${esc(c)}</div>
+      <div class="seg-row" style="margin-top:0;">${chips}</div>
+    </div>`;
+  }).join('');
+};
+
+// ── LÖYDÄ-KYNNYSARVOT, PISTEET-KATEGORIA, JULISTEEN LAATU ──
+const CLASSIC_AGE_OPTS = [{v:10,label:'10 v'},{v:15,label:'15 v'},{v:20,label:'20 v'},{v:30,label:'30 v'},{v:40,label:'40 v'}];
+const LONG_EP_OPTS     = [{v:25,label:'25'},{v:40,label:'40'},{v:60,label:'60'},{v:100,label:'100'}];
+const LONG_SEA_OPTS    = [{v:2,label:'2'},{v:3,label:'3'},{v:5,label:'5'},{v:8,label:'8'}];
+const POSTER_W_OPTS    = [{v:300,label:'Pieni'},{v:400,label:'Normaali'},{v:600,label:'Suuri'}];
+const QS_DELAY_OPTS    = [{v:0,label:'Heti'},{v:700,label:'0,7 s'},{v:1500,label:'1,5 s'},{v:999999,label:'Ei koskaan'}];
+
+async function setNum(key, v, rerender){
+  ensureSettings()[key] = Number(v);
+  window.renderTuningSettings();
+  if(rerender && window[rerender]) window[rerender]();
+  await window.fbSave();
+}
+window.setClassicAge  = v => setNum('classicAge', v);
+window.setLongEpisodes= v => setNum('longEpisodes', v);
+window.setLongSeasons = v => setNum('longSeasons', v);
+window.setPosterMaxW  = v => setNum('posterMaxW', v);
+window.setQsSortDelay = v => setNum('qsSortDelay', v);
+window.setQuickCat = async function(v){
+  ensureSettings().quickCat = v;
+  window.renderTuningSettings();
+  if(window.renderQuickScores) window.renderQuickScores();
+  await window.fbSave();
+};
+
+window.renderTuningSettings = function(){
+  const s = ensureSettings();
+  renderSeg('classicAgeBox', CLASSIC_AGE_OPTS, s.classicAge ?? 20, 'setClassicAge');
+  renderSeg('longEpBox',     LONG_EP_OPTS,     s.longEpisodes ?? 40, 'setLongEpisodes');
+  renderSeg('longSeaBox',    LONG_SEA_OPTS,    s.longSeasons ?? 3,  'setLongSeasons');
+  renderSeg('posterWBox',    POSTER_W_OPTS,    s.posterMaxW ?? 400, 'setPosterMaxW');
+  renderSeg('qsDelayBox',    QS_DELAY_OPTS,    s.qsSortDelay ?? 700, 'setQsSortDelay');
+  const cats = (appData.categories || []).map(c => ({ v:c, label:c }));
+  renderSeg('quickCatBox', cats, s.quickCat ?? 'Elokuvat', 'setQuickCat');
 };
 
 window.renderBehaviourSettings = function(){

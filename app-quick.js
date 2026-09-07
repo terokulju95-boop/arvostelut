@@ -7,9 +7,18 @@
 // se lukee ja kirjoittaa vain arvostelun score-kenttää, ja käyttää
 // samaa fbSave-tallennusta kuin muukin sovellus.
 
-window.BUILD_QUICK = '2026-09-07.8';
+window.BUILD_QUICK = '2026-09-07.9';
 
 // Vain elokuvat. Muut kategoriat eivät kuulu tähän näkymään.
+// Pisteet-näkymän kategoria. Oli kovakoodattu, joten näkymää ei voinut
+// käyttää muihin kategorioihin. Asetuksista valittavissa.
+function qsCat(){
+  const s = (typeof appData !== 'undefined' && appData.settings) || {};
+  const want = s.quickCat;
+  const cats = (appData && appData.categories) || [];
+  if(want && cats.includes(want)) return want;
+  return cats[0] || 'Elokuvat';
+}
 const QS_CAT = 'Elokuvat';
 
 // Valittu alalajirajaus: 'all' = kaikki, '' = perus, muu = alalajin nimi.
@@ -19,6 +28,7 @@ let _qsSub = 'all';
 // koska rivi hyppisi kesken numeron kirjoittamisen. Tämä ajastin siirtää
 // järjestämisen hetkeen jolloin kirjoittaminen on tauonnut.
 let _qsSortTimer = null;
+function qsSortDelay(){ return Number((appData.settings||{}).qsSortDelay ?? 700); }
 const QS_SORT_DELAY = 700;
 
 // Tallennus pilveen viiveellä. Muutos näkyy heti muistissa, mutta
@@ -29,9 +39,9 @@ const QS_SAVE_DELAY = 1200;
 // ── APURIT ──
 
 function qsPool(){
-  const subs = window.subcatsFor ? window.subcatsFor(QS_CAT) : [];
+  const subs = window.subcatsFor ? window.subcatsFor(qsCat()) : [];
   return (appData.reviews || [])
-    .filter(r => r && r.category === QS_CAT)
+    .filter(r => r && r.category === qsCat())
     .filter(r => {
       if(_qsSub === 'all') return true;
       const s = window.subcatOf ? window.subcatOf(r) : (r.subcat || '');
@@ -70,7 +80,7 @@ window.renderQuickScores = function(){
   const host = document.getElementById('quickView');
   if(!host) return;
 
-  const subs = window.subcatsFor ? window.subcatsFor(QS_CAT) : [];
+  const subs = window.subcatsFor ? window.subcatsFor(qsCat()) : [];
   const choices = [
     { id:'all', label:'Kaikki' },
     { id:'',    label:'Perus'  },
@@ -177,7 +187,7 @@ window.qsInput = function(id, el){
   const val = el.value === '' ? null : +el.value;
   qsApply(id, val);
   clearTimeout(_qsSortTimer);
-  _qsSortTimer = setTimeout(() => qsResort(id), QS_SORT_DELAY);
+  _qsSortTimer = setTimeout(() => qsResort(id), qsSortDelay());
 };
 
 // Kentästä poistuminen tai Enter: järjestetään heti odottamatta viivettä.

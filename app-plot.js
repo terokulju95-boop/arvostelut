@@ -1,5 +1,5 @@
 // ══ ARVOSTELUT · juonten muokkaus ══
-window.BUILD_PLOT = '2026-09-07.8';
+window.BUILD_PLOT = '2026-09-07.9';
 //
 // TMDB tuo juonet automaattisesti, mutta kaikkiin teoksiin niitä ei löydy.
 // Tässä tiedostossa juonen voi kirjoittaa itse. Ydinsääntö: itse kirjoitettua
@@ -29,7 +29,7 @@ window.updatePlotSectionVisibility = function(){
   const sec = document.getElementById('plotSection');
   if(!sec) return;
   const cat = document.getElementById('formCat')?.value || '';
-  sec.style.display = PLOT_CATS.includes(cat) ? 'block' : 'none';
+  sec.style.display = window.catHas(cat, 'plot') ? 'block' : 'none';
   window.renderPlotMeta();
 };
 
@@ -104,7 +104,7 @@ window.renderPlotMeta = function(){
 window.applyFormPlot = function(r){
   const ta = document.getElementById('formPlot');
   const cat = document.getElementById('formCat')?.value || '';
-  if(!ta || !PLOT_CATS.includes(cat)) return;
+  if(!ta || !window.catHas(cat, 'plot')) return;
   const t = ta.value.trim();
 
   if(!t){

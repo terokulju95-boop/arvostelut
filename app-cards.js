@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-07.8';
+window.BUILD_CARDS = '2026-09-07.9';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -444,7 +444,7 @@ function sectionSummaries(){
   const hiddenRead = CARD_FIELDS.filter(f => !window.cardField('read', f.id)).length;
   const posLabel = (POSTER_POSITIONS.find(p => p.id === window.posterPos()) || {}).label || '';
   const noPlot = (appData.reviews || [])
-    .filter(r => PLOT_CATS.includes(r.category) && !r.plot).length;
+    .filter(r => catHas(r.category, 'plot') && !r.plot).length;
 
   const modeName = ((window.THEME_MODES || []).find(m => m.id === (s.themeMode || 'dark')) || {}).name || '';
   const packName = ((window.THEME_PACKS || []).find(x => x.id === (s.themePack || 'perus')) || {}).name || '';
@@ -498,7 +498,7 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-09-07.8', items:[
+  { build:'2026-09-07.9', items:[
     { icon:'🔤', title:'Haku sietää kirjoitusvirheet',
       text:'Nimihaku kokeilee tarvittaessa useampaa muunnelmaa ja lajittelee tulokset sovelluksen omalla sumealla vertailulla. "Fuury" löytää Furyn.',
       view:'discover' },
@@ -629,7 +629,7 @@ function looksLikeExistingInstall(){
 
 // Versioleimojen vertailu numeroina. Merkkijonovertailu menisi pieleen heti
 // kun saman päivän julkaisuja on yli yhdeksän: '2026-09-06.10' on
-// merkkijonona pienempi kuin '2026-09-07.8', vaikka se on uudempi.
+// merkkijonona pienempi kuin '2026-09-07.9', vaikka se on uudempi.
 function buildRank(b){
   const m = String(b || '').match(/^(\d{4})-(\d{2})-(\d{2})\.(\d+)/);
   if(!m) return -1;

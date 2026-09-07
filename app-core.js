@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-07.8';
+window.BUILD_CORE = '2026-09-07.9';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -10,6 +10,7 @@ window.BUILD_CORE = '2026-09-07.8';
 const DEFAULT_CATS = ['Elokuvat','TV-sarjat'];
 const DEFAULT_GENRES = ['Toiminta','Komedia','Draama','Kauhu','Sci-fi','Trilleri','Dokumentti','Animaatio','Romantiikka','Fantasia','Seikkailu','Musiikki','Urheilu','Rikostarina','Historia','Sota','Western','Noir','Perhe','Tositapahtumat'];
 let GENRES = [...DEFAULT_GENRES];
+// Korvattu catHas(cat,'genre'):lla — jätetty vain vanhojen viittausten varalta
 const GENRE_CATS = ['Elokuvat','TV-sarjat'];
 // Kategoriat joilla on TMDB-tiedot ja siten juoni
 const PLOT_CATS = ['Elokuvat','TV-sarjat'];
@@ -766,6 +767,31 @@ function ensureSettings(){
   if(appData.settings.subCounts == null) appData.settings.subCounts = true;
   // Animaatiot. Pois kytkettynä siirtymät ja konfetti jäävät pois.
   if(appData.settings.animations == null) appData.settings.animations = true;
+
+  // ── KATEGORIAKOHTAISET OMINAISUUDET ──
+  // Genret, juoni ja TMDB olivat aiemmin kovakoodattu kahteen kategoriaan,
+  // joten itse luotu kategoria ei voinut saada niitä lainkaan. Oletukset
+  // vastaavat vanhaa toimintaa: Elokuvat ja TV-sarjat saavat kaikki kolme,
+  // muut eivät mitään.
+  if(!appData.settings.catFeatures || typeof appData.settings.catFeatures !== 'object'){
+    appData.settings.catFeatures = {};
+  }
+  (appData.categories || []).forEach(c => {
+    if(appData.settings.catFeatures[c]) return;
+    const legacy = (c === 'Elokuvat' || c === 'TV-sarjat');
+    appData.settings.catFeatures[c] = { genre:legacy, plot:legacy, tmdb:legacy };
+  });
+  // Pisteet-näkymän kategoria. Tyhjä = ensimmäinen jolla on TMDB käytössä.
+  if(appData.settings.quickCat == null) appData.settings.quickCat = 'Elokuvat';
+  // Löydä-osion kynnysarvot
+  if(appData.settings.classicAge == null) appData.settings.classicAge = 20;
+  if(appData.settings.longEpisodes == null) appData.settings.longEpisodes = 40;
+  if(appData.settings.longSeasons == null) appData.settings.longSeasons = 3;
+  // Oman julisteen enimmäisleveys. Pienempi = enemmän julisteita mahtuu
+  // laitteen varmuuskopioon ennen kuin tila loppuu.
+  if(appData.settings.posterMaxW == null) appData.settings.posterMaxW = 400;
+  // Pikamuokkauksen viiveet millisekunteina
+  if(appData.settings.qsSortDelay == null) appData.settings.qsSortDelay = 700;
 
   // Poistettujen ominaisuuksien jäänteet pois, jotta tallennettu asetusdata
   // ei kanna mukanaan kenttiä joita mikään ei enää lue.
@@ -1814,6 +1840,23 @@ function normName(s){
 
 // Palauttaa aiemman arvostelun jos uusi näyttää samalta teokselta.
 // Eri julkaisuvuosi = eri teos (esim. remake), jolloin ei varoiteta.
+// Onko kategorialla tietty ominaisuus käytössä: 'genre', 'plot' tai 'tmdb'.
+// Korvaa aiemmat kovakoodatut GENRE_CATS / PLOT_CATS / BULK_CATS -listat.
+function catHas(cat, feature){
+  const s = (typeof appData !== 'undefined' && appData.settings) || {};
+  const f = s.catFeatures && s.catFeatures[cat];
+  if(f) return !!f[feature];
+  // Tuntematon kategoria (esim. juuri luotu): vanha oletus
+  return cat === 'Elokuvat' || cat === 'TV-sarjat';
+}
+window.catHas = catHas;
+
+// Kategoriat joilla ominaisuus on käytössä
+function catsWith(feature){
+  return (appData.categories || []).filter(c => catHas(c, feature));
+}
+window.catsWith = catsWith;
+
 // Yksi paikka kaikille päälle/pois-asetuksille, jotta oletusarvo on
 // yhdenmukainen eikä puuttuva kenttä tarkoita eri asiaa eri paikoissa.
 function setOn(key){
@@ -2043,7 +2086,7 @@ window.restoreTmdbPlot = restoreTmdbPlot;
 // Arvostelut, joilta juoni puuttuu kokonaan
 function reviewsWithoutPlot(){
   return (appData.reviews || [])
-    .filter(r => PLOT_CATS.includes(r.category) && !String(r.plot || '').trim())
+    .filter(r => catHas(r.category, 'plot') && !String(r.plot || '').trim())
     .sort((a,b) => plainName(a).localeCompare(plainName(b), 'fi'));
 }
 window.reviewsWithoutPlot = reviewsWithoutPlot;

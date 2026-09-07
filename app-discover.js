@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-09-07.8';
+window.BUILD_DISCOVER = '2026-09-07.9';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.
@@ -459,6 +459,8 @@ async function discoverCollections(out){
 // annat keskimäärin parhaat pisteet. "Klassikko" = vähintään 20 vuotta
 // vanha ja laajasti äänestetty, jotta listalle ei nouse tuoretta hittiä
 // eikä tuntematonta kuriositeettia.
+// Asetuksista säädettävissä; vakio jää oletukseksi.
+function classicAge(){ return Number((appData.settings||{}).classicAge) || 20; }
 const CLASSIC_AGE  = 20;     // vuotta
 const CLASSIC_VOTES = 700;   // vähimmäisäänimäärä TMDB:ssä
 
@@ -469,7 +471,7 @@ function bestGenres(){
     if(sc == null) return;
     // Vain elokuvamaiset kategoriat: sarjojen pisteet eivät kerro
     // mitään siitä millaisista elokuvaklassikoista pidät.
-    if(!GENRE_CATS.includes(r.category)) return;
+    if(!catHas(r.category, 'genre')) return;
     const gs = Array.isArray(r.genre) ? r.genre : (r.genre ? [r.genre] : []);
     gs.forEach(g => {
       if(genreToTmdbId(g) == null) return;
@@ -495,7 +497,7 @@ async function discoverClassics(out){
     return;
   }
 
-  const cutoff = `${new Date().getFullYear() - CLASSIC_AGE}-12-31`;
+  const cutoff = `${new Date().getFullYear() - classicAge()}-12-31`;
   const ids   = reviewedTmdbIds();
   const names = reviewedNames();
   const seen  = new Set();
@@ -532,7 +534,7 @@ async function discoverClassics(out){
 
     sections.push(discSection(
       `🏛️ ${esc(g.name)}`,
-      `Keskiarvosi genressä ${g.avg} pistettä (${g.n} teosta) · vähintään ${CLASSIC_AGE} vuotta vanhoja`,
+      `Keskiarvosi genressä ${g.avg} pistettä (${g.n} teosta) · vähintään ${classicAge()} vuotta vanhoja`,
       picks.map(item => discCard(item, `Klassikko genressä ${esc(g.name)}, jota et ole arvostellut`)).join('')
     ));
     await new Promise(r => setTimeout(r, 80));
@@ -1053,7 +1055,9 @@ async function discoverEndedSeries(out){
 // osaa suodattaa jaksomäärällä, joten haetaan arvostetut sarjat ja
 // kysytään jaksomäärä yksitellen vasta karsinnan jälkeen — muuten
 // kutsuja kuluisi kymmenkertaisesti.
+function longEpisodes(){ return Number((appData.settings||{}).longEpisodes) || 40; }
 const LONG_MIN_EPISODES = 40;
+function longSeasons(){ return Number((appData.settings||{}).longSeasons) || 3; }
 const LONG_MIN_SEASONS  = 3;
 const LONG_CHECK_MAX    = 14;   // montako ehdokasta tarkistetaan yhtä hakua kohden
 
@@ -1103,7 +1107,7 @@ async function discoverLongSeries(out){
       // Hylätty ehdokas merkitään myös nähdyksi, jottei seuraava genrekierros
       // hae samaa sarjaa uudelleen vain hylätäkseen sen taas.
       seen.add(item.id);
-      if(eps < LONG_MIN_EPISODES || seas < LONG_MIN_SEASONS) continue;
+      if(eps < longEpisodes() || seas < longSeasons()) continue;
       // Kesto arvioidaan jakson keskikestosta kun se on tiedossa
       const runtime = Array.isArray(d.episode_run_time) && d.episode_run_time.length
         ? d.episode_run_time[0] : null;
@@ -1116,8 +1120,8 @@ async function discoverLongSeries(out){
     sections.push(discSection(
       g.name ? `📚 ${esc(g.name)}` : '📚 Pitkät sarjat',
       g.name
-        ? `Keskiarvosi genressä ${g.avg} pistettä (${g.n} sarjaa) · vähintään ${LONG_MIN_SEASONS} kautta ja ${LONG_MIN_EPISODES} jaksoa`
-        : `Vähintään ${LONG_MIN_SEASONS} kautta ja ${LONG_MIN_EPISODES} jaksoa`,
+        ? `Keskiarvosi genressä ${g.avg} pistettä (${g.n} sarjaa) · vähintään ${longSeasons()} kautta ja ${longEpisodes()} jaksoa`
+        : `Vähintään ${longSeasons()} kautta ja ${longEpisodes()} jaksoa`,
       picks.map(p => discCard(p.item,
         `${p.seas} kautta · ${p.eps} jaksoa${p.hours ? ` · noin ${p.hours} h katsottavaa` : ''}`
       )).join('')

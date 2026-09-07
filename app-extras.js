@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · lisätoiminnot ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_EXTRAS = '2026-09-07.8';
+window.BUILD_EXTRAS = '2026-09-07.9';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä toisistaan riippumatonta osaa:
 //   1. Pull-to-refresh
@@ -212,6 +212,9 @@ window.renderDirectorBanner = function(count){
 // riittää tarkkuudeksi hyvin. Kokoraja on tiukempi kuin Firestoren 1 Mt
 // vaatisi, koska paikallinen varmuuskopio menee localStorageen — sen noin
 // 5 Mt täyttyisi nopeasti täysikokoisilla kamerakuvilla.
+// Asetuksista säädettävissä: pienempi leveys = pienempi tiedosto, jolloin
+// laitteen varmuuskopioon mahtuu enemmän omia julisteita.
+function posterMaxW(){ return Number((appData.settings||{}).posterMaxW) || 400; }
 const POSTER_MAX_W     = 400;
 const POSTER_MAX_BYTES = 120000;   // ~120 kt data-URL:na
 
@@ -338,7 +341,7 @@ function compressImage(file){
       img.onerror = () => reject(new Error('Kuvaa ei voitu avata'));
       img.onload = () => {
         try{
-          const scale = Math.min(1, POSTER_MAX_W / img.width);
+          const scale = Math.min(1, posterMaxW() / img.width);
           const w = Math.max(1, Math.round(img.width * scale));
           const h = Math.max(1, Math.round(img.height * scale));
           const cv = document.createElement('canvas');

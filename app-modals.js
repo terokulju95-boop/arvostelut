@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-07.8';
+window.BUILD_MODALS = '2026-09-07.9';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1449,6 +1449,8 @@ window.openSettings = function(){
   safeRender('korttien sisältö', window.renderCardSettings);
   safeRender('tmdb-tila', renderTmdbStatus);
   safeRender('asettelu', window.renderLayoutSettings);
+  safeRender('kategorioiden ominaisuudet', window.renderCatFeatureSettings);
+  safeRender('hienosäätö', window.renderTuningSettings);
   safeRender('tekstin koko', window.renderTextScaleSettings);
   safeRender('käyttäytyminen', window.renderBehaviourSettings);
   safeRender('asetussuoja', renderMetaGuard);
@@ -1718,7 +1720,7 @@ window.openReadModal = function(id){
       </div>
     </div>
     ${extraRows.join('')}
-    ${(PLOT_CATS.includes(r.category) && rf('plot')) ? (r.plot ? `<div class="read-section">
+    ${(catHas(r.category, 'plot') && rf('plot')) ? (r.plot ? `<div class="read-section">
       <div class="read-label read-label-row">
         <span>📖 Juoni</span>
         ${isOwnPlot(r) ? '<span class="plot-badge own">OMA</span>' : ''}

@@ -698,6 +698,48 @@
         </div>
       </div>
 
+      <div class="set-sec" data-sec="katominaisuudet">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('katominaisuudet')" aria-expanded="false">
+          <span class="set-sec-icon">🗂️</span>
+          <span class="set-sec-title">Kategorioiden ominaisuudet<span class="set-sec-sum" id="sum-katominaisuudet"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-katominaisuudet" hidden>
+          <div class="toggle-row-sub" style="margin-bottom:12px;">Valitse mitkä ominaisuudet ovat käytössä missäkin kategoriassa. Aiemmin genret, juoni ja TMDB olivat kiinteästi vain Elokuvissa ja TV-sarjoissa, joten itse luotu kategoria ei voinut saada niitä.</div>
+          <div id="catFeatureBox"></div>
+        </div>
+      </div>
+
+      <div class="set-sec" data-sec="viritys">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('viritys')" aria-expanded="false">
+          <span class="set-sec-icon">🎚️</span>
+          <span class="set-sec-title">Hienosäätö<span class="set-sec-sum" id="sum-viritys"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-viritys" hidden>
+          <label>Klassikon ikäraja</label>
+          <div class="toggle-row-sub" style="margin-bottom:2px;">Löydä-osion Klassikot-haku etsii tätä vanhempia elokuvia.</div>
+          <div class="seg-row" id="classicAgeBox"></div>
+
+          <label style="margin-top:14px;">Pitkä sarja: vähintään jaksoja</label>
+          <div class="seg-row" id="longEpBox"></div>
+          <label style="margin-top:10px;">Pitkä sarja: vähintään kausia</label>
+          <div class="seg-row" id="longSeaBox"></div>
+
+          <label style="margin-top:14px;">Pisteet-näkymän kategoria</label>
+          <div class="toggle-row-sub" style="margin-bottom:2px;">Mitä kategoriaa pikamuokkaus näyttää.</div>
+          <div class="seg-row" id="quickCatBox"></div>
+
+          <label style="margin-top:14px;">Pisteet-näkymän uudelleenjärjestys</label>
+          <div class="toggle-row-sub" style="margin-bottom:2px;">Kuinka kauan pisteen muuttamisen jälkeen odotetaan ennen kuin rivi siirtyy uuteen kohtaan.</div>
+          <div class="seg-row" id="qsDelayBox"></div>
+
+          <label style="margin-top:14px;">Oman julisteen laatu</label>
+          <div class="toggle-row-sub" style="margin-bottom:2px;">Pienempi kuva vie vähemmän tilaa, jolloin laitteen varmuuskopioon mahtuu enemmän omia julisteita.</div>
+          <div class="seg-row" id="posterWBox"></div>
+        </div>
+      </div>
+
       <div class="set-sec" data-sec="kaytto">
         <button type="button" class="set-sec-head" onclick="toggleSetSec('kaytto')" aria-expanded="false">
           <span class="set-sec-icon">🎛️</span>

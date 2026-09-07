@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · TMDB-massapäivitys ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_BULK = '2026-09-07.8';
+window.BUILD_BULK = '2026-09-07.9';
 //
 // Kolme vaihetta, koska verkkokutsu on kallis ja peruuttamaton:
 //   1. TARKISTUS  – pelkkä paikallinen läpikäynti. Kertoo miltä puuttuu mitä.
@@ -67,7 +67,7 @@ function isTvReview(r){
 function scanReviews(){
   const out = [];
   (appData.reviews || []).forEach(r => {
-    if(!r || !BULK_CATS.includes(r.category)) return;
+    if(!r || !catHas(r.category, 'tmdb')) return;
     const isTv = isTvReview(r);
     const missing = bulkFieldsFor(isTv)
       .filter(f => !f.hidden && f.isEmpty(r[f.key]))
