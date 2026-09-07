@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-09-07.4';
+window.BUILD_FIREBASE = '2026-09-07.5';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -430,15 +430,42 @@ window.tmdbTestToken = async function(token){
 };
 
 async function checkTmdbTokenStartup(){
+  // Tunnus tulee asetuksista eli Firestoren meta-dokumentista, joka saapuu
+  // vasta hetken kuluttua käynnistyksestä. Käynnistyshetkellä puuttuva
+  // tunnus on siis odotustila, ei virhe — aiemmin tästä välähti joka
+  // avauksella punainen "TMDB-tunnus ei toimi" vaikka kaikki oli kunnossa.
+  // Tarkistus tehdään uudelleen syncTmdbToken():sta heti kun tunnus saapuu.
+  if(!window.tmdbToken){
+    window._tmdbTokenStatus = { ok:null, checkedAt:null, message:'Odottaa tunnusta' };
+    refreshTokenStatusInSettings();
+    return;
+  }
   const r = await window.tmdbTestToken();
   window._tmdbTokenStatus = { ok:r.ok, checkedAt: new Date().toISOString(), message: r.message };
   if(!r.ok && r.message !== 'Verkkovirhe tunnuksen tarkistuksessa'){
     window.showStatus('⚠️ TMDB-tunnus ei toimi — katso Asetukset', '#dc2626', 6000);
   }
+  refreshTokenStatusInSettings();
+}
+
+function refreshTokenStatusInSettings(){
   if(document.getElementById('settingsModal')?.classList.contains('open') && window.refreshTmdbStatusInSettings){
     window.refreshTmdbStatusInSettings();
   }
 }
+
+// Kutsutaan vasta kun asetukset on ladattu. Jos tunnusta ei silloinkaan ole,
+// kyseessä on aito puute ja siitä kerrotaan kerran.
+let noTokenWarned = false;
+window.tmdbTokenGate = function(){
+  if(window.tmdbToken){ noTokenWarned = false; return; }
+  if(noTokenWarned) return;
+  noTokenWarned = true;
+  window._tmdbTokenStatus = { ok:false, checkedAt:new Date().toISOString(), message:'Tunnus puuttuu' };
+  window.showStatus('⚠️ TMDB-tunnusta ei ole asetettu — katso Asetukset', '#f59e0b', 6000);
+  refreshTokenStatusInSettings();
+};
+
 window.recheckTmdbToken = checkTmdbTokenStartup;
 checkTmdbTokenStartup();
 
@@ -1008,6 +1035,10 @@ async function fbLoad(){
 
   // Latausaika suorituskykytietoja varten
   window._loadFinishedAt = Date.now();
+
+  // Asetukset on nyt luettu, joten tunnuksen puuttuminen on aito puute.
+  // Pieni viive antaa syncTmdbToken():n ehtiä ensin.
+  setTimeout(() => { try{ window.tmdbTokenGate(); } catch(e){} }, 600);
 
   // Julisteiden polut talteen kirjautumisruudun kollaasia varten.
   // Kirjautumisruudulla ei ole vielä yhteyttä pilveen, joten kuvat

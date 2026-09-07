@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-07.4';
+window.BUILD_MODALS = '2026-09-07.5';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1468,6 +1468,8 @@ function renderTmdbStatus(){
   // Koodissa ei ole enää oletustunnusta, joten puuttuva tunnus on oma
   // tilansa eikä "tuntematon virhe".
   if(!custom0 && !window.tmdbToken) statusLine = '⚠️ Tunnusta ei ole asetettu';
+  // Tunnus saapuu pilvestä hetken viiveellä — odotusta ei näytetä virheenä
+  else if(st.ok === null && st.message === 'Odottaa tunnusta') statusLine = '⏳ Odottaa tunnusta pilvestä...';
   else if(st.ok === true) statusLine = `✅ Toimii (${st.message||''})`;
   else if(st.ok === false) statusLine = `❌ Ongelma: ${st.message||'Tuntematon virhe'}`;
   else statusLine = '⏳ Tarkistetaan...';

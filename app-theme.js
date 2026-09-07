@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-07.4';
+window.BUILD_THEME = '2026-09-07.5';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
