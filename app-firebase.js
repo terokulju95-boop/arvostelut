@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-09-07.3';
+window.BUILD_FIREBASE = '2026-09-07.4';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -195,7 +195,15 @@ let syncWarnShown = false;
 // TMDB token — TÄMÄ ON VAIN OLETUS.
 // Asetuksiin tallennettu tunnus (settings.tmdbToken) korvaa tämän
 // heti kun asetukset on ladattu pilvestä. Katso syncTmdbToken().
-window.tmdbTokenDefault = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyYjhkODg4ZjdkMGZkNmRlNzE4MjIxNTM2NWYzZTlmMSIsIm5iZiI6MTc3NDkwNDg1Ny42MjIwMDAyLCJzdWIiOiI2OWNhZTYxOWIwMGYyNWRlZmJjZTNjY2YiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.EGIEIkcAl8J5FloGkTmahs_L3PQ6WTIuRsV3KLg4t2g";
+// Tyhjä tarkoituksella. Aiemmin tässä oli toimiva lukutunnus, joka vuoti
+// julkisen GitHub-repon mukana. TMDB:n v4-lukutunnus on JWT, jonka aud-kenttä
+// sisältää v3 API-avaimen selkokielisenä — vuodossa meni siis molemmat.
+// Vanha avain on luotu uudelleen ja mitätöity.
+//
+// Tunnus annetaan nyt vain Asetukset → TMDB -kentästä. Se tallentuu
+// meta-dokumenttiin omaan Firestoreesi, jota säännöt suojaavat, eikä päädy
+// koodiin eikä versiohistoriaan.
+window.tmdbTokenDefault = "";
 window.tmdbToken = window.tmdbTokenDefault;
 
 function showStatus(msg, color, duration){

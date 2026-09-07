@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-07.3';
+window.BUILD_MODALS = '2026-09-07.4';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1463,15 +1463,19 @@ function renderTmdbStatus(){
   if(!box) return;
   const st = window._tmdbTokenStatus || {};
   const issued = window.tmdbTokenIssuedAt ? new Date(window.tmdbTokenIssuedAt).toLocaleDateString('fi-FI') : 'Ei tiedossa';
+  const custom0 = !!String((appData.settings && appData.settings.tmdbToken) || '').trim();
   let statusLine;
-  if(st.ok === true) statusLine = `✅ Toimii (${st.message||''})`;
+  // Koodissa ei ole enää oletustunnusta, joten puuttuva tunnus on oma
+  // tilansa eikä "tuntematon virhe".
+  if(!custom0 && !window.tmdbToken) statusLine = '⚠️ Tunnusta ei ole asetettu';
+  else if(st.ok === true) statusLine = `✅ Toimii (${st.message||''})`;
   else if(st.ok === false) statusLine = `❌ Ongelma: ${st.message||'Tuntematon virhe'}`;
   else statusLine = '⏳ Tarkistetaan...';
   const checkedAt = st.checkedAt ? new Date(st.checkedAt).toLocaleString('fi-FI') : '–';
   const custom = !!String((appData.settings && appData.settings.tmdbToken) || '').trim();
   box.innerHTML = `
     <div>${statusLine}</div>
-    <div style="margin-top:6px;">🔑 Lähde: ${custom ? 'asetuksiin tallennettu oma tunnus' : 'koodin oletustunnus'}</div>
+    <div style="margin-top:6px;">🔑 Lähde: ${custom ? 'asetuksiin tallennettu oma tunnus (ei koodissa)' : 'ei asetettu — liitä lukutunnus alle'}</div>
     <div>📅 Myönnetty: ${issued}</div>
     <div>🕓 Viimeksi tarkistettu: ${checkedAt}</div>
     <div style="margin-top:8px;font-size:11px;opacity:0.8;">TMDB:n lukutunnuksilla ei ole kiinteää vanhenemispäivää — sovellus testaa toimivuuden oikealla API-kutsulla joka kerta kun sovellus käynnistetään.</div>

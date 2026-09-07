@@ -825,14 +825,14 @@
 <div id="tmdbStatusBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);line-height:1.6;"></div>
         <label style="margin-top:14px;">Oma lukutunnus (Read Access Token)</label>
         <textarea class="token-input" id="tmdbTokenInput" rows="3" spellcheck="false" autocapitalize="off" autocorrect="off"
-          placeholder="Jätä tyhjäksi jos haluat käyttää oletusta"></textarea>
+          placeholder="Liitä TMDB:n API Read Access Token (alkaa eyJ)"></textarea>
         <div class="token-row">
           <button type="button" class="btn-secondary" onclick="testTmdbTokenInput()">🧪 Testaa</button>
           <button type="button" class="btn-primary" onclick="saveTmdbToken()">Tallenna</button>
         </div>
-        <button type="button" class="thr-reset" onclick="clearTmdbToken()">↩️ Palauta oletustunnus</button>
+        <button type="button" class="thr-reset" id="tmdbTokenClearBtn" onclick="clearTmdbToken()">🗑️ Poista tallennettu tunnus</button>
         <div class="token-state" id="tmdbTokenState"></div>
-        <div class="toggle-row-sub" style="margin-top:8px;">Tunnuksen saa osoitteesta themoviedb.org → Settings → API → API Read Access Token. Se tallennetaan vain omaan pilveesi, ei koodiin.</div>
+        <div class="toggle-row-sub" style="margin-top:8px;">Tunnuksen saa osoitteesta themoviedb.org → Settings → API → <strong>API Read Access Token</strong> (ei API Key v3). Se tallennetaan vain omaan pilveesi, ei koodiin eikä versiohistoriaan. Ilman tunnusta TMDB-haut, julisteet ja Löydä-osio eivät toimi.</div>
         </div>
       </div>
       <div class="set-sec" data-sec="kutsut">

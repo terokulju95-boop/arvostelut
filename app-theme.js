@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-07.3';
+window.BUILD_THEME = '2026-09-07.4';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -548,11 +548,16 @@ window.renderTokenSettings = function(){
   const st = document.getElementById('tmdbTokenState');
   if(st){
     const custom = !!String(s.tmdbToken || '').trim();
-    st.className = 'token-state';
+    st.className = 'token-state' + (custom ? '' : ' bad');
+    // Koodissa ei ole enää oletustunnusta, joten tyhjä kenttä ei tarkoita
+    // "käytetään oletusta" vaan "TMDB ei toimi".
     st.textContent = custom
-      ? '🔑 Käytössä on asetuksiin tallennettu oma tunnus. Se säilyy vain omassa pilvessäsi.'
-      : '📦 Käytössä on koodiin kirjoitettu oletustunnus. Jos repositorio on julkinen, tunnus näkyy kaikille — kannattaa vaihtaa oma tähän.';
+      ? '🔑 Käytössä on asetuksiin tallennettu oma tunnus. Se säilyy vain omassa pilvessäsi, ei koodissa.'
+      : '⚠️ Tunnusta ei ole asetettu. TMDB-haut, julisteet ja Löydä-osio eivät toimi ennen kuin liität lukutunnuksen tähän.';
   }
+  // Poistonapin saa näkyviin vain jos on jotain poistettavaa
+  const del = document.getElementById('tmdbTokenClearBtn');
+  if(del) del.style.display = String(s.tmdbToken || '').trim() ? '' : 'none';
 };
 
 window.testTmdbTokenInput = async function(){
@@ -560,9 +565,14 @@ window.testTmdbTokenInput = async function(){
   const st = document.getElementById('tmdbTokenState');
   if(!inp || !st) return;
   const val = inp.value.trim();
+  if(!val){
+    st.className = 'token-state bad';
+    st.textContent = '❌ Liitä ensin lukutunnus kenttään. Koodissa ei ole oletusta.';
+    return;
+  }
   st.className = 'token-state';
   st.textContent = '⏳ Testataan tunnusta...';
-  const r = await window.tmdbTestToken(val || window.tmdbTokenDefault);
+  const r = await window.tmdbTestToken(val);
   st.className = 'token-state ' + (r.ok ? 'ok' : 'bad');
   st.textContent = r.ok
     ? `✅ Tunnus toimii (${r.message}). Muista vielä tallentaa.`
@@ -576,6 +586,9 @@ window.saveTmdbToken = async function(){
   if(val){
     const r = await window.tmdbTestToken(val);
     if(!r.ok && !confirm(`Tunnus ei läpäissyt testiä (${r.message}). Tallennetaanko silti?`)) return;
+  } else if(String(ensureSettings().tmdbToken || '').trim()){
+    // Tyhjäksi tallentaminen ei enää palauta oletusta — se katkaisee TMDB:n
+    if(!confirm('Kenttä on tyhjä. Tunnus poistetaan, eivätkä TMDB-haut, julisteet tai Löydä-osio toimi ennen kuin liität uuden.\n\nJatketaanko?')) return;
   }
   ensureSettings().tmdbToken = val;
   window.syncTmdbToken();
@@ -584,10 +597,13 @@ window.saveTmdbToken = async function(){
   await window.fbSave();
 };
 
+// Poistaa tallennetun tunnuksen. Aiemmin tämä palautti koodissa olleen
+// oletustunnuksen; sellaista ei enää ole, joten toiminto katkaisee TMDB:n
+// kunnes uusi tunnus liitetään. Teksti kertoo sen suoraan.
 window.clearTmdbToken = async function(){
-  if(!confirm('Palautetaanko koodissa oleva oletustunnus käyttöön?')) return;
+  if(!confirm('Poistetaanko tallennettu TMDB-tunnus?\n\nTMDB-haut, julisteet ja Löydä-osio lakkaavat toimimasta ennen kuin liität uuden tunnuksen.')) return;
   ensureSettings().tmdbToken = '';
-  window.tmdbToken = window.tmdbTokenDefault;
+  window.tmdbToken = '';
   if(window.tmdbIssuedAt) window.tmdbTokenIssuedAt = window.tmdbIssuedAt(window.tmdbToken);
   if(window.recheckTmdbToken) window.recheckTmdbToken();
   window.renderTokenSettings();
