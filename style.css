@@ -1240,10 +1240,17 @@ html[data-filmstrip="on"] body::before{
 [data-tabs="rivita"] .sub-tabs,
 [data-tabs="rivita"] .cat-tabs{flex-wrap:wrap;overflow-x:visible;}
 
-[data-tabs="haivyta"] .tabs-wrap{position:relative;}
+/* Kääre on aina paikannettu, jotta nappi asettuu oikein heti kun tyyliä
+   vaihdetaan eikä vasta seuraavalla piirrolla. */
+.tabs-wrap{position:relative;}
+/* Nappi on piilossa OLETUKSENA. Ilman tätä perussääntöä se piirtyi
+   selaimen omalla tyylillä valkoisena laatikkona vieritys- ja
+   rivitystilassa, joissa sillä ei ole mitään tehtävää. */
+.tabs-more{display:none;position:absolute;top:50%;right:2px;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);color:var(--accent);font-size:calc(13px * var(--ts,1));line-height:1;cursor:pointer;align-items:center;justify-content:center;padding:0;z-index:2;}
+
 [data-tabs="haivyta"] .tabs-wrap::after{content:'';position:absolute;top:0;bottom:0;right:0;width:36px;pointer-events:none;background:linear-gradient(to right,transparent,var(--bg));opacity:0;transition:opacity .18s;}
 [data-tabs="haivyta"] .tabs-wrap.has-more::after{opacity:1;}
-[data-tabs="haivyta"] .tabs-more{position:absolute;top:50%;right:2px;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);color:var(--accent);font-size:calc(13px * var(--ts,1));line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;z-index:2;}
+/* Nappi näkyy vain häivytystilassa JA vain kun rivi oikeasti jatkuu. */
 [data-tabs="haivyta"] .tabs-wrap.has-more .tabs-more{display:flex;}
 .sub-tab{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:calc(12.5px * var(--ts,1));font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;}
 .sub-tab.active{background:var(--acc-15);border-color:var(--accent);color:var(--accent);}
