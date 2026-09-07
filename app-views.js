@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-07.5';
+window.BUILD_VIEWS = '2026-09-07.6';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -2370,6 +2370,9 @@ function ratingGroupComplete(stateObj, set, groupId){
 // Ehto `wasComplete` estää sen, että vanhaa arvostelua muokatessa ryhmä
 // romahtaisi kiinni heti kun yhtä vastausta korjaa.
 function advanceRatingGroup(containerId, stateObj, dimId, wasComplete){
+  // Asetuksista pois kytkettynä ryhmät jäävät auki, jolloin kaikki
+  // kysymykset näkyvät yhtä aikaa ja ne saa sulkea itse.
+  if(!setOn('autoAdvanceRatings')) return;
   if(wasComplete) return;
   const set = ratingSet(formRatingSub());
   const dim = set.dims.find(d => d.id === dimId);
@@ -2507,7 +2510,7 @@ window.saveReview = async function(){
 
   // Varoita jos sama teos on jo arvosteltu (vain uusia lisättäessä)
   if(!editingId){
-    const dup = findDuplicateReview(name, year, cat, window._tmdbPending?.tmdb_id, null);
+    const dup = setOn('dupWarn') ? findDuplicateReview(name, year, cat, window._tmdbPending?.tmdb_id, null) : null;
     if(dup){
       const choice = await askDuplicate(dup);
       if(choice !== 'new'){
@@ -2615,7 +2618,7 @@ window.saveReview = async function(){
   renderCards();
   // Konfetti vain jos piste oikeasti annettiin tällä lomakkeella. Kausi- ja
   // jaksosarjoilla selectedScore voi olla edellisestä lomakkeesta jäänyt 100.
-  if(needsScore && selectedScore===100) setTimeout(launchConfetti, 300);
+  if(needsScore && selectedScore===100 && setOn('confetti')) setTimeout(launchConfetti, 300);
 };
 
 // ── TMDB PÄIVITYS OLEMASSA OLEVAAN ARVOSTELUUN ──

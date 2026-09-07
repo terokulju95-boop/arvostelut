@@ -657,6 +657,55 @@
         </div>
         </div>
       </div>
+      <div class="set-sec" data-sec="tekstikoko">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('tekstikoko')" aria-expanded="false">
+          <span class="set-sec-icon">🔠</span>
+          <span class="set-sec-title">Tekstin koko<span class="set-sec-sum" id="sum-tekstikoko"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-tekstikoko" hidden>
+          <div class="toggle-row-sub" style="margin-bottom:10px;">Skaalaa kaikki tekstit. Asettelut, marginaalit ja julisteiden koot pysyvät ennallaan.</div>
+          <div class="seg-row" id="textScaleBox"></div>
+        </div>
+      </div>
+
+      <div class="set-sec" data-sec="kaytto">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('kaytto')" aria-expanded="false">
+          <span class="set-sec-icon">🎛️</span>
+          <span class="set-sec-title">Käyttäytyminen<span class="set-sec-sum" id="sum-kaytto"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-kaytto" hidden>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-row-label">Laaja arviointi sulkeutuu itsestään</div>
+              <div class="toggle-row-sub">Kun ryhmän kaikkiin kysymyksiin on vastattu, ryhmä sulkeutuu ja seuraava avautuu. Pois kytkettynä kaikki kysymykset pysyvät auki.</div>
+            </div>
+            <button type="button" class="toggle-switch" id="autoAdvanceToggle" onclick="toggleBehaviour('autoAdvanceRatings')"></button>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-row-label">Konfetti</div>
+              <div class="toggle-row-sub">Sadan pisteen arvostelusta sekä isoista juoni- ja tietotuonneista.</div>
+            </div>
+            <button type="button" class="toggle-switch" id="confettiToggle" onclick="toggleBehaviour('confetti')"></button>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-row-label">Varoita kaksoiskappaleista</div>
+              <div class="toggle-row-sub">Kysyy varmistuksen jos samanniminen arvostelu on jo olemassa.</div>
+            </div>
+            <button type="button" class="toggle-switch" id="dupWarnToggle" onclick="toggleBehaviour('dupWarn')"></button>
+          </div>
+          <label style="margin-top:14px;">Varmuuskopiomuistutus</label>
+          <div class="seg-row" id="backupRemindBox"></div>
+          <label style="margin-top:14px;">Näkymä sovelluksen avautuessa</label>
+          <div class="seg-row" id="startViewBox"></div>
+          <label style="margin-top:14px;">Järjestys sovelluksen avautuessa</label>
+          <div class="seg-row" id="startSortBox"></div>
+        </div>
+      </div>
+
       <div class="set-sec" data-sec="filmiraita">
         <button type="button" class="set-sec-head" onclick="toggleSetSec('filmiraita')" aria-expanded="false">
           <span class="set-sec-icon">🎞️</span>

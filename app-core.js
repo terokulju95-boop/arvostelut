@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-07.5';
+window.BUILD_CORE = '2026-09-07.6';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -92,6 +92,13 @@ function initApp(){
   ensureSettings();
   window.applyAccent(appData.settings.accent);
   if(window.applyTheme) window.applyTheme();
+  if(window.applyTextScale) window.applyTextScale();
+  // Aloitusnäkymä ja -järjestys asetuksista. Tyhjä = viimeksi käytetty,
+  // eli entinen toiminta säilyy kunnes käyttäjä valitsee jotain muuta.
+  const sv = appData.settings.startView;
+  if(sv && sv !== 'last') currentView = sv;
+  const ss = appData.settings.startSort;
+  if(ss && ss !== 'last') sortMode = ss;
   if(!appData.genres) appData.genres = [...DEFAULT_GENRES];
   if(!appData.budget) appData.budget = { monthlyPrice: 26.90, periods: [] };
   if(appData.budget.monthlyPrice == null) appData.budget.monthlyPrice = 26.90;
@@ -693,6 +700,25 @@ function ensureSettings(){
   if(appData.settings.discoverCount == null) appData.settings.discoverCount = 3;
   // Lomakkeen kenttäjärjestys. Tyhjä taulukko = oletusjärjestys.
   if(!Array.isArray(appData.settings.formOrder)) appData.settings.formOrder = [];
+  // ── KÄYTTÄYTYMISASETUKSET ──
+  // Kaikilla on oletus joka vastaa aiempaa kovakoodattua toimintaa, jotta
+  // päivitys ei muuta mitään ennen kuin käyttäjä itse muuttaa.
+
+  // Laajassa arvioinnissa ryhmä sulkeutuu ja seuraava avautuu kun ryhmään
+  // on vastattu. Osa haluaa nähdä kaikki kysymykset yhtä aikaa.
+  if(appData.settings.autoAdvanceRatings == null) appData.settings.autoAdvanceRatings = true;
+  // Konfetti sadan pisteen arvostelusta ja isoista tuonneista.
+  if(appData.settings.confetti == null) appData.settings.confetti = true;
+  // Varmuuskopiomuistutuksen väli päivinä. 0 = ei muistuteta.
+  if(appData.settings.backupRemindDays == null) appData.settings.backupRemindDays = 7;
+  // Varoitus kun samanniminen arvostelu on jo olemassa.
+  if(appData.settings.dupWarn == null) appData.settings.dupWarn = true;
+  // Näkymä ja järjestys sovelluksen avautuessa. '' = viimeksi käytetty.
+  if(appData.settings.startView == null) appData.settings.startView = '';
+  if(appData.settings.startSort == null) appData.settings.startSort = '';
+  // Tekstin koko prosentteina. Skaalaa vain fonttikokoja, ei asetteluja.
+  if(appData.settings.textScale == null) appData.settings.textScale = 100;
+
   // Poistettujen ominaisuuksien jäänteet pois, jotta tallennettu asetusdata
   // ei kanna mukanaan kenttiä joita mikään ei enää lue.
   delete appData.settings.qbank;
@@ -1740,6 +1766,14 @@ function normName(s){
 
 // Palauttaa aiemman arvostelun jos uusi näyttää samalta teokselta.
 // Eri julkaisuvuosi = eri teos (esim. remake), jolloin ei varoiteta.
+// Yksi paikka kaikille päälle/pois-asetuksille, jotta oletusarvo on
+// yhdenmukainen eikä puuttuva kenttä tarkoita eri asiaa eri paikoissa.
+function setOn(key){
+  const s = (typeof appData !== 'undefined' && appData.settings) || {};
+  return s[key] !== false;
+}
+window.setOn = setOn;
+
 function findDuplicateReview(name, year, cat, tmdbId, excludeId){
   const target = normName(name);
   if(!target) return null;

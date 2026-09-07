@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-07.5';
+window.BUILD_THEME = '2026-09-07.6';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -539,6 +539,114 @@ window.syncTmdbToken = function(){
     // Tarkistus uudelleen, jotta asetusten tilarivi kertoo totuuden
     if(window.recheckTmdbToken) window.recheckTmdbToken();
   }
+};
+
+// ── TEKSTIN KOKO ──
+// style.css:n fonttikoot ovat muotoa calc(13px * var(--ts,1)), joten yksi
+// juurimuuttuja skaalaa ne kaikki. Marginaalit ja korkeudet jäävät ennalleen,
+// jolloin skaalaus ei riko asetteluja.
+const TEXT_SCALES = [
+  { v: 90,  label: 'Pieni' },
+  { v: 100, label: 'Normaali' },
+  { v: 112, label: 'Suuri' },
+  { v: 125, label: 'Erittäin suuri' }
+];
+window.TEXT_SCALES = TEXT_SCALES;
+
+window.applyTextScale = function(){
+  const s = (typeof appData !== 'undefined' && appData.settings) || {};
+  const v = Number(s.textScale) || 100;
+  document.documentElement.style.setProperty('--ts', (v / 100).toFixed(3));
+};
+
+window.setTextScale = async function(v){
+  ensureSettings().textScale = Number(v) || 100;
+  window.applyTextScale();
+  window.renderTextScaleSettings();
+  await window.fbSave();
+};
+
+window.renderTextScaleSettings = function(){
+  const host = document.getElementById('textScaleBox');
+  if(!host) return;
+  const cur = Number(ensureSettings().textScale) || 100;
+  host.innerHTML = TEXT_SCALES.map(o =>
+    `<button type="button" class="seg-btn${o.v===cur?' active':''}" onclick="setTextScale(${o.v})">${esc(o.label)}</button>`
+  ).join('');
+};
+
+// ── KÄYTTÄYTYMISASETUKSET ──
+window.toggleBehaviour = async function(key){
+  const s = ensureSettings();
+  s[key] = !setOn(key);
+  window.renderBehaviourSettings();
+  // Kytkimen vaikutus näkyy heti lomakkeella jos se on auki
+  if(key === 'autoAdvanceRatings' && window.updateRatingsGridVisibility){
+    window.updateRatingsGridVisibility();
+  }
+  await window.fbSave();
+};
+
+const BACKUP_REMIND_OPTS = [
+  { v: 0,  label: 'Ei koskaan' },
+  { v: 3,  label: '3 vrk' },
+  { v: 7,  label: '7 vrk' },
+  { v: 14, label: '14 vrk' },
+  { v: 30, label: '30 vrk' }
+];
+const START_VIEW_OPTS = [
+  { v: '',         label: 'Viimeksi käytetty' },
+  { v: 'reviews',  label: 'Arvostelut' },
+  { v: 'top',      label: 'Top' },
+  { v: 'discover', label: 'Löydä' },
+  { v: 'budget',   label: 'Budjetti' },
+  { v: 'quick',    label: 'Pisteet' }
+];
+const START_SORT_OPTS = [
+  { v: '',         label: 'Viimeksi käytetty' },
+  { v: 'uusin',    label: 'Uusin' },
+  { v: 'vanhin',   label: 'Vanhin' },
+  { v: 'paras',    label: 'Paras' },
+  { v: 'huonoin',  label: 'Huonoin' }
+];
+
+function renderSeg(hostId, opts, cur, fnName){
+  const host = document.getElementById(hostId);
+  if(!host) return;
+  host.innerHTML = opts.map(o =>
+    `<button type="button" class="seg-btn${String(o.v)===String(cur)?' active':''}" onclick="${fnName}('${escJs(String(o.v))}')">${esc(o.label)}</button>`
+  ).join('');
+}
+
+window.setBackupRemind = async function(v){
+  ensureSettings().backupRemindDays = Number(v);
+  window.renderBehaviourSettings();
+  if(window.renderBackupInfo) window.renderBackupInfo();
+  await window.fbSave();
+};
+window.setStartView = async function(v){
+  ensureSettings().startView = v;
+  window.renderBehaviourSettings();
+  await window.fbSave();
+};
+window.setStartSort = async function(v){
+  ensureSettings().startSort = v;
+  window.renderBehaviourSettings();
+  await window.fbSave();
+};
+
+window.renderBehaviourSettings = function(){
+  const s = ensureSettings();
+  const sw = (id, key) => {
+    const b = document.getElementById(id);
+    if(b) b.classList.toggle('on', setOn(key));
+  };
+  sw('autoAdvanceToggle', 'autoAdvanceRatings');
+  sw('confettiToggle',    'confetti');
+  sw('dupWarnToggle',     'dupWarn');
+  renderSeg('backupRemindBox', BACKUP_REMIND_OPTS, s.backupRemindDays ?? 7, 'setBackupRemind');
+  renderSeg('startViewBox',    START_VIEW_OPTS,    s.startView ?? '',       'setStartView');
+  renderSeg('startSortBox',    START_SORT_OPTS,    s.startSort ?? '',       'setStartSort');
 };
 
 window.renderTokenSettings = function(){

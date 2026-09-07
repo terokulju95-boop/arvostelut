@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-07.5';
+window.BUILD_MODALS = '2026-09-07.6';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -580,7 +580,8 @@ function renderBackupInfo(){
       last = '<br><span style="color:var(--accent2);">Varmuuskopiota ei ole vielä ladattu</span>';
     } else {
       const teksti = d === 0 ? 'tänään' : (d === 1 ? 'eilen' : `${d} päivää sitten`);
-      const vari = d >= BACKUP_REMIND_DAYS ? 'var(--accent2)' : 'var(--muted)';
+      const lim = backupRemindDays();
+      const vari = (lim > 0 && d >= lim) ? 'var(--accent2)' : 'var(--muted)';
       last = `<br><span style="color:${vari};">Edellinen varmuuskopio: ${teksti}</span>`;
     }
   }
@@ -593,6 +594,11 @@ function renderBackupInfo(){
 }
 
 // ── VARMUUSKOPIOMUISTUTUS ──
+// Oletus 7 päivää. Asetuksista säädettävissä; 0 = ei muistuteta lainkaan.
+function backupRemindDays(){
+  const v = (appData.settings && appData.settings.backupRemindDays);
+  return (v == null) ? 7 : Number(v);
+}
 const BACKUP_REMIND_DAYS = 7;
 let _backupReminderDismissed = false;
 
@@ -661,7 +667,9 @@ window.maybeShowBackupReminder = function(){
   if(!window.fbBackupDays) return;
 
   const days = window.fbBackupDays();
-  if(days !== null && days < BACKUP_REMIND_DAYS) return;
+  const lim = backupRemindDays();
+  if(lim <= 0) return;                       // muistutus kytketty pois
+  if(days !== null && days < lim) return;
 
   const el = ensureBackupBar();
   document.getElementById('backupReminderText').textContent =
@@ -1440,6 +1448,8 @@ window.openSettings = function(){
   safeRender('kenttäjärjestys', window.renderFormOrderSettings);
   safeRender('korttien sisältö', window.renderCardSettings);
   safeRender('tmdb-tila', renderTmdbStatus);
+  safeRender('tekstin koko', window.renderTextScaleSettings);
+  safeRender('käyttäytyminen', window.renderBehaviourSettings);
   safeRender('asetussuoja', renderMetaGuard);
   safeRender('varmuuskopio', renderBackupInfo);
   safeRender('tili', renderAccountInfo);
@@ -2083,6 +2093,7 @@ window.runSeasonImport = async function(){
 
 // ── KONFETTI ──
 function launchConfetti(){
+  if(!setOn('confetti')) return;
   const colors = ['#e8b84b','#4ade80','#ff6b6b','#60a5fa','#a78bfa','#fb923c','#f0f0f5'];
   const count = 80;
   for(let i=0; i<count; i++){
