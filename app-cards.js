@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-08.15';
+window.BUILD_CARDS = '2026-09-08.16';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -547,7 +547,7 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-09-08.15', items:[
+  { build:'2026-09-08.16', items:[
     { icon:'♻️', title:'Ohjattu palautus',
       text:'Palautus näyttää nyt esikatselun ennen kuin mitään kirjoitetaan: montako arvostelua on uusia, muuttuneita ja montako katoaisi. Kolme tapaa: yhdistä, valikoiden tai korvaa.',
       tab:'data', sec:'varmuus' },
