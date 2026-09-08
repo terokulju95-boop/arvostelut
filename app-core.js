@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-08.16';
+window.BUILD_CORE = '2026-09-08.15';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1856,7 +1856,7 @@ window.updateBottomStack = function(){
   };
   // Palkit ovat molemmat bottom:0 eivätkä näy yhtä aikaa, mutta suurempi
   // arvo on turvallinen jos logiikka joskus muuttuu.
-  const bars = Math.max(h('syncWarnBar'), h('backupReminderBar'));
+  const bars = Math.max(h('syncWarnBar'), h('backupReminderBar'), h('devBar'));
   const upd  = h('updateBanner');
   const root = document.documentElement.style;
   root.setProperty('--bottom-bar', bars + 'px');

@@ -228,6 +228,13 @@
      ottaa sen haltuun. -->
 <button id="scrollTopBtn" type="button" aria-label="Vieritä ylös" title="Vieritä ylös">↑</button>
 
+<!-- KEHITTÄJÄTILAN PALKKI -->
+<div id="devBar">
+  <span id="devBarText">🛠️ Kehittäjätila</span>
+  <button type="button" class="dev-bar-btn" onclick="openDevSummary()">Yhteenveto</button>
+  <button type="button" class="dev-bar-btn" onclick="stopDevMode()">Poistu</button>
+</div>
+
 <!-- PÄIVITYSPALKKI -->
 <!-- Näkyy vain kun uusi versio on ladattu valmiiksi taustalle. Sivua ei
      koskaan ladata uudelleen ilman että tätä nappia painetaan. -->
@@ -589,6 +596,35 @@
       <button class="btn-secondary" onclick="closeModal('readModal')">Sulje</button>
       <button class="btn-secondary" id="readMoveBtn" onclick="">📂 Siirrä</button>
       <button class="btn-primary" id="readEditBtn" onclick="">✏️ Muokkaa</button>
+    </div>
+  </div>
+</div>
+
+<!-- KEHITTÄJÄTILA: MERKINNÄN VALINTA -->
+<div class="modal-overlay modal-stack" id="devPickModal" onclick="closeModalIfOutside(event,'devPickModal')">
+  <div class="modal-sheet" style="max-width:520px;">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div class="modal-title">🚩 Merkintä</div>
+    <div id="devPickBody"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('devPickModal')">Peruuta</button>
+    </div>
+  </div>
+</div>
+
+<!-- KEHITTÄJÄTILA: YHTEENVETO -->
+<div class="modal-overlay modal-stack" id="devSumModal" onclick="closeModalIfOutside(event,'devSumModal')">
+  <div class="modal-sheet" style="max-width:560px;">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div class="modal-title">📋 Kehittäjätilan yhteenveto</div>
+    <div class="toggle-row-sub" style="margin-bottom:10px;">Lataa tai kopioi lista ja lähetä se minulle. Tunnisteet ovat mukana, joten kohteet löytyvät koodista yksiselitteisesti.</div>
+    <div id="devSumBody"></div>
+    <div class="modal-actions" style="flex-wrap:wrap;">
+      <button class="btn-secondary" onclick="devCopy()">📋 Kopioi</button>
+      <button class="btn-secondary" onclick="devExport('md')">⬇️ .md</button>
+      <button class="btn-secondary" onclick="devExport('json')">⬇️ .json</button>
+      <button class="btn-secondary" onclick="devReset()">🗑️ Tyhjennä</button>
+      <button class="btn-primary" onclick="closeModal('devSumModal')">Sulje</button>
     </div>
   </div>
 </div>
@@ -1165,6 +1201,19 @@
 <div id="dataCheckBox"></div>
         </div>
       </div>
+      <div class="set-sec" data-sec="kehittaja">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('kehittaja')" aria-expanded="false">
+          <span class="set-sec-icon">🛠️</span>
+          <span class="set-sec-title">Kehittäjätila<span class="set-sec-sum" id="sum-kehittaja"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-kehittaja" hidden>
+<div class="toggle-row-sub" style="margin-bottom:10px;">Jokaisen asetuksen viereen ilmestyy lippu. Merkitse mikä on turhaa, mikä väärin toteutettua ja mikä rikki. Lopuksi lataat listan.<br><br>Dataan ei kosketa: merkinnät elävät vain tällä laitteella eivätkä mene pilveen tai varmuuskopioon. Lataa yhteenveto kun olet valmis. Tila ei myöskään säily sovelluksen sulkemisen yli, merkinnät säilyvät.</div>
+<div class="toggle-row-sub" id="devStatus" style="margin-bottom:10px;"></div>
+<button type="button" class="btn-secondary" id="devToggleBtn" onclick="toggleDevMode()">🛠️ Käynnistä kehittäjätila</button>
+<button type="button" class="btn-secondary" onclick="openDevSummary()" style="margin-top:8px;">📋 Yhteenveto ja lataus</button>
+        </div>
+      </div>
       <div class="set-sec" data-sec="versio">
         <button type="button" class="set-sec-head" onclick="toggleSetSec('versio')" aria-expanded="false">
           <span class="set-sec-icon">🏷️</span>
@@ -1329,6 +1378,7 @@
 <script src="app-lists.js"></script>
 <script src="app-stats.js"></script>
 <script src="app-restore.js"></script>
+<script src="app-devmode.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 <!-- Service worker: offline-tuki sekä julisteiden ja TMDB-vastausten välimuisti.

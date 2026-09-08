@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-08.16';
+window.BUILD_MODALS = '2026-09-08.15';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -692,6 +692,10 @@ window.maybeShowBackupReminder = function(){
 window.downloadBackup = function(){
   try{
     const stamp = new Date().toISOString().slice(0,10);
+    // Aikaleima ensin, sitten vasta sarjallistus: tiedostoon tulee sen
+    // oma tekohetki eikä edellisen kopion. Ilman tätä juuri ladattu
+    // varmuuskopio näyttää palautuksen esikatselussa yhden asetuseron.
+    if(window.fbStampBackup) window.fbStampBackup();
     // Tarkistesumma tulee app-restore.js:stä. Jos moduuli on jäänyt
     // lataamatta, kopio tehdään ilman sitä eikä se ole virhe — vanhat
     // kopiot ovat samassa muodossa.
@@ -713,7 +717,8 @@ window.downloadBackup = function(){
     showStatus('✅ Varmuuskopio ladattu','#22c55e');
     _backupReminderDismissed = true;
     hideBackupReminder();
-    if(window.fbMarkBackupDone) window.fbMarkBackupDone().then(()=>renderBackupInfo());
+    // true = aikaleima on jo asetettu, tallennetaan se vain pilveen.
+    if(window.fbMarkBackupDone) window.fbMarkBackupDone(true).then(()=>renderBackupInfo());
   } catch(e){
     alert('Varmuuskopion luonti epäonnistui: ' + e.message);
   }
@@ -1041,6 +1046,7 @@ const BUILD_FILES = [
   ['app-lists.js',     'BUILD_LISTS',    true],
   ['app-stats.js',     'BUILD_STATS',    true],
   ['app-restore.js',   'BUILD_RESTORE',  true],
+  ['app-devmode.js',   'BUILD_DEVMODE',  true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
 

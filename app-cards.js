@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-08.16';
+window.BUILD_CARDS = '2026-09-08.15';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -547,7 +547,18 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-09-08.16', items:[
+  { build:'2026-09-08.15', items:[
+    { icon:'🛠️', title:'Kehittäjätila',
+      text:'Jokaisen asetuksen viereen ilmestyy lippu. Merkitse mikä on turhaa, väärin toteutettua tai rikki, ja lataa lopuksi lista. Merkinnät elävät vain tällä laitteella eivätkä koske dataan.',
+      tab:'data', sec:'kehittaja' },
+    { icon:'📉', title:'Sovellus kertoo mitä et käytä',
+      text:'Kehittäjätila näyttää jokaisen asetusosion kohdalla kuinka monta kertaa olet avannut sen. Avaamattomat korostuvat, ja ne listataan yhteenvedossa omana lukunaan.',
+      tab:'data', sec:'kehittaja' },
+    { icon:'🗓️', title:'Varmuuskopion aikaleima korjattu',
+      text:'Juuri ladattu kopio näytti palautuksen esikatselussa aina yhden asetuseron, koska aikaleima kirjoitettiin vasta tiedoston tekemisen jälkeen. Nyt tiedosto sisältää oman tekohetkensä.',
+      tab:'data', sec:'varmuus' }
+  ]},
+  { build:'2026-09-08.14', items:[
     { icon:'🪟', title:'Palautusikkuna avautui asetusten alle',
       text:'Kaikilla modaaleilla oli sama z-index, joten päällekkäisyyden ratkaisi järjestys HTML:ssä. Palautusikkuna oli määritelty ennen asetuksia ja jäi siksi piiloon. Korjattu omalla luokalla joka nostaa ikkunan varmasti päälle.',
       tab:'data', sec:'varmuus' }

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-09-08.16';
+window.BUILD_FIREBASE = '2026-09-08.15';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -1079,10 +1079,19 @@ window.fbBackupDays = function(){
   return Math.floor(ms / 86400000);
 };
 
-window.fbMarkBackupDone = async function(){
+// Aikaleiman asetus erillään tallennuksesta. downloadBackup kutsuu tätä
+// ENNEN kuin se sarjallistaa tiedoston, jotta kopio sisältää oman
+// tekohetkensä. Muuten juuri ladattu tiedosto näyttäisi palautuksen
+// esikatselussa aina yhden asetuseron: lastBackupAt olisi tiedostossa
+// edellisestä kopiosta ja muistissa tästä.
+window.fbStampBackup = function(){
   try{ if(typeof ensureSettings === 'function') ensureSettings(); } catch(e){}
   if(!appData.settings) appData.settings = {};
   appData.settings.lastBackupAt = new Date().toISOString();
+};
+
+window.fbMarkBackupDone = async function(keepStamp){
+  if(!keepStamp) window.fbStampBackup();
   try{ await window.fbSave(); } catch(e){}
 };
 
