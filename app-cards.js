@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-08.11';
+window.BUILD_CARDS = '2026-09-08.12';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -547,7 +547,7 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-09-08.11', items:[
+  { build:'2026-09-08.12', items:[
     { icon:'📊', title:'Tilastot',
       text:'Uusi välilehti: pistejakauma, katsotut kuukausittain, keskiarvot genreittäin ja vuosikymmenittäin, suosituimmat ja parhaat ohjaajat, toistuvat näyttelijät. Kaikki lasketaan laitteella.',
       view:'stats' },
