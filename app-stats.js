@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · tilastot ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_STATS = '2026-09-08.12';
+window.BUILD_STATS = '2026-09-08.13';
 //
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 //
