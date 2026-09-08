@@ -89,10 +89,34 @@ async function cacheFirst(req, cacheName, onStore) {
 }
 
 // Network-first: hae verkosta, käytä välimuistia vain jos verkko pettää
+// ── SELAIMEN HTTP-VÄLIMUISTIN OHITUS ──
+// GitHub Pages lähettää sovelluksen tiedostoille Cache-Control-otsakkeen,
+// jonka takia selain voi tarjoilla vanhaa JS:ää vielä minuutteja sen
+// jälkeen kun uusi versio on julkaistu. Service workerin oma sw.js
+// haetaan aina tuoreena (selain ohittaa HTTP-välimuistin sen kohdalla),
+// joten lopputulos oli hämäävä: välimuistin versio näytti uudelta mutta
+// sovelluksen versioleima vanhalta.
+//
+// no-cache ei tarkoita "älä käytä välimuistia" vaan "tarkista aina
+// palvelimelta". Muuttumaton tiedosto vastaa 304:llä eikä siirrä tavuja,
+// joten hinta on yksi kevyt kysely tiedostoa kohden.
+function freshRequest(req){
+  try{
+    // Navigointipyyntöä ei voi rakentaa uudelleen — mode 'navigate' on
+    // varattu selaimelle ja konstruktori heittää. Haetaan osoitteella.
+    if(req.mode === 'navigate'){
+      return new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' });
+    }
+    return new Request(req, { cache: 'no-cache' });
+  } catch(e){
+    return req;   // vanha selain: parempi vanha kopio kuin ei mitään
+  }
+}
+
 async function networkFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
   try {
-    const res = await fetch(req);
+    const res = await fetch(freshRequest(req));
     if (res && res.ok) cache.put(req, res.clone());
     return res;
   } catch (err) {
