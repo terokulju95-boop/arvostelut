@@ -21,5 +21,30 @@ const badTab = [...new Set([...cards.matchAll(/tab:'([^']+)'/g)].map(m => m[1]))
 if(badSec.length) console.error('Osiota ei ole: ' + badSec.join(', '));
 if(badTab.length) console.error('Välilehteä ei ole: ' + badTab.join(', '));
 
-if(badSec.length || badTab.length) process.exit(1);
+// ── MODAALIEN TUNNUKSET ──
+// Modaali avataan lisäämällä open-luokka ja suljetaan closeModal-kutsulla.
+// Kumpikaan ei kerro mitään jos tunnus on kirjoitettu väärin: nappi vain
+// ei tee mitään, eikä konsoliin tule riviäkään.
+//
+// Tarkistus rajataan modaaleihin eikä kaikkiin elementteihin, koska iso
+// osa sovelluksen elementeistä luodaan ajossa eikä niitä ole HTML:ssä.
+// Kattaa nimet joissa esiintyy Modal tai Overlay sekä kaikki
+// closeModal-kutsujen kohteet. Ei siis löydä aivan jokaista
+// kirjoitusvirhettä, mutta kaikki jotka noudattavat nimeämistapaa.
+const files = fs.readdirSync(ROOT).filter(f => f.endsWith('.js'));
+const js = files.map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n') + '\n' + html;
+
+const allIds = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
+const modals = new Set([...html.matchAll(/class="modal-overlay[^"]*"\s+id="([^"]+)"/g)].map(m => m[1]));
+
+const refs = new Set([
+  ...[...js.matchAll(/closeModal\('([^']+)'\)/g)].map(m => m[1]),
+  ...[...js.matchAll(/closeModalIfOutside\(event,\s*'([^']+)'\)/g)].map(m => m[1]),
+  ...[...js.matchAll(/getElementById\('([^']*(?:Modal|Overlay)[^']*)'\)/g)].map(m => m[1])
+]);
+const badModal = [...refs].filter(id => !allIds.has(id));
+if(badModal.length) console.error('Tunnusta ei ole HTML:ssä: ' + badModal.join(', '));
+
+if(badSec.length || badTab.length || badModal.length) process.exit(1);
 console.log('Uutuuslistan linkit kunnossa: ' + secs.size + ' osiota, ' + tabs.size + ' välilehteä.');
+console.log('Modaalit kunnossa: ' + modals.size + ' määriteltyä, ' + refs.size + ' viitattua tunnusta.');
