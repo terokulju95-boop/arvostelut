@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · omat listat ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_LISTS = '2026-09-08.16';
+window.BUILD_LISTS = '2026-09-08.17';
 //
 // Tavallinen skripti. Ajetaan app-views.js:n JÄLKEEN, koska se käärii
 // renderTop-funktion.
