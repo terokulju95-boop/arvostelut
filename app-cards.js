@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-08.12';
+window.BUILD_CARDS = '2026-09-08.10';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -547,7 +547,18 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-09-08.12', items:[
+  { build:'2026-09-08.10', items:[
+    { icon:'📋', title:'Omat listat',
+      text:'Nimettyjä kokoelmia arvostelluista teoksista, käsin järjestettävissä. Listat löytyvät Top-näkymän kärjestä. Sama teos voi olla usealla listalla.',
+      view:'top' },
+    { icon:'➕', title:'Teoksen lisääminen listalle',
+      text:'Avaa mikä tahansa arvostelu ja napauta sen Listat-riviä. Rivi kertoo myös millä listoilla teos jo on.',
+      view:'reviews' },
+    { icon:'📐', title:'Välilehtipalkin asettelu korjattu',
+      text:'Kuudes välilehti jäi yksin omalle rivilleen. Nyt välilehdet asettuvat kahdelle riville kolmen ryhmiin.',
+      view:'reviews' }
+  ]},
+  { build:'2026-09-08.9', items:[
     { icon:'📌', title:'Katselulista',
       text:'Uusi välilehti teoksille joita et ole vielä nähnyt. Tallenna löytö Löydä-osiosta 📌-napilla, ja arvostele se vasta kun olet katsonut. Teos poistuu listalta itsestään kun arvostelu on tallessa.',
       view:'watchlist' },

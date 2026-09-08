@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-08.12';
+window.BUILD_VIEWS = '2026-09-08.10';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -3174,7 +3174,10 @@ function topControlsHtml(){
     genres.map(g=>`<button type="button" class="filter-chip ${g===topGenreFilter?'active':''}" onclick="setTopGenre('${escJs(g)}')">${esc(g)}</button>`).join('')
   }</div>` : '';
 
-  return `<div class="top-controls">${lenBtns}</div>${genreBtns}`;
+  // Omat listat asuvat Top-näkymän sisällä. Valintarivi tulee moduulista,
+  // jos se on ladattu — ilman sitä näkymä toimii täsmälleen kuten ennen.
+  const listChips = window.listChipsHtml ? window.listChipsHtml() : '';
+  return `${listChips}<div class="top-controls">${lenBtns}</div>${genreBtns}`;
 }
 
 window.renderTop = function(){

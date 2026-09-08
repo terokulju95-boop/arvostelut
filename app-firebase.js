@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-09-08.12';
+window.BUILD_FIREBASE = '2026-09-08.10';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -126,11 +126,12 @@ function looksLikeDefaults(m){
   const gens = m.genres || [];
   const per  = (m.budget && m.budget.periods) || [];
   const wl   = m.watchlist || [];
+  const lst  = m.lists || [];
   const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
-  // Katselulista on mukana samasta syystä kuin budjetti: jos kirjoitus
-  // näyttää oletuksilta MUTTA listalla on sisältöä, se ei ole oletus.
+  // Katselulista ja omat listat ovat mukana samasta syystä kuin budjetti:
+  // jos kirjoitus näyttää oletuksilta MUTTA sisältöä on, se ei ole oletus.
   return sameList(cats, DEFAULT_CATS) && sameList(gens, DEFAULT_GENRES)
-    && per.length === 0 && wl.length === 0;
+    && per.length === 0 && wl.length === 0 && lst.length === 0;
 }
 
 // Onko metassa jotain säilyttämisen arvoista
@@ -183,6 +184,7 @@ function metaWouldWipe(meta){
   if((good.genres||[]).length !== (meta.genres||[]).length) bits.push('genret');
   if(((good.budget||{}).periods||[]).length) bits.push('budjetti');
   if((good.watchlist||[]).length) bits.push('katselulista');
+  if((good.lists||[]).length) bits.push('omat listat');
   return bits.length ? bits.join(', ') : null;
 }
 
@@ -500,6 +502,9 @@ function metaObject(){
     // pidetty kevyinä (ei juonta, ei näyttelijöitä) juuri siksi, ettei
     // meta-dokumentti kasva hallitsemattomasti.
     watchlist:  Array.isArray(appData.watchlist) ? appData.watchlist : [],
+    // Omat listat sisältävät vain viittauksia arvostelujen tunnuksiin,
+    // joten ne vievät vähän tilaa myös sadan teoksen listalla.
+    lists:      Array.isArray(appData.lists) ? appData.lists : [],
     schema:     SCHEMA
   };
 }
@@ -514,6 +519,7 @@ function assembleAppData(meta, reviews){
     budget:     m.budget || { monthlyPrice: 26.90, periods: [] },
     settings:   m.settings || {},
     watchlist:  Array.isArray(m.watchlist) ? m.watchlist : [],
+    lists:      Array.isArray(m.lists) ? m.lists : [],
     reviews:    reviews
   };
 }
@@ -867,6 +873,7 @@ window.fbRestoreMeta = async function(src){
   if(src.budget)   appData.budget   = src.budget;
   if(src.settings) appData.settings = src.settings;
   if(Array.isArray(src.watchlist)) appData.watchlist = src.watchlist;
+  if(Array.isArray(src.lists))     appData.lists     = src.lists;
 
   try{ if(typeof ensureSettings === 'function') ensureSettings(); } catch(e){}
   if(typeof GENRES !== 'undefined') GENRES = [...(appData.genres||[])];

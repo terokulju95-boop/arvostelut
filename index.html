@@ -589,6 +589,20 @@
   </div>
 </div>
 
+<!-- LISTAVALITSIN -->
+<div class="modal-overlay" id="listPickerModal" onclick="closeModalIfOutside(event,'listPickerModal')">
+  <div class="modal-sheet" style="max-width:520px;">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div class="modal-title">📋 Listat</div>
+    <div class="toggle-row-sub" style="margin-bottom:10px;">Napauta listaa lisätäksesi tai poistaaksesi teoksen. Sama teos voi olla usealla listalla.</div>
+    <div id="listPickerBody"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('listPickerModal')">Sulje</button>
+      <button class="btn-primary" onclick="listPickerNew()">＋ Uusi lista</button>
+    </div>
+  </div>
+</div>
+
 <!-- JULISTEEN VAIHTO -->
 <div class="modal-overlay" id="posterModal" onclick="closeModalIfOutside(event,'posterModal')">
   <div class="modal-sheet" style="max-width:520px;">
@@ -1295,6 +1309,7 @@
 <script src="app-quick.js"></script>
 <script src="app-datacheck.js"></script>
 <script src="app-watchlist.js"></script>
+<script src="app-lists.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 <!-- Service worker: offline-tuki sekä julisteiden ja TMDB-vastausten välimuisti.

@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · datan tarkistus ja korjaukset ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_DATACHECK = '2026-09-08.12';
+window.BUILD_DATACHECK = '2026-09-08.10';
 //
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 //
@@ -301,6 +301,37 @@ function scanData(){
       appData.watchlist = cur.filter(w => w && w.name && String(w.name).trim() && w.id != null);
       return before - appData.watchlist.length;
     }
+  });
+
+  // ── 16. LISTALLA VIITTAUS ARVOSTELUUN JOTA EI OLE ──
+  // Syntyy jos arvostelu poistettiin toisella laitteella tai palautettiin
+  // vanha varmuuskopio. Viittaus ei näy listanäkymässä mitenkään, joten
+  // sen huomaisi vain siitä että listan lukumäärä ei täsmää.
+  const lists = Array.isArray(appData.lists) ? appData.lists : [];
+  const liveIds = new Set(R.map(r => String(r.id)));
+  const brokenRefs = [];
+  lists.forEach(l => {
+    if(!l || !Array.isArray(l.items)) return;
+    const n = l.items.filter(x => !liveIds.has(String(x))).length;
+    if(n) brokenRefs.push({ name: (l.icon || '📋') + ' ' + (l.name || 'nimetön'), n });
+  });
+  add({
+    id: 'listref', level: 'huomio',
+    title: 'Listalla viittaus arvosteluun jota ei ole',
+    why: 'Arvostelu on poistettu mutta viittaus jäi. Listan lukumäärä näyttää suuremmalta kuin sisältö. Korjaus poistaa vain kadonneet viittaukset.',
+    rows: brokenRefs.map(b => ({ id: null, name: b.name, detail: b.n + (b.n === 1 ? ' viittaus' : ' viittausta') })),
+    fixLabel: 'Siivoa kadonneet viittaukset',
+    fix: () => (window.listsPruneMissing ? window.listsPruneMissing() : 0)
+  });
+
+  // ── 17. TYHJÄ LISTA ──
+  add({
+    id: 'listempty', level: 'tieto',
+    title: 'Tyhjä lista',
+    why: 'Lista on luotu mutta sille ei ole lisätty yhtään teosta. Voit poistaa sen Top-näkymästä tai lisätä sisältöä arvostelun Listat-riviltä.',
+    rows: lists.filter(l => l && (!Array.isArray(l.items) || !l.items.length))
+      .map(l => ({ id: null, name: (l.icon || '📋') + ' ' + (l.name || 'nimetön'), detail: l.created || '' })),
+    fix: null
   });
 
   issues.sort((a, b) => (DC_LEVELS[a.level] - DC_LEVELS[b.level]) || (b.rows.length - a.rows.length));

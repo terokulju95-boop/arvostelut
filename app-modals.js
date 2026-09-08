@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-08.12';
+window.BUILD_MODALS = '2026-09-08.10';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1026,6 +1026,7 @@ const BUILD_FILES = [
   ['app-quick.js',     'BUILD_QUICK',    true],
   ['app-datacheck.js', 'BUILD_DATACHECK', true],
   ['app-watchlist.js', 'BUILD_WATCHLIST', true],
+  ['app-lists.js',     'BUILD_LISTS',    true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
 
@@ -1648,6 +1649,7 @@ window.openReadModal = function(id){
   const extraRows = [];
   if(r.director && rf('director')) extraRows.push(`<div class="read-section"><div class="read-label">🎬 Ohjaaja</div>
     <div class="read-value"><button type="button" class="dir-link dir-link-lg" onclick="closeModal('readModal');filterByDirector('${escJs(r.director)}')">${esc(r.director)}</button></div></div>`);
+  if(window.listsRowHtml) extraRows.push(window.listsRowHtml(r));
   if(r.cast && r.cast.length && rf('cast')) extraRows.push(`<div class="read-section"><div class="read-label">🎭 Näyttelijät</div><div class="read-value">${esc(r.cast.join(', '))}</div></div>`);
   if(r.runtime && rf('runtime')) extraRows.push(`<div class="read-section"><div class="read-label">⏱️ Kesto</div><div class="read-value">${r.runtime} min</div></div>`);
   if(r.tvType === 'jaksot' && rf('parts')){
