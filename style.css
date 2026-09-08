@@ -2139,3 +2139,48 @@ body.sandbox-on #fab{bottom:74px;}
 .st-empty-sub{font-size:calc(12.5px * var(--ts,1));color:var(--muted);line-height:1.5;margin-top:6px;}
 .st-foot{font-size:calc(11.5px * var(--ts,1));color:var(--muted);line-height:1.5;
   padding:6px 4px 0;max-width:38em;}
+
+/* ════════════════════════════════════════════════════════════
+   OHJATTU PALAUTUS
+   Vaikutuslaatikko on tarkoituksella korostettu: se on ainoa
+   kohta jossa kerrotaan mitä katoaa lopullisesti.
+   ════════════════════════════════════════════════════════════ */
+.rs-sec{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;}
+.rs-sec-t{font-size:calc(13px * var(--ts,1));font-weight:700;color:var(--text);margin-bottom:9px;}
+.rs-row{display:flex;align-items:baseline;gap:9px;padding:4px 0;font-size:calc(12px * var(--ts,1));}
+.rs-row-l{flex:1;min-width:0;color:var(--muted);}
+.rs-row-v{flex:0 0 auto;font-weight:700;color:var(--text);}
+.rs-good .rs-row-v{color:var(--green);}
+.rs-mid  .rs-row-v{color:var(--accent);}
+.rs-bad  .rs-row-v{color:var(--accent2);}
+.rs-split{height:1px;background:var(--border);margin:7px 0;}
+
+.rs-note{font-size:calc(11.5px * var(--ts,1));color:var(--muted);line-height:1.5;
+  margin-top:9px;padding:9px;border-radius:9px;background:var(--bg2);border:1px solid var(--border);}
+.rs-note.rs-ok{border-color:var(--green);}
+.rs-note.rs-bad{border-color:var(--accent2);color:var(--text);}
+
+.rs-mode{display:flex;align-items:flex-start;gap:10px;width:100%;text-align:left;
+  background:var(--bg2);border:1px solid var(--border);color:var(--text);
+  border-radius:10px;padding:11px;margin-bottom:7px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.rs-mode.on{border-color:var(--accent);background:var(--acc-08);}
+.rs-mode-box{flex:0 0 auto;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--muted);
+  display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--accent);margin-top:1px;}
+.rs-mode.on .rs-mode-box{border-color:var(--accent);}
+.rs-mode-txt{flex:1;min-width:0;}
+.rs-mode-txt strong{display:block;font-size:calc(13px * var(--ts,1));}
+.rs-mode-txt span{display:block;font-size:calc(11.5px * var(--ts,1));color:var(--muted);line-height:1.4;margin-top:2px;}
+
+.rs-parts{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border);}
+.rs-part{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--border);
+  color:var(--muted);border-radius:9px;padding:7px 11px;font-family:'DM Sans',sans-serif;
+  font-size:calc(11.5px * var(--ts,1));font-weight:600;cursor:pointer;}
+.rs-part.on{border-color:var(--accent);color:var(--text);}
+.rs-part-box{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--muted);
+  display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--bg);}
+.rs-part.on .rs-part-box{background:var(--accent);border-color:var(--accent);}
+
+.rs-go{width:100%;padding:13px;border-radius:11px;background:var(--accent);color:var(--bg);
+  border:none;font-family:'DM Sans',sans-serif;font-size:calc(14px * var(--ts,1));
+  font-weight:700;cursor:pointer;margin-top:4px;}
+.rs-go.off{opacity:0.4;cursor:default;}

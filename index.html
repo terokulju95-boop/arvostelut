@@ -593,6 +593,19 @@
   </div>
 </div>
 
+<!-- OHJATTU PALAUTUS -->
+<div class="modal-overlay" id="restoreModal" onclick="closeModalIfOutside(event,'restoreModal')">
+  <div class="modal-sheet" style="max-width:560px;">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div class="modal-title">♻️ Palautus</div>
+    <div class="toggle-row-sub" style="margin-bottom:12px;">Mitään ei kirjoiteta ennen kuin painat alimmaista nappia. Voit sulkea tämän milloin tahansa ilman seurauksia.</div>
+    <div id="restoreBody"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('restoreModal')">Peruuta</button>
+    </div>
+  </div>
+</div>
+
 <!-- LISTAVALITSIN -->
 <div class="modal-overlay" id="listPickerModal" onclick="closeModalIfOutside(event,'listPickerModal')">
   <div class="modal-sheet" style="max-width:520px;">
@@ -1315,6 +1328,7 @@
 <script src="app-watchlist.js"></script>
 <script src="app-lists.js"></script>
 <script src="app-stats.js"></script>
+<script src="app-restore.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 <!-- Service worker: offline-tuki sekä julisteiden ja TMDB-vastausten välimuisti.

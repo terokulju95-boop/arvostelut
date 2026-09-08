@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-08.14';
+window.BUILD_CARDS = '2026-09-08.13';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -547,7 +547,21 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-09-08.14', items:[
+  { build:'2026-09-08.13', items:[
+    { icon:'♻️', title:'Ohjattu palautus',
+      text:'Palautus näyttää nyt esikatselun ennen kuin mitään kirjoitetaan: montako arvostelua on uusia, muuttuneita ja montako katoaisi. Kolme tapaa: yhdistä, valikoiden tai korvaa.',
+      tab:'data', sec:'varmuus' },
+    { icon:'🔀', title:'Yhdistäminen ei menetä mitään',
+      text:'Uusi oletustapa lisää vain puuttuvat arvostelut. Nykyisiin ei kosketa, eikä mitään poisteta. Kategoriat ja genret yhdistetään, jottei uusi arvostelu jää näkymättömiin.',
+      tab:'data', sec:'varmuus' },
+    { icon:'🔐', title:'Varmuuskopion eheystarkistus',
+      text:'Kopioon kirjoitetaan tarkistesumma, ja palautus tarkistaa sen. Katkennut lataus tai sotkeutunut tiedosto paljastuu ennen kuin sitä käytetään.',
+      tab:'data', sec:'varmuus' },
+    { icon:'📏', title:'Varmuuskopion koko etukäteen',
+      text:'Varmuuskopio-osio kertoo kuinka iso tiedostosta tulee.',
+      tab:'data', sec:'varmuus' }
+  ]},
+  { build:'2026-09-08.11', items:[
     { icon:'📊', title:'Tilastot',
       text:'Uusi välilehti: pistejakauma, katsotut kuukausittain, keskiarvot genreittäin ja vuosikymmenittäin, suosituimmat ja parhaat ohjaajat, toistuvat näyttelijät. Kaikki lasketaan laitteella.',
       view:'stats' },

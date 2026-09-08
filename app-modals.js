@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-08.14';
+window.BUILD_MODALS = '2026-09-08.13';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -590,8 +590,16 @@ function renderBackupInfo(){
   const bkpFail = window._bkpFull
     ? '<br><span style="color:var(--accent2);">⚠️ Laitteen muisti on täynnä eikä paikallista varakopiota voi enää päivittää. Pilvitallennus toimii normaalisti, mutta lataa varmuuskopio tiedostoon.</span>'
     : '';
-  el.innerHTML = `${st.reviews} arvostelua · ${st.kb} kt yhteensä${extra}${last}${cache}${bkpFail}`;
+  // Varmuuskopion koko etukäteen, jottei tiedoston kokoa tarvitse
+  // arvailla. Tulee app-restore.js:stä; ilman moduulia rivi jää pois.
+  let sizeLine = '';
+  if(window.backupSizeText){
+    const sz = window.backupSizeText();
+    if(sz) sizeLine = `<br>Varmuuskopiotiedoston koko: noin ${esc(sz)}`;
+  }
+  el.innerHTML = `${st.reviews} arvostelua · ${st.kb} kt yhteensä${extra}${sizeLine}${last}${cache}${bkpFail}`;
 }
+window.renderBackupInfo = renderBackupInfo;
 
 // ── VARMUUSKOPIOMUISTUTUS ──
 // Oletus 7 päivää. Asetuksista säädettävissä; 0 = ei muistuteta lainkaan.
@@ -684,11 +692,15 @@ window.maybeShowBackupReminder = function(){
 window.downloadBackup = function(){
   try{
     const stamp = new Date().toISOString().slice(0,10);
-    const payload = JSON.stringify({
-      _tyyppi: 'arvostelut-varmuuskopio',
-      _paivays: new Date().toISOString(),
-      data: appData
-    }, null, 2);
+    // Tarkistesumma tulee app-restore.js:stä. Jos moduuli on jäänyt
+    // lataamatta, kopio tehdään ilman sitä eikä se ole virhe — vanhat
+    // kopiot ovat samassa muodossa.
+    const payload = JSON.stringify(
+      window.buildBackupPayload ? window.buildBackupPayload() : {
+        _tyyppi: 'arvostelut-varmuuskopio',
+        _paivays: new Date().toISOString(),
+        data: appData
+      }, null, 2);
     const blob = new Blob([payload], { type:'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1028,6 +1040,7 @@ const BUILD_FILES = [
   ['app-watchlist.js', 'BUILD_WATCHLIST', true],
   ['app-lists.js',     'BUILD_LISTS',    true],
   ['app-stats.js',     'BUILD_STATS',    true],
+  ['app-restore.js',   'BUILD_RESTORE',  true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
 
