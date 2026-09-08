@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-08.16';
+window.BUILD_CARDS = '2026-09-08.14';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -547,7 +547,12 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-09-08.16', items:[
+  { build:'2026-09-08.14', items:[
+    { icon:'🪟', title:'Palautusikkuna avautui asetusten alle',
+      text:'Kaikilla modaaleilla oli sama z-index, joten päällekkäisyyden ratkaisi järjestys HTML:ssä. Palautusikkuna oli määritelty ennen asetuksia ja jäi siksi piiloon. Korjattu omalla luokalla joka nostaa ikkunan varmasti päälle.',
+      tab:'data', sec:'varmuus' }
+  ]},
+  { build:'2026-09-08.13', items:[
     { icon:'♻️', title:'Ohjattu palautus',
       text:'Palautus näyttää nyt esikatselun ennen kuin mitään kirjoitetaan: montako arvostelua on uusia, muuttuneita ja montako katoaisi. Kolme tapaa: yhdistä, valikoiden tai korvaa.',
       tab:'data', sec:'varmuus' },
