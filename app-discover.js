@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Löydä (suositukset, uudet kaudet) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_DISCOVER = '2026-09-08.7';
+window.BUILD_DISCOVER = '2026-09-08.9';
 
 // Tämä osio ei tee mitään itsestään. Kaikki haut käynnistyvät vain
 // napin painalluksesta, eivätkä tulokset vuoda muihin näkymiin.
@@ -39,6 +39,10 @@ function alreadyHave(item, ids, names){
   // Käyttäjän ohittamat käsitellään samalla tavalla kuin jo arvostellut:
   // yksi suodatin kattaa kaikki haut, eikä yhtäkään tarvinnut muuttaa.
   if(isHidden(type, item.id)) return true;
+  // Katselulistalla oleva on jo löydetty. Sen ehdottaminen uudelleen olisi
+  // pelkkää kohinaa. Hakunäkymä käyttää alreadyHaveRaw-versiota, joten se
+  // näyttää teoksen silti ja kertoo missä se on.
+  if(window.wlHas && window.wlHas(type, item.id)) return true;
   return alreadyHaveRaw(item, ids, names);
 }
 
@@ -101,12 +105,33 @@ function discCard(item, reason){
         <div class="disc-more">Lue lisää ›</div>
       </div>
       <div class="disc-card-actions">
-        <button class="disc-add" onclick="addFromDiscover('${escJs(title)}', '${type}')">+ Lisää arvosteluihin</button>
+        <button class="disc-add" onclick="addFromDiscover('${escJs(title)}', '${type}')">+ Arvostele</button>
+        <button class="disc-watch" title="Tallenna katselulistalle"
+          onclick="addToWatchlist('${escJs(title)}','${type}',${Number(item.id)},'${escJs(item.poster_path || '')}','${escJs(year || '')}')">📌</button>
         <button class="disc-skip" title="Ei kiinnosta" onclick="hideFromDiscover('${type}',${Number(item.id)},'${escJs(title)}')">🚫</button>
       </div>
     </div>
   </div>`;
 }
+
+// Löydä-osion silta katselulistaan. Erillinen funktio siksi, että
+// app-watchlist.js ladataan tämän jälkeen: suora kutsu wlAdd-funktioon
+// kortin onclick-attribuutissa toimii, mutta tämä kääre antaa selkeän
+// virheilmoituksen jos moduuli on jäänyt lataamatta.
+window.addToWatchlist = function(title, type, tmdbId, poster, year){
+  if(!window.wlAdd){
+    if(window.showStatus) window.showStatus('Katselulista ei ole käytettävissä', '#dc2626', 3000);
+    return;
+  }
+  window.wlAdd({
+    name: title,
+    year: year ? Number(year) : null,
+    tmdb_id: tmdbId,
+    tmdb_type: type,
+    poster: poster || null,
+    source: 'Löydä'
+  });
+};
 
 function discSection(title, sub, cards){
   return `<div class="disc-section">
@@ -827,6 +852,7 @@ window.openDiscoverDetail = async function(type, id){
     <div class="dd-source">Saatavuustiedot: JustWatch TMDB:n kautta</div>
     <div class="dd-btns">
       <button class="dd-btn dd-btn-add" onclick="closeModal('discDetailModal'); addFromDiscover('${escJs(title)}','${type}','${escJs(window._discSubcat || '')}')">+ Lisää arvosteluihin</button>
+      <button class="dd-btn dd-btn-watch" onclick="closeModal('discDetailModal'); addToWatchlist('${escJs(title)}','${type}',${Number(id)},'${escJs(d.poster_path || '')}','${escJs(String(year || ''))}')">📌 Katselulistalle</button>
       <button class="dd-btn dd-btn-no" onclick="hideFromDiscover('${type}',${Number(id)},'${escJs(title)}')">🚫 Ei kiinnosta</button>
     </div>`;
 };

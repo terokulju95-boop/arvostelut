@@ -1958,3 +1958,57 @@ body.sandbox-on #fab{bottom:74px;}
 .dc-clean-ico{font-size:calc(30px * var(--ts,1));}
 .dc-clean-title{font-size:calc(14px * var(--ts,1));font-weight:700;margin-top:6px;}
 .dc-clean-sub{font-size:calc(11.5px * var(--ts,1));color:var(--muted);margin-top:3px;}
+
+/* ════════════════════════════════════════════════════════════
+   KATSELULISTA
+   Kortti noudattaa Löydä-osion mittoja, jotta siirtyminen
+   ehdotuksesta listalle ei näytä vaihdolta toiseen sovellukseen.
+   ════════════════════════════════════════════════════════════ */
+.watchlist{padding:0 14px 90px;}
+.wl-head{padding:14px 0 10px;}
+.wl-head-title{font-family:'Bebas Neue',sans-serif;font-size:calc(24px * var(--ts,1));letter-spacing:1px;color:var(--text);}
+.wl-head-sub{font-size:calc(12px * var(--ts,1));color:var(--muted);line-height:1.45;margin-top:3px;}
+
+.wl-controls{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.wl-chips{display:flex;gap:6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;}
+.wl-chips::-webkit-scrollbar{display:none;}
+.wl-chip{flex:0 0 auto;background:var(--bg3);border:1px solid var(--border);color:var(--muted);
+  border-radius:18px;padding:6px 12px;font-family:'DM Sans',sans-serif;
+  font-size:calc(12px * var(--ts,1));cursor:pointer;white-space:nowrap;}
+.wl-chip.on{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:700;}
+.wl-sort{flex:0 0 auto;background:var(--bg3);border:1px solid var(--border);color:var(--text);
+  border-radius:10px;padding:7px 9px;font-family:'DM Sans',sans-serif;font-size:calc(12px * var(--ts,1));}
+
+.wl-card{display:flex;gap:11px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:13px;padding:10px;margin-bottom:9px;}
+.wl-card.is-prio{border-color:var(--accent);}
+.wl-open{cursor:pointer;}
+.wl-poster{width:64px;height:96px;border-radius:9px;object-fit:cover;display:block;flex:0 0 auto;background:var(--bg3);}
+.wl-poster-none{display:flex;align-items:center;justify-content:center;font-size:26px;}
+.wl-body{flex:1;min-width:0;display:flex;flex-direction:column;}
+.wl-title{font-size:calc(14px * var(--ts,1));font-weight:700;color:var(--text);line-height:1.3;}
+.wl-year{color:var(--muted);font-weight:400;}
+.wl-meta{font-size:calc(11.5px * var(--ts,1));color:var(--muted);margin-top:3px;}
+.wl-note{font-size:calc(11.5px * var(--ts,1));color:var(--muted);margin-top:5px;line-height:1.4;}
+.wl-actions{display:flex;gap:6px;margin-top:auto;padding-top:9px;}
+.wl-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);
+  border-radius:9px;padding:8px 10px;font-family:'DM Sans',sans-serif;
+  font-size:calc(12px * var(--ts,1));font-weight:600;cursor:pointer;}
+.wl-review{flex:1;background:var(--accent);border-color:var(--accent);color:var(--bg);}
+.wl-prio.on{background:var(--accent);border-color:var(--accent);}
+.wl-btn:active{transform:scale(0.95);}
+
+.wl-empty{text-align:center;padding:36px 18px;}
+.wl-empty-ico{font-size:calc(38px * var(--ts,1));}
+.wl-empty-title{font-size:calc(15px * var(--ts,1));font-weight:700;margin-top:8px;}
+.wl-empty-sub{font-size:calc(12.5px * var(--ts,1));color:var(--muted);line-height:1.5;margin-top:6px;max-width:34em;margin-left:auto;margin-right:auto;}
+.wl-empty-btn{margin-top:14px;background:var(--accent);color:var(--bg);border:none;border-radius:11px;
+  padding:11px 18px;font-family:'DM Sans',sans-serif;font-size:calc(13px * var(--ts,1));font-weight:700;cursor:pointer;}
+
+/* Löydä-osion katselulistanapit */
+.disc-watch{background:var(--bg3);border:1px solid var(--border);color:var(--text);
+  border-radius:9px;padding:8px 11px;font-size:calc(13px * var(--ts,1));cursor:pointer;}
+.disc-watch:active{transform:scale(0.95);}
+.dd-btn-watch{background:var(--bg3);border:1px solid var(--accent);color:var(--accent);}
+.dc-row-flat{cursor:default;}
+.dc-row-flat:active{background:var(--bg2);}

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-08.7';
+window.BUILD_MODALS = '2026-09-08.9';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1025,6 +1025,7 @@ const BUILD_FILES = [
   ['app-cards.js',     'BUILD_CARDS',    true],
   ['app-quick.js',     'BUILD_QUICK',    true],
   ['app-datacheck.js', 'BUILD_DATACHECK', true],
+  ['app-watchlist.js', 'BUILD_WATCHLIST', true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
 

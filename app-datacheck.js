@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · datan tarkistus ja korjaukset ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_DATACHECK = '2026-09-08.7';
+window.BUILD_DATACHECK = '2026-09-08.9';
 //
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 //
@@ -254,6 +254,55 @@ function scanData(){
     goto: { tab: 'tmdb', sec: 'massa', label: 'Avaa massapäivitys' }
   });
 
+  // ── 14. KATSELULISTALLA TEOS JOKA ON JO ARVOSTELTU ──
+  // Normaalisti tämä siivoutuu itsestään tallennuksen yhteydessä. Jäänne
+  // voi silti syntyä jos arvostelu on lisätty toisella laitteella tai
+  // tuotu varmuuskopiosta.
+  const wl = Array.isArray(appData.watchlist) ? appData.watchlist : [];
+  const wlIds = new Set();
+  const wlNames = new Set();
+  R.forEach(r => {
+    if(r.tmdb_id != null) wlIds.add((r.tmdb_type || (r.tvType ? 'tv' : 'movie')) + ':' + r.tmdb_id);
+    const n = String(dcName(r)).toLowerCase().trim();
+    if(n) wlNames.add(n);
+  });
+  const wlDone = wl.filter(w => {
+    if(!w) return false;
+    if(w.tmdb_id != null && wlIds.has((w.tmdb_type || 'movie') + ':' + w.tmdb_id)) return true;
+    return wlNames.has(String(w.name || '').toLowerCase().trim());
+  });
+  add({
+    id: 'wldone', level: 'tieto',
+    title: 'Katselulistalla teos jonka olet jo arvostellut',
+    why: 'Odotushuoneeseen jäänyt jäänne. Korjaus poistaa sen listalta — arvosteluun ei kosketa.',
+    rows: wlDone.map(w => ({ id: null, name: String(w.name || ''), detail: w.year ? String(w.year) : '' })),
+    fixLabel: 'Siivoa katselulista',
+    fix: () => {
+      const n = window.wlPruneReviewed ? window.wlPruneReviewed() : 0;
+      return n;
+    }
+  });
+
+  // ── 15. KATSELULISTAN RIKKINÄINEN TIETUE ──
+  const wlBroken = wl.filter(w => !w || !w.name || !String(w.name).trim() || w.id == null);
+  add({
+    id: 'wlbroken', level: 'huomio',
+    title: 'Katselulistan tietue on vajaa',
+    why: 'Tietueelta puuttuu nimi tai tunnus, joten sitä ei voi avata eikä poistaa listanäkymästä. Korjaus poistaa vain vajaat tietueet.',
+    rows: wlBroken.map((w, i) => ({ id: null, name: (w && w.name) || '(nimetön)', detail: 'rivi ' + (i + 1) })),
+    fixLabel: 'Poista vajaat tietueet',
+    fix: () => {
+      // Luetaan appData tuoreena eikä skannaushetken muuttujasta. Jos
+      // edellinen korjaus (wldone) on jo korvannut taulukon uudella, vanha
+      // viittaus herättäisi poistetut tietueet henkiin ja kumoaisi sen —
+      // juuri näin kävisi napista "Korjaa kaikki turvalliset".
+      const cur = Array.isArray(appData.watchlist) ? appData.watchlist : [];
+      const before = cur.length;
+      appData.watchlist = cur.filter(w => w && w.name && String(w.name).trim() && w.id != null);
+      return before - appData.watchlist.length;
+    }
+  });
+
   issues.sort((a, b) => (DC_LEVELS[a.level] - DC_LEVELS[b.level]) || (b.rows.length - a.rows.length));
   return { issues, total: R.length };
 }
@@ -270,8 +319,14 @@ const dcLevelIcon = { virhe: '⛔', huomio: '⚠️', tieto: 'ℹ️' };
 function dcIssueHtml(iss, idx){
   const shown = iss.rows.slice(0, DC_ROWS_SHOWN);
   const rest  = iss.rows.length - shown.length;
-  const rows  = shown.map(row => `
-    <button type="button" class="dc-row" onclick="dcOpen('${escJs(String(row.id))}')">
+  // Osa riveistä ei viittaa arvosteluun lainkaan (katselulistan tietueet),
+  // jolloin napautus ei saa yrittää avata mitään.
+  const rows  = shown.map(row => row.id == null
+    ? `<div class="dc-row dc-row-flat">
+      <span class="dc-row-name">${esc(row.name)}</span>
+      <span class="dc-row-detail">${esc(row.detail || '')}</span>
+    </div>`
+    : `<button type="button" class="dc-row" onclick="dcOpen('${escJs(String(row.id))}')">
       <span class="dc-row-name">${esc(row.name)}</span>
       <span class="dc-row-detail">${esc(row.detail || '')}</span>
     </button>`).join('');
@@ -360,6 +415,7 @@ async function dcApply(list){
 
   // Testitilassa muutokset jäävät vain muistiin, kuten kaikki muukin.
   if(window.fbSave) await window.fbSave();
+  if(window.updateWatchlistBadge) window.updateWatchlistBadge();
   if(window.renderAll) window.renderAll();
 
   if(window.showStatus) window.showStatus(`✅ Korjattu ${n} ${n === 1 ? 'kohta' : 'kohtaa'}`, '#22c55e', 3000);

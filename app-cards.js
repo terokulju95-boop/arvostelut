@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-08.7';
+window.BUILD_CARDS = '2026-09-08.9';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -547,6 +547,17 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-09-08.9', items:[
+    { icon:'📌', title:'Katselulista',
+      text:'Uusi välilehti teoksille joita et ole vielä nähnyt. Tallenna löytö Löydä-osiosta 📌-napilla, ja arvostele se vasta kun olet katsonut. Teos poistuu listalta itsestään kun arvostelu on tallessa.',
+      view:'watchlist' },
+    { icon:'🔮', title:'Löydä ei ehdota jo tallennettuja',
+      text:'Katselulistalla olevat teokset jäävät pois suosituksista. Haussa ne näkyvät edelleen, jotta näet missä teos on.',
+      view:'discover' },
+    { icon:'🩹', title:'Datan tarkistus tuntee katselulistan',
+      text:'Kaksi uutta tarkistusta: listalle jäänyt jo arvosteltu teos ja vajaa tietue. Molemmat korjattavissa yhdellä napilla.',
+      tab:'data', sec:'korjaukset' }
+  ]},
   { build:'2026-09-08.7', items:[
     { icon:'🩹', title:'Datan tarkistus ja korjaukset',
       text:'Uusi osio etsii rakenteellisia ongelmia: arvosteluja jotka eivät näy millään välilehdellä, päällekkäisiä tunnuksia, kelvottomia päivämääriä. Turvalliset korjaukset yhdellä napilla. Arvosanoihin ja teksteihin ei kosketa.',

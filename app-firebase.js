@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-09-08.7';
+window.BUILD_FIREBASE = '2026-09-08.9';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -125,8 +125,12 @@ function looksLikeDefaults(m){
   const cats = m.categories || [];
   const gens = m.genres || [];
   const per  = (m.budget && m.budget.periods) || [];
+  const wl   = m.watchlist || [];
   const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
-  return sameList(cats, DEFAULT_CATS) && sameList(gens, DEFAULT_GENRES) && per.length === 0;
+  // Katselulista on mukana samasta syystä kuin budjetti: jos kirjoitus
+  // näyttää oletuksilta MUTTA listalla on sisältöä, se ei ole oletus.
+  return sameList(cats, DEFAULT_CATS) && sameList(gens, DEFAULT_GENRES)
+    && per.length === 0 && wl.length === 0;
 }
 
 // Onko metassa jotain säilyttämisen arvoista
@@ -178,6 +182,7 @@ function metaWouldWipe(meta){
   if((good.categories||[]).length !== (meta.categories||[]).length) bits.push('kategoriat');
   if((good.genres||[]).length !== (meta.genres||[]).length) bits.push('genret');
   if(((good.budget||{}).periods||[]).length) bits.push('budjetti');
+  if((good.watchlist||[]).length) bits.push('katselulista');
   return bits.length ? bits.join(', ') : null;
 }
 
@@ -491,6 +496,10 @@ function metaObject(){
     subcats:    appData.subcats || {},
     budget:     appData.budget || { monthlyPrice: 26.90, periods: [] },
     settings:   appData.settings || {},
+    // Katselulista elää samassa dokumentissa kuin asetukset. Tietueet on
+    // pidetty kevyinä (ei juonta, ei näyttelijöitä) juuri siksi, ettei
+    // meta-dokumentti kasva hallitsemattomasti.
+    watchlist:  Array.isArray(appData.watchlist) ? appData.watchlist : [],
     schema:     SCHEMA
   };
 }
@@ -504,6 +513,7 @@ function assembleAppData(meta, reviews){
     subcats:    (m.subcats && typeof m.subcats === 'object') ? m.subcats : null,
     budget:     m.budget || { monthlyPrice: 26.90, periods: [] },
     settings:   m.settings || {},
+    watchlist:  Array.isArray(m.watchlist) ? m.watchlist : [],
     reviews:    reviews
   };
 }
@@ -856,6 +866,7 @@ window.fbRestoreMeta = async function(src){
   if(src.subcats && typeof src.subcats === 'object') appData.subcats = src.subcats;
   if(src.budget)   appData.budget   = src.budget;
   if(src.settings) appData.settings = src.settings;
+  if(Array.isArray(src.watchlist)) appData.watchlist = src.watchlist;
 
   try{ if(typeof ensureSettings === 'function') ensureSettings(); } catch(e){}
   if(typeof GENRES !== 'undefined') GENRES = [...(appData.genres||[])];

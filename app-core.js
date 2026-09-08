@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-08.7';
+window.BUILD_CORE = '2026-09-08.9';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -114,6 +114,9 @@ function initApp(){
 }
 
 function renderAll(){
+  // Katselulistan merkkiluku päivittyy jokaisella renderöinnillä, jotta
+  // se on ajan tasalla myös kun muutos tulee toiselta laitteelta.
+  if(window.updateWatchlistBadge) window.updateWatchlistBadge();
   renderCatTabs();
   renderGenreFilters();
   renderYearFilters();
@@ -124,6 +127,7 @@ function renderAll(){
   else if(currentView==='top') renderTop();
   else if(currentView==='budget') renderBudget();
   else if(currentView==='quick' && window.renderQuickScores) window.renderQuickScores();
+  else if(currentView==='watchlist' && window.renderWatchlist) window.renderWatchlist();
   // Löydä-näkymä ei renderöi mitään itsestään: tulokset syntyvät vasta
   // kun käyttäjä painaa nappia, eivätkä ne katoa muuta näkymää päivitettäessä.
 }
@@ -137,7 +141,7 @@ window.setView = function(view){
   if(window.renderDiscoverCount && view === 'discover') window.renderDiscoverCount();
   // Pikamuokkauksen kesken oleva tallennus lähtee heti kun poistut siitä
   if(currentView !== 'quick' && window.qsFlushSave) window.qsFlushSave();
-  ['reviews','top','discover','budget','quick'].forEach(v=>{
+  ['reviews','top','watchlist','discover','budget','quick'].forEach(v=>{
     const el = document.getElementById('viewTab'+v.charAt(0).toUpperCase()+v.slice(1));
     if(el) el.classList.toggle('active', v===view);
   });
@@ -149,8 +153,10 @@ window.setView = function(view){
   if(disc) disc.style.display = view==='discover' ? 'block' : 'none';
   const qv = document.getElementById('quickView');
   if(qv) qv.style.display = view==='quick' ? 'block' : 'none';
+  const wv = document.getElementById('watchlistView');
+  if(wv) wv.style.display = view==='watchlist' ? 'block' : 'none';
   // Korttilista ja lisäysnappi piiloon niissä näkymissä joilla on oma säiliö
-  const ownContainer = view==='discover' || view==='quick';
+  const ownContainer = view==='discover' || view==='quick' || view==='watchlist';
   const grid = document.getElementById('cardsGrid');
   if(grid) grid.style.display = ownContainer ? 'none' : '';
   const fab = document.getElementById('fab');
@@ -170,7 +176,7 @@ window.setView = function(view){
 
 window.fabClick = function(){
   if(currentView==='budget') window.budgetFabClick();
-  else if(currentView==='discover' || currentView==='quick') return;
+  else if(currentView==='discover' || currentView==='quick' || currentView==='watchlist') return;
   else window.openAddModal();
 };
 
