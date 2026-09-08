@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-08.13';
+window.BUILD_CARDS = '2026-09-08.11';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -547,7 +547,18 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-09-08.13', items:[
+  { build:'2026-09-08.11', items:[
+    { icon:'📊', title:'Tilastot',
+      text:'Uusi välilehti: pistejakauma, katsotut kuukausittain, keskiarvot genreittäin ja vuosikymmenittäin, suosituimmat ja parhaat ohjaajat, toistuvat näyttelijät. Kaikki lasketaan laitteella.',
+      view:'stats' },
+    { icon:'🔎', title:'Jokainen luku kertoo mihin se perustuu',
+      text:'Osion alla lukee montako arvostelua siihen kelpasi, esimerkiksi 412/460. Puuttuva tieto ei ole sama asia kuin nolla, eikä tilasto saa esittää olevansa varmempi kuin on.',
+      view:'stats' },
+    { icon:'📐', title:'Välilehtipalkki ruudukoksi',
+      text:'Kuvake on nyt nimen yläpuolella ja sarakemäärä sovittuu ruudun leveyteen. Aiempi asettelu oli sidottu viiteen välilehteen ja hajosi joka kerta kun niitä tuli lisää.',
+      view:'reviews' }
+  ]},
+  { build:'2026-09-08.10', items:[
     { icon:'📋', title:'Omat listat',
       text:'Nimettyjä kokoelmia arvostelluista teoksista, käsin järjestettävissä. Listat löytyvät Top-näkymän kärjestä. Sama teos voi olla usealla listalla.',
       view:'top' },

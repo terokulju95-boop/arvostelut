@@ -63,12 +63,13 @@
 <div class="main">
   <!-- NÄKYMÄTABIT -->
   <div class="view-tabs">
-    <button class="view-tab active" id="viewTabReviews" onclick="setView('reviews')">⭐ Arvostelut</button>
-    <button class="view-tab" id="viewTabTop" onclick="setView('top')">🏆 Top-lista</button>
-    <button class="view-tab" id="viewTabWatchlist" onclick="setView('watchlist')">📌 Katselulista</button>
-    <button class="view-tab" id="viewTabDiscover" onclick="setView('discover')">🔮 Löydä</button>
-    <button class="view-tab" id="viewTabBudget" onclick="setView('budget')">💰 Budjetti</button>
-    <button class="view-tab" id="viewTabQuick" onclick="setView('quick')">🎚️ Pisteet</button>
+    <button class="view-tab active" id="viewTabReviews" onclick="setView('reviews')"><span class="vt-ico">⭐</span><span class="vt-label">Arvostelut</span></button>
+    <button class="view-tab" id="viewTabTop" onclick="setView('top')"><span class="vt-ico">🏆</span><span class="vt-label">Top-lista</span></button>
+    <button class="view-tab" id="viewTabWatchlist" onclick="setView('watchlist')"><span class="vt-ico">📌</span><span class="vt-label">Katselulista</span></button>
+    <button class="view-tab" id="viewTabDiscover" onclick="setView('discover')"><span class="vt-ico">🔮</span><span class="vt-label">Löydä</span></button>
+    <button class="view-tab" id="viewTabBudget" onclick="setView('budget')"><span class="vt-ico">💰</span><span class="vt-label">Budjetti</span></button>
+    <button class="view-tab" id="viewTabQuick" onclick="setView('quick')"><span class="vt-ico">🎚️</span><span class="vt-label">Pisteet</span></button>
+    <button class="view-tab" id="viewTabStats" onclick="setView('stats')"><span class="vt-ico">📊</span><span class="vt-label">Tilastot</span></button>
   </div>
 
   <!-- KATEGORIATABS -->
@@ -124,6 +125,9 @@
 
   <!-- KATSELULISTA -->
   <div class="watchlist" id="watchlistView" style="display:none;"></div>
+
+  <!-- TILASTOT -->
+  <div class="stats" id="statsView" style="display:none;"></div>
 
   <!-- LÖYDÄ-NÄKYMÄ -->
   <div class="discover" id="discoverView" style="display:none;">
@@ -1310,6 +1314,7 @@
 <script src="app-datacheck.js"></script>
 <script src="app-watchlist.js"></script>
 <script src="app-lists.js"></script>
+<script src="app-stats.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 <!-- Service worker: offline-tuki sekä julisteiden ja TMDB-vastausten välimuisti.

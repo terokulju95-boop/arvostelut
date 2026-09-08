@@ -1060,16 +1060,18 @@ html[data-filmstrip="on"] body::before{
 /* Viisi tabia ei mahdu yhdelle riville puhelimen leveydellä ilman että
    tekstit katkeaisivat, joten rivi kietoutuu: kolme ylle, kaksi alle.
    Tabien oma ulkoasu, fonttikoko ja korostus säilyvät ennallaan. */
-.view-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.view-tab { flex: 1 1 calc(33.333% - 4px); padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size:calc(13px * var(--ts,1)); font-weight: 600; cursor: pointer; font-family: "DM Sans",sans-serif; transition: all 0.2s; text-align: center; white-space: nowrap; }
-/* Kuusi välilehteä asettuu kahdelle riville kolmen ryhmiin. Aiemmin
-   neljäs ja viides oli pakotettu puolikkaiksi, mikä toimi viidellä
-   välilehdellä mutta jätti kuudennen yksin omalle rivilleen. */
+/* VÄLILEHTIPALKKI
+   Ruudukko eikä rivitetty flex. Aiempi toteutus antoi neljännelle ja
+   viidennelle välilehdelle puolikkaan leveyden, mikä toimi täsmälleen
+   viidellä välilehdellä ja hajosi heti kun niitä tuli lisää.
+   auto-fit sovittaa sarakemäärän ruudun leveyteen: kapealla puhelimella
+   neljä saraketta, leveämmällä kaikki yhdelle riville. Kuvake on nimen
+   yläpuolella, jotta pitkätkin nimet mahtuvat kapeaan sarakkeeseen. */
+.view-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px; margin-bottom: 12px; }
+.view-tab { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; font-family: "DM Sans",sans-serif; transition: all 0.2s; text-align: center; }
+.vt-ico { font-size: calc(17px * var(--ts,1)); line-height: 1; }
+.vt-label { font-size: calc(11px * var(--ts,1)); line-height: 1.15; }
 .view-tab.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
-/* Leveällä ruudulla kaikki mahtuvat yhdelle riville */
-@media (min-width: 620px){
-  .view-tab { flex: 1 1 0; }
-}
 
 /* ════════════════════════════════════════════════════════════
    PISTEIDEN PIKAMUOKKAUS
@@ -2078,3 +2080,62 @@ body.sandbox-on #fab{bottom:74px;}
 .lst-pick-name{flex:1;min-width:0;font-size:calc(13.5px * var(--ts,1));font-weight:600;}
 .lst-pick-n{flex:0 0 auto;font-size:calc(11.5px * var(--ts,1));color:var(--muted);
   background:var(--tint-07);border-radius:7px;padding:2px 8px;}
+
+/* ════════════════════════════════════════════════════════════
+   TILASTOT
+   Palkit piirretään CSS:llä. Sovelluksessa ei ole yhtään ulkoista
+   kirjastoa eikä sellaista kannata ottaa yhtä näkymää varten.
+   ════════════════════════════════════════════════════════════ */
+.stats{padding:0 14px 90px;}
+.st-head{padding:14px 0 4px;}
+.st-head-title{font-family:'Bebas Neue',sans-serif;font-size:calc(24px * var(--ts,1));letter-spacing:1px;color:var(--text);}
+.st-head-sub{font-size:calc(12px * var(--ts,1));color:var(--muted);line-height:1.45;margin-top:3px;}
+.st-chips{display:flex;gap:6px;overflow-x:auto;margin-top:11px;padding-bottom:4px;scrollbar-width:none;}
+.st-chips::-webkit-scrollbar{display:none;}
+.st-chip{flex:0 0 auto;background:var(--bg3);border:1px solid var(--border);color:var(--muted);
+  border-radius:18px;padding:7px 13px;font-family:'DM Sans',sans-serif;
+  font-size:calc(12.5px * var(--ts,1));font-weight:600;cursor:pointer;white-space:nowrap;}
+.st-chip.on{background:var(--accent);border-color:var(--accent);color:var(--bg);}
+
+.st-sec{background:var(--bg2);border:1px solid var(--border);border-radius:13px;padding:13px;margin-bottom:11px;}
+.st-sec-head{margin-bottom:11px;}
+.st-sec-title{font-size:calc(14px * var(--ts,1));font-weight:700;color:var(--text);}
+.st-sec-sub{font-size:calc(11.5px * var(--ts,1));color:var(--muted);line-height:1.4;margin-top:3px;}
+
+/* Kattavuusrivi. Tarkoituksella erottuva mutta hillitty: se ei ole
+   varoitus vaan kertoo mihin luku perustuu. */
+.st-cov{font-size:calc(11px * var(--ts,1));color:var(--muted);line-height:1.45;
+  margin-top:11px;padding-top:9px;border-top:1px dashed var(--border);}
+
+.st-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:8px;}
+.st-card{background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:11px 6px;text-align:center;}
+.st-card-n{font-family:'Bebas Neue',sans-serif;font-size:calc(25px * var(--ts,1));color:var(--accent);line-height:1;}
+.st-card-l{font-size:calc(10.5px * var(--ts,1));color:var(--muted);margin-top:3px;line-height:1.25;}
+
+.st-bars{display:flex;flex-direction:column;gap:6px;}
+.st-bar-row{display:flex;align-items:center;gap:9px;}
+.st-bar-label{flex:0 0 33%;max-width:33%;font-size:calc(11.5px * var(--ts,1));color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.st-bar-track{flex:1;min-width:0;height:16px;background:var(--bg3);border-radius:5px;overflow:hidden;}
+.st-bar-fill{height:100%;background:var(--accent);border-radius:5px;transition:width 0.35s ease;}
+.st-bar-value{flex:0 0 auto;min-width:30px;text-align:right;font-size:calc(11.5px * var(--ts,1));
+  font-weight:700;color:var(--text);}
+
+/* Pistepalkit noudattavat samoja luokkia kuin arvosanarenkaat, jotta
+   värit tarkoittavat kaikkialla samaa. */
+.st-bar-fill.score-top{background:var(--green);}
+.st-bar-fill.score-high{background:var(--green);opacity:0.75;}
+.st-bar-fill.score-mid{background:var(--accent);}
+.st-bar-fill.score-low{background:var(--accent2);opacity:0.75;}
+.st-bar-fill.score-bottom{background:var(--accent2);}
+.st-bar-fill.st-good{background:var(--green);}
+.st-bar-fill.st-mid{background:var(--accent);}
+.st-bar-fill.st-bad{background:var(--accent2);}
+
+.st-empty{font-size:calc(12px * var(--ts,1));color:var(--muted);line-height:1.5;padding:8px 0;}
+.st-empty-big{text-align:center;padding:44px 18px;}
+.st-empty-ico{font-size:calc(38px * var(--ts,1));}
+.st-empty-title{font-size:calc(15px * var(--ts,1));font-weight:700;margin-top:8px;}
+.st-empty-sub{font-size:calc(12.5px * var(--ts,1));color:var(--muted);line-height:1.5;margin-top:6px;}
+.st-foot{font-size:calc(11.5px * var(--ts,1));color:var(--muted);line-height:1.5;
+  padding:6px 4px 0;max-width:38em;}
