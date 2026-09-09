@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-09.2';
+window.BUILD_THEME = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -55,6 +55,33 @@ function animSpeed(s){
   return (n > 0 && n <= 2) ? n : 1;
 }
 
+// Ikkunoiden avautumistapa. Oletus 'liuku' ei kirjoita attribuuttia
+// lainkaan, jolloin style.css:n alkuperäiset säännöt jäävät voimaan.
+const OPEN_ANIM_OPTS = [
+  { v: 'liuku',     label: 'Liuku alhaalta' },
+  { v: 'haivytys',  label: 'Häivytys' },
+  { v: 'laajenna',  label: 'Laajennus' },
+  { v: 'ei',        label: 'Ei animaatiota' }
+];
+function openAnim(s){
+  const v = (s || {}).openAnim;
+  return OPEN_ANIM_OPTS.some(o => o.v === v) ? v : 'liuku';
+}
+
+// Latausilmaisimen viive. EI animaatio vaan käyttäytymistä: viive toimii
+// myös silloin kun animaatiot on kytketty pois, eikä se siksi kulje
+// --anim-kertoimen kautta.
+const LOADER_DELAY_OPTS = [
+  { v: 0,   label: 'Heti' },
+  { v: 150, label: '150 ms' },
+  { v: 300, label: '300 ms' }
+];
+function loaderDelay(){
+  const s = (typeof appData !== 'undefined' && appData.settings) || {};
+  const n = Number(s.loaderDelay);
+  return (n > 0 && n <= 1000) ? n : 0;
+}
+
 // Mikä tila on oikeasti voimassa (auto ratkaistaan järjestelmästä)
 function effectiveMode(){
   const s = (typeof appData !== 'undefined' && appData.settings) || {};
@@ -78,6 +105,10 @@ window.applyTheme = function(){
   // inline-tyyli pysyy tyhjänä oletusasetuksilla, ja style.css:n
   // var(--anim,1) hoitaa loput — mikään ei muutu ennen kuin käyttäjä
   // valitsee toisin.
+  const oa = openAnim(s);
+  if(oa === 'liuku') root.removeAttribute('data-openanim');
+  else root.setAttribute('data-openanim', oa);
+
   const spd = (prefersReduce && prefersReduce.matches) ? 0.001 : animSpeed(s);
   if(spd === 1) root.style.removeProperty('--anim');
   else root.style.setProperty('--anim', String(spd));
@@ -105,6 +136,59 @@ if(prefersLight && prefersLight.addEventListener){
 if(prefersReduce && prefersReduce.addEventListener){
   prefersReduce.addEventListener('change', () => window.applyTheme());
 }
+
+// ── LATAUSILMAISIMEN VIIVE ──
+// Nopeissa hauissa ilmaisin ehtii välähtää näkyviin ja pois, mikä näyttää
+// virheeltä. Viive näyttää sen vasta jos haku oikeasti kestää.
+//
+// Latausikkuna avataan ja suljetaan yli kymmenessä eri kohdassa kahdessa
+// tiedostossa. Jos viive lisättäisiin jokaiseen avaukseen erikseen ja yksikin
+// sulkeminen jäisi käsittelemättä, ajastin ehtisi avata ikkunan uudelleen
+// operaation jo päätyttyä — ikkuna jäisi jumiin ruudulle. Siksi kääre
+// asennetaan elementtiin itseensä: sulkeminen peruu aina odottavan ajastimen,
+// tuli se mistä kohdasta koodia tahansa.
+function installLoaderDelay(id){
+  const el = document.getElementById(id);
+  if(!el || el._ldOn) return;
+  el._ldOn = true;
+  const list = el.classList;
+  const rawAdd    = DOMTokenList.prototype.add.bind(list);
+  const rawRemove = DOMTokenList.prototype.remove.bind(list);
+  list.add = function(){
+    const cls = Array.prototype.slice.call(arguments);
+    if(cls.indexOf('open') < 0) return rawAdd.apply(null, cls);
+    const rest = cls.filter(c => c !== 'open');
+    if(rest.length) rawAdd.apply(null, rest);
+    const d = loaderDelay();
+    if(!d) return rawAdd('open');
+    clearTimeout(el._ldT);
+    el._ldT = setTimeout(() => { el._ldT = null; rawAdd('open'); }, d);
+  };
+  list.remove = function(){
+    const cls = Array.prototype.slice.call(arguments);
+    if(cls.indexOf('open') >= 0){ clearTimeout(el._ldT); el._ldT = null; }
+    return rawRemove.apply(null, cls);
+  };
+}
+
+// Hakukentän pyörä näytetään display-tyylillä eikä luokalla, ja se tapahtuu
+// yhdessä funktiossa. Sille riittää tavallinen apuri.
+window.loaderShow = function(el){
+  if(!el) return;
+  clearTimeout(el._ldT);
+  const d = loaderDelay();
+  if(!d){ el.style.display = 'block'; return; }
+  el._ldT = setTimeout(() => { el._ldT = null; el.style.display = 'block'; }, d);
+};
+window.loaderHide = function(el){
+  if(!el) return;
+  clearTimeout(el._ldT);
+  el._ldT = null;
+  el.style.display = 'none';
+};
+
+// Skriptit ladataan bodyn lopussa, joten elementit ovat jo olemassa.
+installLoaderDelay('tmdbLoadingOverlay');
 
 // ── FILMIRAITA ──
 // Rei'itetty filminauha ruudun molemmissa reunoissa. Puhdasta CSS:ää:
@@ -697,6 +781,17 @@ window.setAnimSpeed = async function(v){
   window.renderLayoutSettings();
   await window.fbSave();
 };
+window.setOpenAnim = async function(v){
+  ensureSettings().openAnim = v;
+  window.applyTheme();
+  window.renderLayoutSettings();
+  await window.fbSave();
+};
+window.setLoaderDelay = async function(v){
+  ensureSettings().loaderDelay = Number(v) || 0;
+  window.renderBehaviourSettings();
+  await window.fbSave();
+};
 window.toggleLayout = async function(key){
   ensureSettings()[key] = !setOn(key);
   window.applyTheme();
@@ -713,11 +808,16 @@ window.renderLayoutSettings = function(){
   sw('subCountsToggle', 'subCounts');
   sw('animToggle', 'animations');
   renderSeg('animSpeedBox', ANIM_SPEED_OPTS, String(animSpeed(s)), 'setAnimSpeed');
+  renderSeg('openAnimBox', OPEN_ANIM_OPTS, openAnim(s), 'setOpenAnim');
   // Nopeussäädin ei tee mitään jos animaatiot on kytketty pois, joten se
   // piilotetaan kokonaan sen sijaan että se jäisi harhaanjohtavasti
   // säädettäväksi.
   const spdWrap = document.getElementById('animSpeedWrap');
   if(spdWrap) spdWrap.hidden = (s.animations === false);
+  // Avautumistapa on animaatio siinä missä muutkin: ilman animaatioita
+  // jokainen vaihtoehto näyttäisi samalta.
+  const oaWrap = document.getElementById('openAnimWrap');
+  if(oaWrap) oaWrap.hidden = (s.animations === false);
 };
 
 // ── KATEGORIAKOHTAISET OMINAISUUDET ──
@@ -801,6 +901,7 @@ window.renderBehaviourSettings = function(){
   renderSeg('backupRemindBox', BACKUP_REMIND_OPTS, s.backupRemindDays ?? 7, 'setBackupRemind');
   renderSeg('startViewBox',    START_VIEW_OPTS,    s.startView ?? '',       'setStartView');
   renderSeg('startSortBox',    START_SORT_OPTS,    s.startSort ?? '',       'setStartSort');
+  renderSeg('loaderDelayBox',  LOADER_DELAY_OPTS,  loaderDelay(),           'setLoaderDelay');
 };
 
 window.renderTokenSettings = function(){

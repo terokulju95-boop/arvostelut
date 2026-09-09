@@ -802,6 +802,27 @@ html[data-filmstrip="on"] body::before{
 @keyframes fadeInM{from{opacity:0}to{opacity:1}}
 .modal-sheet{background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 16px 40px;width:100%;max-height:90vh;overflow-y:auto;animation:slideUpM calc(0.3s * var(--anim,1)) cubic-bezier(0.4,0,0.2,1);}
 @keyframes slideUpM{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+/* ── IKKUNOIDEN AVAUTUMISTAPA ──
+   Kortin napauttaminen avaa lukuikkunan, joten tämä on käytännössä myös
+   kortin avausanimaatio. Oletusta (liuku alhaalta) ei ole täällä
+   lainkaan: ilman data-openanim-attribuuttia voimassa ovat yllä olevat
+   säännöt eli entinen käytös. Kestot kulkevat --anim-kertoimen kautta
+   kuten kaikki muukin, ja .modal-sheet.dragging voittaa nämä
+   !importantilla — vetäminen ei siis törmää avausanimaatioon. */
+[data-openanim="haivytys"] .modal-sheet{
+  animation:sheetFadeM calc(0.18s * var(--anim,1)) ease;
+}
+@keyframes sheetFadeM{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+
+[data-openanim="laajenna"] .modal-sheet{
+  animation:sheetZoomM calc(0.22s * var(--anim,1)) cubic-bezier(0.4,0,0.2,1);
+  transform-origin:50% 100%;
+}
+@keyframes sheetZoomM{from{opacity:0;transform:scale(0.94);}to{opacity:1;transform:none;}}
+
+[data-openanim="ei"] .modal-sheet{animation:none;}
+[data-openanim="ei"] .modal-overlay.open{animation:none;}
 .modal-handle{width:36px;height:4px;background:var(--tint-15);border-radius:2px;margin:0 auto 18px;}
 .modal-title{font-family:'Bebas Neue',sans-serif;font-size:calc(24px * var(--ts,1));letter-spacing:1px;margin-bottom:18px;color:var(--accent);}
 .form-group{margin-bottom:14px;}

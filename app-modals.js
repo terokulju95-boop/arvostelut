@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-09.2';
+window.BUILD_MODALS = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -2210,7 +2210,7 @@ async function searchTmdb(query) {
   if (!token) { return; }
   const spinner = document.getElementById('tmdbSpinner');
   const results = document.getElementById('tmdbResults');
-  spinner.style.display = 'block';
+  window.loaderShow(spinner);
   results.style.display = 'none';
 
   // Valitaan haku kategorian mukaan
@@ -2222,7 +2222,7 @@ async function searchTmdb(query) {
     const url = `https://api.themoviedb.org/3/search/${searchType}?query=${encodeURIComponent(query)}&language=fi-FI&page=1`;
     const res = await window.tmdbFetch(url, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } });
     const data = await res.json();
-    spinner.style.display = 'none';
+    window.loaderHide(spinner);
     // Suodatus ENNEN rajausta. Toisin päin TMDB:n kärkeen nostamat
     // henkilöosumat söivät kuuden paikan kiintiön, ja näyttelijän nimellä
     // haettaessa näkyviin jäi vain yksi elokuva kuuden sijaan.
@@ -2248,7 +2248,7 @@ async function searchTmdb(query) {
     }).join('');
     results.style.display = 'block';
   } catch(e) {
-    spinner.style.display = 'none';
+    window.loaderHide(spinner);
   }
 }
 
