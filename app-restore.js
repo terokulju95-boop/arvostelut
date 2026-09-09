@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · ohjattu palautus ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_RESTORE = '2026-09-09.0';
+window.BUILD_RESTORE = '2026-09-09.1';
 //
 // Tavallinen skripti. Ajetaan app-modals.js:n JÄLKEEN, koska se korvaa
 // restoreBackup-funktion ja käärii renderBackupInfo-funktion.
