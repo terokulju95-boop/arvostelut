@@ -195,6 +195,7 @@ window.runDiscover = async function(mode){
     else if(mode === 'collections')  await discoverCollections(out);
     else if(mode === 'classics')     await discoverClassics(out);
     else if(mode === 'ended')        await discoverEndedSeries(out);
+    else if(mode === 'mini')         await discoverMiniSeries(out);
     else if(mode === 'longtv')       await discoverLongSeries(out);
     else if(mode === 'shorttv')      await discoverShortStart(out);
     else if(mode === 'truestory')    await discoverTrueStories(out);
@@ -1074,6 +1075,102 @@ async function discoverEndedSeries(out){
   out.innerHTML = sections.length
     ? sections.join('')
     : discEmpty('Et löytänyt uusia päättyneitä sarjoja. Nosta ehdotusten määrää tai kokeile toista hakua.');
+}
+
+
+// ── 10. MINISARJAT YHTEEN ILTAAN ──
+// TMDB tuntee sarjatyypin: with_type=2 on miniseries. Se on paljon
+// luotettavampi kuin jaksomäärän arvailu, koska minisarja on rajattu
+// tarina jo lähtökohtaisesti. Jaksomäärä ja kokonaiskesto haetaan
+// yksitellen vasta karsinnan jälkeen — samasta syystä kuin pitkissä
+// sarjoissa: kutsuja kuluisi muuten moninkertaisesti.
+const MINI_TYPE       = 2;    // TMDB:n sarjatyyppi "miniseries"
+const MINI_MAX_EP     = 8;    // enintään näin monta jaksoa koko sarjassa
+const MINI_MAX_MIN    = 420;  // enintään seitsemän tuntia yhteensä
+const MINI_CHECK_MAX  = 14;   // montako ehdokasta tarkistetaan hakua kohden
+
+async function discoverMiniSeries(out){
+  const ids   = reviewedTmdbIds();
+  const names = reviewedNames();
+  const want  = discCount();
+  const liked = bestTvGenres();
+  const seen  = new Set();
+  const sections = [];
+
+  // Ilman omia sarja-arvosteluja haetaan ilman genrerajausta.
+  const targets = liked.length ? liked : [{ name:null, id:null, avg:null, n:0 }];
+
+  for(let i = 0; i < targets.length; i++){
+    const g = targets[i];
+    discStatus(g.name
+      ? `Haetaan minisarjoja ${i+1}/${targets.length}: ${esc(g.name)}`
+      : 'Haetaan arvostetuimpia minisarjoja', true);
+
+    const results = [];
+    for(let page = 1; page <= 2; page++){
+      const res = await tmdbGet(
+        `/discover/tv?language=fi-FI&page=${page}` +
+        `&with_type=${MINI_TYPE}` +
+        `&sort_by=vote_average.desc` +
+        `&vote_count.gte=${ENDED_VOTES}` +
+        (g.id ? `&with_genres=${g.id}` : '')
+      );
+      if(res && res.results) results.push(...res.results);
+      if(!res || !res.results || res.results.length < 20) break;
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    const candidates = results
+      .filter(item => !alreadyHave(Object.assign({ media_type:'tv' }, item), ids, names))
+      .filter(item => !seen.has(item.id))
+      .slice(0, MINI_CHECK_MAX);
+
+    const picks = [];
+    for(const item of candidates){
+      if(picks.length >= want) break;
+      const d = await tmdbGet(`/tv/${item.id}?language=fi-FI`);
+      await new Promise(r => setTimeout(r, 70));
+      if(!d) continue;
+
+      // Hylätty ehdokas merkitään nähdyksi heti, jottei sitä tarkisteta
+      // uudelleen seuraavan genren kohdalla.
+      seen.add(item.id);
+
+      const eps = Number(d.number_of_episodes) || 0;
+      if(!eps || eps > MINI_MAX_EP) continue;
+
+      const runtime = Array.isArray(d.episode_run_time) && d.episode_run_time.length
+        ? d.episode_run_time[0] : null;
+      const mins = runtime ? eps * runtime : null;
+      if(mins && mins > MINI_MAX_MIN) continue;
+
+      picks.push({ item, eps, mins });
+    }
+
+    if(!picks.length) continue;
+
+    sections.push(discSection(
+      g.name ? `🌙 ${esc(g.name)}` : '🌙 Minisarjat',
+      g.name
+        ? `Keskiarvosi genressä ${g.avg} pistettä (${g.n} sarjaa) · rajattu tarina, enintään ${MINI_MAX_EP} jaksoa`
+        : `Rajattuja tarinoita, enintään ${MINI_MAX_EP} jaksoa`,
+      picks.map(p => {
+        const kesto = shortRuntimeLabel(p.mins);
+        const osat = [
+          `${p.eps} jaksoa`,
+          kesto ? `yhteensä noin ${kesto}` : '',
+          (p.mins && p.mins <= 240) ? 'ehtii yhteen iltaan' : ''
+        ].filter(Boolean);
+        return discCard(p.item, osat.join(' · '));
+      }).join('')
+    ));
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  discStatus('');
+  out.innerHTML = sections.length
+    ? sections.join('')
+    : discEmpty('Minisarjoja ei löytynyt. Nosta ehdotusten määrää tai kokeile toista hakua.');
 }
 
 // ── 7. PITKÄT SARJAT JOITA ET OLE ALOITTANUT ──

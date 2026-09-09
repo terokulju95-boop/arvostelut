@@ -181,6 +181,11 @@
         <span class="disc-btn-text"><strong>Lyhyt ensimmäinen kausi</strong>
         <span>Matalan kynnyksen aloitus — kokeilu ei vie montaa iltaa</span></span>
       </button>
+      <button class="disc-btn disc-btn-main" onclick="runDiscover('mini')">
+        <span class="disc-btn-icon">🌙</span>
+        <span class="disc-btn-text"><strong>Minisarjat yhteen iltaan</strong>
+        <span>Rajattuja sarjoja jotka ehtii katsoa kerralla</span></span>
+      </button>
       <button class="disc-btn disc-btn-main" onclick="runDiscover('ended')">
         <span class="disc-btn-icon">🏁</span>
         <span class="disc-btn-text"><strong>Päättyneet sarjat</strong>
@@ -894,6 +899,17 @@
         </button>
         <div class="set-sec-body" id="sec-kortinkentat" hidden>
 <div id="cardFieldsBox"></div>
+        </div>
+      </div>
+      <div class="set-sec" data-sec="korttityyli">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('korttityyli')" aria-expanded="false">
+          <span class="set-sec-icon">🎟️</span>
+          <span class="set-sec-title">Kortin tyyli<span class="set-sec-sum" id="sum-korttityyli"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-korttityyli" hidden>
+          <div class="toggle-row-sub" style="margin-bottom:10px;">Kortin ulkoasu kokonaisuutena. Vaikuttaa vain korttinäkymään — ruudukko ja kompakti lista pysyvät ennallaan. Muu kuin perustyyli asettaa kulmien pyöristyksen itse.</div>
+          <div id="cardStyleBox"></div>
         </div>
       </div>
       <div class="set-sec" data-sec="muodot">

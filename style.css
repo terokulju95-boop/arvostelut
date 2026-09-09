@@ -2262,3 +2262,85 @@ body.dev-on label.dev-host{display:flex;align-items:center;}
   font-size:calc(11.5px * var(--ts,1));font-weight:600;cursor:pointer;}
 .dev-empty{text-align:center;color:var(--muted);font-size:calc(12.5px * var(--ts,1));
   line-height:1.5;padding:28px 14px;}
+
+
+/* ══════════════════════════════════════════════════════════════
+   KORTIN TYYLIT
+   Molemmat toteutetaan kortin omilla pseudoelementeillä:
+   ::before on värillinen reunapalkki (pistetaso tai julisteen väri) ja
+   ::after on tavallisesti pistekuvio. Tyyli muuttaa vain näiden mitat
+   ja kuvion, joten pisteväri säilyy eikä HTML muutu.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── LIPPULAPPU ── */
+html[data-cardstyle="ticket"] .review-card{
+  border-radius:6px;
+  padding-left:52px;
+  border-style:dashed;
+}
+/* Värillinen reuna kapenee lipun repäisyreunaksi */
+html[data-cardstyle="ticket"] .review-card::before{
+  width:8px;
+  border-radius:0;
+}
+/* Rei'itys: taustavärillä lyödyt reiät pistekuvion tilalle */
+html[data-cardstyle="ticket"] .review-card::after{
+  inset:0 auto 0 18px;
+  width:18px;
+  border-radius:0;
+  background-image:radial-gradient(circle at 50% 50%, var(--bg) 4px, transparent 4.6px);
+  background-size:18px 18px;
+  background-position:0 9px;
+}
+/* Ohut katkoviiva reikärivin oikealle puolelle */
+html[data-cardstyle="ticket"] .review-card .card-body::before{
+  content:'';
+  position:absolute;
+  left:-14px; top:2px; bottom:2px;
+  border-left:1px dashed var(--border);
+  pointer-events:none;
+}
+html[data-cardstyle="ticket"] .review-card.pp-left .card-poster-bg,
+html[data-cardstyle="ticket"] .review-card.pp-full .card-poster-bg{
+  opacity:0.55;   /* juliste ei saa peittää reikärivistöä */
+}
+
+/* ── VHS-KOTELO ── */
+html[data-cardstyle="vhs"] .review-card{
+  border-radius:4px;
+  padding-left:40px;
+  border-width:2px;
+  box-shadow:4px 4px 0 rgba(0,0,0,0.22);
+}
+/* Suosikin hehku säilyy kotelovarjon rinnalla */
+html[data-cardstyle="vhs"] .review-card.is-favorite{
+  box-shadow:0 0 0 1.5px rgba(var(--fav-rgb),0.5), 4px 4px 0 rgba(0,0,0,0.22);
+}
+/* Selkämys: leveä värillinen palkki kortin vasemmassa reunassa */
+html[data-cardstyle="vhs"] .review-card::before{
+  width:26px;
+  border-radius:2px 0 0 2px;
+}
+/* Kotelon uurteet selkämyksen päälle */
+html[data-cardstyle="vhs"] .review-card::after{
+  inset:0 auto 0 0;
+  width:26px;
+  border-radius:0;
+  background-image:repeating-linear-gradient(180deg,
+    rgba(0,0,0,0.30) 0 2px, transparent 2px 8px);
+  background-size:auto;
+}
+/* Tarrakentän yläviiva erottaa nimen muusta sisällöstä */
+html[data-cardstyle="vhs"] .review-card .card-top{
+  border-bottom:1px solid var(--border);
+  padding-bottom:9px;
+}
+
+/* ── ASETUSNAPIT ── */
+.cardstyle-btn{display:flex;align-items:center;gap:11px;width:100%;padding:12px 11px;margin-bottom:8px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--muted);cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;transition:all .16s;}
+.cardstyle-btn.active{border-color:var(--accent);background:var(--acc-10);color:var(--accent);}
+.cardstyle-ico{font-size:calc(20px * var(--ts,1));flex-shrink:0;}
+.cardstyle-txt{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.cardstyle-txt strong{font-size:calc(13.5px * var(--ts,1));font-weight:700;}
+.cardstyle-txt span{font-size:calc(11.5px * var(--ts,1));color:var(--muted);font-weight:400;line-height:1.35;}
+.cardstyle-btn.active .cardstyle-txt span{color:var(--accent);opacity:.75;}

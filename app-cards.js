@@ -414,11 +414,66 @@ function renderLogoSettings(){
     <button type="button" class="thr-reset" onclick="resetLogo()">↩️ Palauta oletuslogo</button>`;
 }
 
-// Yhteinen päivitys: kaikki kolme osiota kerralla.
+// ════════════════════════════════════════════════════════════
+// 5. KORTIN TYYLI
+// Kortin koko ilme yhtenä valintana. Tyyli on pelkkää CSS:ää: asetus
+// kirjoittaa data-cardstyle-attribuutin juurielementtiin eikä
+// renderöintiin kosketa lainkaan. Näin tyyli ei voi rikkoa kortin
+// sisältöä, ja uuden tyylin lisääminen vaatii vain CSS-lohkon.
+// Koskee vain korttinäkymää — ruudukko ja kompakti lista pysyvät
+// ennallaan, koska niissä ei ole .review-card-elementtiä.
+// ════════════════════════════════════════════════════════════
+
+const CARD_STYLES = [
+  { id:'basic',  icon:'🃏', label:'Perus',
+    hint:'Nykyinen kortti sellaisenaan' },
+  { id:'ticket', icon:'🎟️', label:'Lippulappu',
+    hint:'Rei\u2019itetty reuna kuin elokuvalipussa, kulmat lähes suorina' },
+  { id:'vhs',    icon:'📼', label:'VHS-kotelo',
+    hint:'Selkämys uurteineen ja kotelon varjo' }
+];
+
+window.cardStyle = function(){
+  const v = ensureSettings().cardStyle;
+  return CARD_STYLES.some(x => x.id === v) ? v : 'basic';
+};
+
+// Perustyyli poistaa attribuutin kokonaan, jottei CSS:ään jää
+// turhaa valitsinta odottamaan.
+window.applyCardStyle = function(){
+  const v = window.cardStyle();
+  const root = document.documentElement;
+  if(v === 'basic') root.removeAttribute('data-cardstyle');
+  else root.setAttribute('data-cardstyle', v);
+};
+
+window.setCardStyle = async function(id){
+  ensureSettings().cardStyle = id;
+  window.applyCardStyle();
+  renderCardStyleSettings();
+  if(window.renderSectionSummaries) window.renderSectionSummaries();
+  await window.fbSave();
+};
+
+function renderCardStyleSettings(){
+  const host = document.getElementById('cardStyleBox');
+  if(!host) return;
+  const cur = window.cardStyle();
+  host.innerHTML = CARD_STYLES.map(s => `
+    <button type="button" class="cardstyle-btn${s.id === cur ? ' active' : ''}"
+      onclick="setCardStyle('${s.id}')">
+      <span class="cardstyle-ico">${s.icon}</span>
+      <span class="cardstyle-txt"><strong>${esc(s.label)}</strong><span>${esc(s.hint)}</span></span>
+    </button>`).join('');
+}
+window.renderCardStyleSettings = renderCardStyleSettings;
+
+// Yhteinen päivitys: kaikki osiot kerralla.
 window.renderCardSettings = function(){
   renderCardFieldSettings();
   renderPosterPosSettings();
   renderShapeSettings();
+  renderCardStyleSettings();
   renderLogoSettings();
   if(window.renderSectionSummaries) window.renderSectionSummaries();
 };
@@ -429,7 +484,19 @@ window.renderCardFieldSettings = renderCardFieldSettings;
 document.addEventListener('DOMContentLoaded', () => {
   try{ window.applyLogo(); } catch(e){}
   try{ window.applyShapes(); } catch(e){}
+  try{ window.applyCardStyle(); } catch(e){}
 });
+
+// Asetukset saapuvat pilvestä vasta latauksen jälkeen. applyTheme ajetaan
+// joka kerta kun data on tuoretta, joten kortin tyyli ripustetaan siihen
+// eikä app-theme.js:ää tarvitse muokata.
+(function hookCardStyleToTheme(){
+  const prev = window.applyTheme;
+  window.applyTheme = function(){
+    if(prev) prev.apply(this, arguments);
+    try{ window.applyCardStyle(); } catch(e){}
+  };
+})();
 
 // ════════════════════════════════════════════════════════════
 // 4. ASETUSTEN HAITARIOSIOT
@@ -511,6 +578,7 @@ function sectionSummaries(){
                     : 'kaikki näkyvissä',
     julistepaikka: posLabel,
     muodot:       `${window.cardRadius() === null ? 'paketin mukaan' : window.cardRadius() + 'px'} · rengas ${window.ringWidth()}px`,
+    korttityyli:  ((CARD_STYLES.find(x => x.id === window.cardStyle()) || {}).label || 'Perus'),
     kenttajarj:   (s.formOrder && s.formOrder.length) ? 'muokattu' : 'oletus',
     kategoriat:   `${cats} kpl`,
     genret:       `${gens} kpl`,
