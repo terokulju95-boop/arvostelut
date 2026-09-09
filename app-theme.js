@@ -34,6 +34,27 @@ window.THEME_MODES = THEME_MODES;
 
 const prefersLight = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 
+// Järjestelmän liikkeenvähennys. Voittaa aina asetuksissa valitun
+// animaationopeuden: jos puhelimessa on liikkeenvähennys päällä, kestot
+// ajetaan käytännössä nollaan riippumatta siitä mitä sovelluksesta on
+// valittu.
+const prefersReduce = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+
+// Animaationopeuden kerroin. Arvo kerrotaan jokaiseen style.css:n
+// kestoon: calc(0.2s * var(--anim,1)). Normaali on 1 eli entinen nopeus.
+// Rajat pidetään maltillisina, koska osa sovelluksen siirtymistä on
+// ajastettu myös JavaScriptissä (esim. vertailun 250 ms modaalien
+// välissä) — moninkertainen hidastus saisi ne eri tahtiin.
+const ANIM_SPEED_OPTS = [
+  { v: '0.6', label: 'Nopea' },
+  { v: '1',   label: 'Normaali' },
+  { v: '1.5', label: 'Rauhallinen' }
+];
+function animSpeed(s){
+  const n = Number((s || {}).animSpeed);
+  return (n > 0 && n <= 2) ? n : 1;
+}
+
 // Mikä tila on oikeasti voimassa (auto ratkaistaan järjestelmästä)
 function effectiveMode(){
   const s = (typeof appData !== 'undefined' && appData.settings) || {};
@@ -53,6 +74,13 @@ window.applyTheme = function(){
   root.setAttribute('data-filmstrip', s.filmstrip ? 'on' : 'off');
   root.setAttribute('data-tabs', s.tabStyle || 'vierita');
   root.setAttribute('data-anim', (s.animations !== false) ? 'on' : 'off');
+  // Kerroin kirjoitetaan vain kun se poikkeaa ykkösestä. Näin juuren
+  // inline-tyyli pysyy tyhjänä oletusasetuksilla, ja style.css:n
+  // var(--anim,1) hoitaa loput — mikään ei muutu ennen kuin käyttäjä
+  // valitsee toisin.
+  const spd = (prefersReduce && prefersReduce.matches) ? 0.001 : animSpeed(s);
+  if(spd === 1) root.style.removeProperty('--anim');
+  else root.style.setProperty('--anim', String(spd));
   root.style.setProperty('--grid-cols', String(s.gridCols || 3));
   if(window.updateTabsOverflow) setTimeout(window.updateTabsOverflow, 0);
 
@@ -72,6 +100,10 @@ if(prefersLight && prefersLight.addEventListener){
     const s = (typeof appData !== 'undefined' && appData.settings) || {};
     if((s.themeMode || 'dark') === 'auto') window.applyTheme();
   });
+}
+
+if(prefersReduce && prefersReduce.addEventListener){
+  prefersReduce.addEventListener('change', () => window.applyTheme());
 }
 
 // ── FILMIRAITA ──
@@ -659,6 +691,12 @@ window.setGridCols = async function(v){
   window.renderLayoutSettings();
   await window.fbSave();
 };
+window.setAnimSpeed = async function(v){
+  ensureSettings().animSpeed = Number(v) || 1;
+  window.applyTheme();
+  window.renderLayoutSettings();
+  await window.fbSave();
+};
 window.toggleLayout = async function(key){
   ensureSettings()[key] = !setOn(key);
   window.applyTheme();
@@ -674,6 +712,12 @@ window.renderLayoutSettings = function(){
   const sw = (id, key) => { const b = document.getElementById(id); if(b) b.classList.toggle('on', setOn(key)); };
   sw('subCountsToggle', 'subCounts');
   sw('animToggle', 'animations');
+  renderSeg('animSpeedBox', ANIM_SPEED_OPTS, String(animSpeed(s)), 'setAnimSpeed');
+  // Nopeussäädin ei tee mitään jos animaatiot on kytketty pois, joten se
+  // piilotetaan kokonaan sen sijaan että se jäisi harhaanjohtavasti
+  // säädettäväksi.
+  const spdWrap = document.getElementById('animSpeedWrap');
+  if(spdWrap) spdWrap.hidden = (s.animations === false);
 };
 
 // ── KATEGORIAKOHTAISET OMINAISUUDET ──
