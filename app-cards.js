@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-09.3';
+window.BUILD_CARDS = '2026-09-09.1';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -562,6 +562,13 @@ function sectionSummaries(){
   const noPlot = (appData.reviews || [])
     .filter(r => catHas(r.category, 'plot') && !r.plot).length;
 
+  // Virheloki on laitekohtainen, joten tiivistelmä luetaan localStoragesta.
+  const errSummary = () => {
+    if(s.errorLogOn === false) return 'pois käytöstä';
+    const n = window.errLogRead ? window.errLogRead().length : 0;
+    return n ? n + (n === 1 ? ' virhe' : ' virhettä') : 'ei virheitä';
+  };
+
   const modeName = ((window.THEME_MODES || []).find(m => m.id === (s.themeMode || 'dark')) || {}).name || '';
   const packName = ((window.THEME_PACKS || []).find(x => x.id === (s.themePack || 'perus')) || {}).name || '';
   const defs = (typeof scoreBandDefs === 'function') ? scoreBandDefs() : { count:3, cuts:[70,40] };
@@ -587,6 +594,7 @@ function sectionSummaries(){
     tunnus:       (s.tmdbToken || '').trim() ? 'oma tunnus' : 'oletus',
     juonet:       noPlot ? `${noPlot} puuttuu` : 'ei puutu',
     kaannokset:   s.translatePlots ? 'juonet mukana' : 'juonet pois',
+    virheloki:    errSummary(),
     testitila:    window._sandbox ? 'PÄÄLLÄ' : 'pois'
   };
 }
@@ -615,7 +623,7 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-09-09.3', items:[
+  { build:'2026-09-09.1', items:[
     { icon:'🛠️', title:'Kehittäjätila',
       text:'Jokaisen asetuksen viereen ilmestyy lippu. Merkitse mikä on turhaa, väärin toteutettua tai rikki, ja lataa lopuksi lista. Merkinnät elävät vain tällä laitteella eivätkä koske dataan.',
       tab:'data', sec:'kehittaja' },

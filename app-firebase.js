@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · Firebase ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_FIREBASE = '2026-09-09.3';
+window.BUILD_FIREBASE = '2026-09-09.1';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
@@ -628,6 +628,7 @@ window.fbSave = async function(){
     if(!window._bkpFull){
       window._bkpFull = true;
       console.warn('Paikallista varmuuskopiota ei voitu kirjoittaa:', e && e.message);
+      if(window.logError) window.logError('tallennus', e, 'paikallinen varmuuskopio');
       if(window.showStatus){
         window.showStatus('⚠️ Laitteen muisti täynnä — lataa varmuuskopio', '#f59e0b', 5000);
       }
@@ -728,11 +729,13 @@ window.fbSave = async function(){
       showStatus('⏳ Ei yhteyttä — tallennus jäi odottamaan','#f59e0b', 5000);
     } else if(res && res.error){
       const e = res.error;
+      if(window.logError) window.logError('tallennus', e, 'fbSave');
       showStatus('❌ Virhe: ' + (e && e.code ? e.code : 'tallennus epäonnistui'), '#dc2626', 5000);
     } else {
       showStatus('✅ Tallennettu','#22c55e');
     }
   } catch(e){
+    if(window.logError) window.logError('tallennus', e, 'fbSave');
     showStatus('❌ Virhe: ' + (e && e.code ? e.code : 'tallennus epäonnistui'), '#dc2626', 5000);
   }
 

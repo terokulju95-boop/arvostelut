@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-09.3';
+window.BUILD_MODALS = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1141,7 +1141,10 @@ function safeRender(label, fn){
   // Versiovaroitus kertoo siitä erikseen — tässä vain ohitetaan.
   if(typeof fn !== 'function') return;
   try { fn(); }
-  catch(e){ console.error('Asetusten osa epäonnistui:', label, e); }
+  catch(e){
+    console.error('Asetusten osa epäonnistui:', label, e);
+    if(window.logError) window.logError('koodi', e, 'asetukset: ' + label);
+  }
 }
 
 // ── TALLENNUSJONO ──
@@ -1463,6 +1466,7 @@ window.openSettings = function(){
   safeRender('versio', window.renderVersionInfo);
   safeRender('eikiinnosta', window.renderHiddenInfo);
   safeRender('testitila', window.renderSandboxSettings);
+  safeRender('virheloki', window.renderErrorLog);
   safeRender('tarkkuus', renderPrecisionRow);
   safeRender('painotukset', renderWeightRows);
   safeRender('asteikot', window.renderScaleSettings);
@@ -2249,6 +2253,7 @@ async function searchTmdb(query) {
     results.style.display = 'block';
   } catch(e) {
     window.loaderHide(spinner);
+    if(window.logError) window.logError('verkko', e, 'TMDB-haku lomakkeella');
   }
 }
 

@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · kehittäjätila ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_DEVMODE = '2026-09-09.3';
+window.BUILD_DEVMODE = '2026-09-09.1';
 //
 // Tavallinen skripti. Ajetaan app-cards.js:n JÄLKEEN, koska se käärii
 // toggleSetSec-funktion.
@@ -516,6 +516,144 @@ window._devInternals = {
   get usage(){ return usage; },
   set usage(v){ usage = v; },
   summaryMarkdown, summaryJson, markCount, doneCount, MARK_TYPES
+};
+
+// ════════════════════════════════════════════════════════════
+// VIRHELOKI · ASETUSNÄKYMÄ
+// Moottori on app-core.js:ssä (window.logError). Tämä on pelkkä näkymä:
+// lista, suodatin, asetukset ja vienti. Loki on laitekohtainen eikä
+// näy varmuuskopiossa, joten vienti on ainoa tapa saada se talteen.
+// ════════════════════════════════════════════════════════════
+
+const ERR_SRC = {
+  koodi:     { icon: '🧩', label: 'Koodi' },
+  verkko:    { icon: '📡', label: 'Verkko' },
+  tallennus: { icon: '💾', label: 'Tallennus' }
+};
+const ERR_KEEP_OPTS = [50, 100, 300];
+let errFilter = 'kaikki';
+
+function errTime(t){
+  const diff = Date.now() - t;
+  if(diff < 60000) return 'juuri nyt';
+  if(diff < 3600000) return Math.round(diff / 60000) + ' min sitten';
+  if(diff < 86400000) return Math.round(diff / 3600000) + ' h sitten';
+  try{ return new Date(t).toLocaleDateString('fi-FI'); } catch(e){ return ''; }
+}
+
+window.setErrFilter = function(v){
+  errFilter = v;
+  window.renderErrorLog();
+};
+
+window.toggleErrorLog = async function(){
+  const s = ensureSettings();
+  s.errorLogOn = (s.errorLogOn === false);
+  window.renderErrorLog();
+  await window.fbSave();
+};
+
+window.setErrLogKeep = async function(v){
+  ensureSettings().errorLogKeep = Number(v) || 100;
+  window.renderErrorLog();
+  await window.fbSave();
+};
+
+window.clearErrorLog = function(){
+  const n = window.errLogRead().length;
+  if(!n) return;
+  if(!confirm('Tyhjennetäänkö virheloki?' + String.fromCharCode(10,10) + 'Kopioi tai lataa se ensin jos haluat säilyttää tiedot — loki on vain tällä laitteella eikä sitä voi palauttaa.')) return;
+  window.errLogClear();
+  window.renderErrorLog();
+  if(window.renderSectionSummaries) window.renderSectionSummaries();
+};
+
+window.copyErrorLog = function(){
+  const txt = window.errLogText();
+  try{
+    if(navigator.clipboard) navigator.clipboard.writeText(txt);
+    else throw new Error('ei leikepöytää');
+    if(window.showStatus) window.showStatus('✅ Virheloki kopioitu', '#22c55e', 2000);
+  } catch(e){
+    if(window.showStatus) window.showStatus('❌ Kopiointi ei onnistunut', '#dc2626', 3000);
+  }
+};
+
+window.downloadErrorLog = function(){
+  try{
+    const blob = new Blob([window.errLogText()], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    const d = new Date().toISOString().slice(0, 10);
+    a.href = URL.createObjectURL(blob);
+    a.download = 'virheloki-' + d + '.md';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  } catch(e){
+    if(window.showStatus) window.showStatus('❌ Lataus ei onnistunut', '#dc2626', 3000);
+  }
+};
+
+function errRowHtml(x){
+  const src = ERR_SRC[x.src] || ERR_SRC.koodi;
+  return `<div class="dc-issue dc-huomio">
+    <div class="dc-head">
+      <span class="dc-ico">${src.icon}</span>
+      <span class="dc-title">${esc(x.msg)}</span>
+      ${x.n > 1 ? `<span class="dc-count">${x.n}×</span>` : ''}
+    </div>
+    <div class="dc-why">${src.label}${x.ctx ? ' · ' + esc(x.ctx) : ''} · ${errTime(x.t)}${x.build ? ' · versio ' + esc(x.build) : ''}</div>
+    ${x.stack ? `<div class="dc-rows"><div class="dc-row dc-row-flat"><span class="dc-row-name">${esc(x.stack)}</span></div></div>` : ''}
+  </div>`;
+}
+
+window.renderErrorLog = function(){
+  const box = document.getElementById('errorLogBox');
+  if(!box) return;
+  const s    = ensureSettings();
+  const on   = s.errorLogOn !== false;
+  const all  = window.errLogRead();
+  const keep = Number(s.errorLogKeep) || 100;
+
+  const counts = { kaikki: all.length };
+  Object.keys(ERR_SRC).forEach(k => { counts[k] = all.filter(x => x.src === k).length; });
+  const list = errFilter === 'kaikki' ? all : all.filter(x => x.src === errFilter);
+
+  const chips = [['kaikki', 'Kaikki']].concat(Object.keys(ERR_SRC).map(k => [k, ERR_SRC[k].label]))
+    .map(([v, lbl]) => `<button type="button" class="filter-chip${errFilter === v ? ' active' : ''}" onclick="setErrFilter('${v}')">${lbl} ${counts[v] || 0}</button>`)
+    .join('');
+
+  const keepBtns = ERR_KEEP_OPTS.map(n =>
+    `<button type="button" class="seg-btn${n === keep ? ' active' : ''}" onclick="setErrLogKeep(${n})">${n}</button>`
+  ).join('');
+
+  const body = !all.length
+    ? `<div class="dc-clean"><div class="dc-clean-ico">✅</div>
+        <div class="dc-clean-title">Ei virheitä</div>
+        <div class="dc-clean-sub">Loki on tyhjä. Merkinnät poistuvat myös itsestään 14 vuorokauden jälkeen.</div></div>`
+    : (list.length
+        ? list.slice(0, 30).map(errRowHtml).join('') +
+          (list.length > 30 ? `<div class="dc-more">…ja ${list.length - 30} muuta. Lataa loki nähdäksesi kaikki.</div>` : '')
+        : `<div class="dc-clean"><div class="dc-clean-sub">Ei tämän tyyppisiä virheitä.</div></div>`);
+
+  box.innerHTML = `
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-row-label">Kerää virheet</div>
+        <div class="toggle-row-sub">Pois kytkettynä mitään ei kirjata. Jo kerätyt merkinnät säilyvät.</div>
+      </div>
+      <button type="button" class="toggle-switch${on ? ' on' : ''}" onclick="toggleErrorLog()"></button>
+    </div>
+    <label style="margin-top:14px;">Säilytettävien määrä</label>
+    <div class="toggle-row-sub" style="margin-bottom:2px;">Vanhimmat poistuvat kun raja täyttyy. Kaikki merkinnät poistuvat joka tapauksessa 14 vuorokauden jälkeen.</div>
+    <div class="seg-row">${keepBtns}</div>
+    <div class="filter-row" style="margin-top:14px;">${chips}</div>
+    <div style="margin-top:10px;">${body}</div>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button type="button" class="btn-secondary" onclick="copyErrorLog()"${all.length ? '' : ' disabled'}>📋 Kopioi</button>
+      <button type="button" class="btn-secondary" onclick="downloadErrorLog()"${all.length ? '' : ' disabled'}>⬇️ Lataa</button>
+      <button type="button" class="btn-secondary" onclick="clearErrorLog()"${all.length ? '' : ' disabled'}>🗑️ Tyhjennä</button>
+    </div>`;
 };
 
 loadMarks();

@@ -1,10 +1,145 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-09.3';
+window.BUILD_CORE = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
+
+// ════════════════════════════════════════════════════════════
+// VIRHELOKI
+// Sovelluksessa on kymmeniä kohtia joissa virhe niellään hiljaa, jotta
+// yksittäinen ongelma ei kaataisi koko näkymää. Se on oikea ratkaisu,
+// mutta samalla virheet katoavat jäljettömiin: mikään ei kerro että
+// tallennus epäonnistui tai että TMDB vastasi virheellä.
+//
+// Loki elää VAIN tässä laitteessa (localStorage). Se ei mene pilveen
+// eikä varmuuskopioon: se on laitekohtainen, se paisuu, ja pilveen
+// kirjoittaminen maksaisi kutsuja juuri silloin kun jokin on jo rikki.
+//
+// Kirjaaminen ei saa koskaan kaataa mitään — koko funktio on try/catchin
+// sisällä ja epäonnistuu hiljaa. Virhelokin virhe olisi huono vitsi.
+// ════════════════════════════════════════════════════════════
+
+const ERRLOG_KEY     = 'arvostelut_errlog';
+const ERRLOG_MAX_AGE = 14 * 24 * 60 * 60 * 1000;   // 14 vrk
+
+// Oletus on päällä. setOn-logiikan tapaan puuttuva arvo tarkoittaa käytössä.
+function errLogOn(){
+  const s = (typeof appData !== 'undefined' && appData.settings) || {};
+  return s.errorLogOn !== false;
+}
+function errLogKeep(){
+  const s = (typeof appData !== 'undefined' && appData.settings) || {};
+  const n = Number(s.errorLogKeep);
+  return (n >= 20 && n <= 500) ? n : 100;
+}
+
+// Virhe voi olla Error, merkkijono, tapahtuma tai mitä tahansa.
+function errMsg(err){
+  if(!err) return '';
+  if(typeof err === 'string') return err.slice(0, 200);
+  const m = err.message || err.code || err.name || String(err);
+  return String(m).slice(0, 200);
+}
+// Kolme ensimmäistä riviä riittää tunnistamaan paikan. Koko pino veisi
+// tilan localStoragesta eikä kertoisi enempää.
+function errStack(err){
+  try{
+    if(!err || !err.stack) return '';
+    return String(err.stack).split('\n').slice(1, 4).map(s => s.trim()).join(' | ').slice(0, 300);
+  } catch(e){ return ''; }
+}
+
+window.errLogRead = function(){
+  let list = [];
+  try{ list = JSON.parse(localStorage.getItem(ERRLOG_KEY) || '[]'); }
+  catch(e){ return []; }
+  if(!Array.isArray(list)) return [];
+  const cut = Date.now() - ERRLOG_MAX_AGE;
+  return list.filter(x => x && typeof x === 'object' && x.t > cut);
+};
+
+function errLogWrite(list){
+  try{ localStorage.setItem(ERRLOG_KEY, JSON.stringify(list)); }
+  catch(e){
+    // Laitteen muisti täynnä. Yritetään vielä lyhennettynä, ja jos sekään
+    // ei onnistu, loki jää päivittämättä — sovellus jatkaa normaalisti.
+    try{ localStorage.setItem(ERRLOG_KEY, JSON.stringify(list.slice(0, 20))); } catch(e2){}
+  }
+}
+
+// src: 'koodi' | 'verkko' | 'tallennus' — tyyppi näkyy lokissa suodattimena.
+// ctx: mistä kohtaa tuli, esimerkiksi 'fbSave' tai '/movie/550'.
+window.logError = function(src, err, ctx){
+  try{
+    if(!errLogOn()) return;
+    const msg = errMsg(err);
+    if(!msg) return;
+    const now  = Date.now();
+    const key  = (src || 'koodi') + '|' + msg + '|' + (ctx || '');
+    const list = window.errLogRead();
+    // Sama virhe toistuu helposti kymmeniä kertoja. Lasketaan ne yhdeksi
+    // riviksi, muuten yksi rikkinäinen silmukka täyttää koko lokin.
+    const hit = list.filter(x => x.k === key)[0];
+    if(hit){
+      hit.n = (hit.n || 1) + 1;
+      hit.t = now;
+    } else {
+      list.unshift({
+        k: key, t: now, first: now, n: 1,
+        src: String(src || 'koodi'),
+        msg: msg,
+        ctx: String(ctx || '').slice(0, 120),
+        stack: errStack(err),
+        build: window.BUILD_CORE || ''
+      });
+    }
+    list.sort((a, b) => b.t - a.t);
+    errLogWrite(list.slice(0, errLogKeep()));
+    if(window.renderErrorLog && document.getElementById('errorLogBox')) window.renderErrorLog();
+  } catch(e){ /* lokitus ei saa kaataa mitään */ }
+};
+
+window.errLogClear = function(){
+  try{ localStorage.removeItem(ERRLOG_KEY); } catch(e){}
+};
+
+// Tekstimuoto sekä kopiointiin että tiedostoon.
+window.errLogText = function(){
+  const list = window.errLogRead();
+  const d = t => { try{ return new Date(t).toLocaleString('fi-FI'); } catch(e){ return String(t); } };
+  const lines = [
+    '# Virheloki', '',
+    'Versio: ' + (window.BUILD_CORE || '?'),
+    'Merkintöjä: ' + list.length,
+    'Luotu: ' + d(Date.now()), ''
+  ];
+  if(!list.length) lines.push('Ei virheitä.');
+  list.forEach(x => {
+    lines.push('## ' + x.src + ' · ' + x.msg);
+    lines.push('- viimeksi: ' + d(x.t) + (x.n > 1 ? ' (' + x.n + ' kertaa, ensimmäinen ' + d(x.first) + ')' : ''));
+    if(x.ctx)   lines.push('- kohta: ' + x.ctx);
+    if(x.build) lines.push('- versio: ' + x.build);
+    if(x.stack) lines.push('- pino: ' + x.stack);
+    lines.push('');
+  });
+  return lines.join('\n');
+};
+
+// Kiinni otetut virheet kirjataan kutsupaikoilla. Nämä kaksi kuuntelijaa
+// nappaavat sen mitä kukaan ei ottanut kiinni — juuri ne jotka muuten
+// näkyisivät vain tietokoneen konsolissa.
+window.addEventListener('error', function(e){
+  const where = e && e.filename
+    ? String(e.filename).split('/').pop() + ':' + (e.lineno || '?')
+    : '';
+  window.logError('koodi', (e && (e.error || e.message)) || 'tuntematon virhe', where);
+});
+window.addEventListener('unhandledrejection', function(e){
+  window.logError('koodi', (e && e.reason) || 'käsittelemätön lupaus', 'lupaus');
+});
+
 
 // ── DATA ──
 const DEFAULT_CATS = ['Elokuvat','TV-sarjat'];
@@ -1331,9 +1466,13 @@ async function tmdbGet(path){
     const res = await fetch(`https://api.themoviedb.org/3${path}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    if(!res.ok) return null;
+    if(!res.ok){
+      window.logError('verkko', 'TMDB vastasi ' + res.status, String(path).split('?')[0]);
+      return null;
+    }
     return await res.json();
   } catch(e){
+    window.logError('verkko', e, String(path).split('?')[0]);
     return null;
   }
 }
@@ -1347,7 +1486,20 @@ window.tmdbFetch = function(url, opts){
   } catch(e){}
   const o = opts || {};
   if(!o.headers) o.headers = { Authorization: `Bearer ${window.tmdbToken}` };
-  return fetch(url, o);
+  // Lokitus on sivuvaikutus: vastaus ja mahdollinen virhe menevät eteenpäin
+  // täsmälleen kuten ennenkin, joten kutsupaikkoja ei tarvinnut muuttaa.
+  let where = '';
+  try{
+    const i = String(url).indexOf('/3');
+    where = i > -1 ? String(url).slice(i + 2).split('?')[0] : '';
+  } catch(e){}
+  return fetch(url, o).then(function(res){
+    if(!res.ok) window.logError('verkko', 'TMDB vastasi ' + res.status, where);
+    return res;
+  }, function(err){
+    window.logError('verkko', err, where);
+    throw err;
+  });
 };
 
 // Hakee yhden kauden AINA sekä suomeksi että englanniksi ja yhdistää
