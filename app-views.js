@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-09.0';
+window.BUILD_VIEWS = '2026-09-08.18';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -59,6 +59,84 @@ function catEmoji(cat){
 }
 
 // Ruudukkotila: pelkkä juliste + pistepallo
+// ════════════════════════════════════════════════════════════
+// KORTTIEN PIIRTO ERISSÄ
+// Lista rakennettiin ennen yhtenä merkkijonona: viidelläsadalla
+// arvostelulla selain jäsensi ja asetteli viisisataa korttia joka kerta
+// kun suodatinta napautettiin tai jotain tallennettiin — vaikka ruudulla
+// näkyy kuusi. Nyt piirretään ensimmäinen erä heti ja loput sitä mukaa
+// kun listan loppu lähestyy.
+//
+// Vartija (sentinel) on tyhjä elementti listan lopussa. Kun se tulee
+// näkyviin, piirretään seuraava erä sen eteen. Havainnointi käynnistetään
+// uudelleen jokaisen erän jälkeen, koska pelkkä sisällön lisäys ei laukaise
+// uutta ilmoitusta jos vartija pysyy koko ajan näkyvissä.
+// ════════════════════════════════════════════════════════════
+
+const CARD_FIRST_CHUNK = 30;   // ensimmäinen erä: täyttää ruudun heti
+const CARD_NEXT_CHUNK  = 20;   // jokainen seuraava erä
+
+let _cardChunkIO = null;
+
+function renderCardChunks(grid, items, build, opts){
+  const o = opts || {};
+  const first = Math.max(1, o.first || CARD_FIRST_CHUNK);
+  const step  = Math.max(1, o.step  || CARD_NEXT_CHUNK);
+
+  if(_cardChunkIO){ _cardChunkIO.disconnect(); _cardChunkIO = null; }
+
+  // Ilman IntersectionObserveria piirretään kaikki kerralla. Vanha selain
+  // saa mieluummin hitaan listan kuin listan joka ei täydenny koskaan.
+  if(typeof IntersectionObserver === 'undefined'){
+    grid.innerHTML = items.map((r, i) => build(r, i)).join('');
+    if(window.lazyPosters) window.lazyPosters();
+    return;
+  }
+
+  let drawn = Math.min(first, items.length);
+  grid.innerHTML = items.slice(0, drawn).map((r, i) => build(r, i)).join('');
+  if(window.lazyPosters) window.lazyPosters();
+  if(drawn >= items.length) return;
+
+  const sentinel = document.createElement('div');
+  sentinel.className = 'cards-sentinel';
+  grid.appendChild(sentinel);
+
+  const label = () => {
+    const left = items.length - drawn;
+    sentinel.textContent = left > 0 ? `${left} lisää…` : '';
+  };
+  label();
+
+  const io = new IntersectionObserver(entries => {
+    if(!entries.some(e => e.isIntersecting)) return;
+
+    // Animaatioviive lasketaan erän sisällä, jotta myöhemmätkin kortit
+    // porrastuvat pehmeästi eivätkä odota puolta sekuntia yhdessä möykyssä.
+    const html = items.slice(drawn, drawn + step)
+      .map((r, i) => build(r, i)).join('');
+    sentinel.insertAdjacentHTML('beforebegin', html);
+    drawn = Math.min(drawn + step, items.length);
+
+    if(window.lazyPosters) window.lazyPosters();
+    label();
+
+    if(drawn >= items.length){
+      io.disconnect();
+      _cardChunkIO = null;
+      sentinel.remove();
+      return;
+    }
+    // Pakota uusi ilmoitus siltä varalta että vartija on yhä näkyvissä.
+    io.unobserve(sentinel);
+    io.observe(sentinel);
+  }, { rootMargin: '700px 0px' });
+
+  io.observe(sentinel);
+  _cardChunkIO = io;
+}
+window.renderCardChunks = renderCardChunks;
+
 function renderPosterTile(r, idx){
   const score = getReviewScore(r);
   const cls = score!=null ? scoreClass(score) : '';
@@ -325,7 +403,7 @@ window.renderCards = function(){
   grid.className = 'cards-grid' + (viewMode==='grid' ? ' mode-grid' : viewMode==='list' ? ' mode-list' : '');
 
   if(viewMode==='grid'){
-    grid.innerHTML = reviews.map((r,idx)=>renderPosterTile(r,idx)).join('');
+    renderCardChunks(grid, reviews, renderPosterTile, { first:60, step:40 });
     schedulePosterColors(reviews.slice(0,60));
     return;
   }
@@ -335,7 +413,9 @@ window.renderCards = function(){
   }
 
   schedulePosterColors(reviews.slice(0,40));
-  grid.innerHTML = reviews.map((r,idx)=>{
+  // Kortin rakentaja on oma funktionsa, jotta piirto voidaan tehdä
+  // erissä. Sisältö on täsmälleen sama kuin ennen.
+  const buildCard = (r, idx) => {
     const score = getReviewScore(r);
     const isTvParts = r.tvType && r.tvType!=='kokonaisuus';
     const typeClass = catType(r.category);
@@ -471,7 +551,9 @@ window.renderCards = function(){
     // Ohjaajan nimi on napautettava: se avaa listan kaikista saman
     // ohjaajan teoksista yli kategoriarajojen.
     if(r.director && cf('director')) extraInfo.push(
-      `<button type="button" class="dir-link" onclick="event.stopPropagation();filterByDirector('${escJs(r.director)}')">🎬 ${esc(r.director)}</button>`);
+      window.personChip
+        ? window.personChip(r.director, 'dir')
+        : `<button type="button" class="dir-link" onclick="event.stopPropagation();filterByDirector('${escJs(r.director)}')">🎬 ${esc(r.director)}</button>`);
     if(r.runtime && cf('runtime')) extraInfo.push(`⏱️ ${r.runtime} min`);
     if(r.episodes_total && cf('episodes')) extraInfo.push(`📺 ${r.episodes_total} jaksoa`);
     // Seuraava jakso oli aiemmen vain tuotantotilamerkin title-selitteessä,
@@ -483,7 +565,10 @@ window.renderCards = function(){
     }
     if(r.collection && r.collection.name && cf('collection')) extraInfo.push(`🗂️ ${esc(r.collection.name)}`);
     if(r.country && cf('country')) extraInfo.push(`🌍 ${esc(r.country)}`);
-    if(r.cast && r.cast.length && cf('cast')) extraInfo.push(`🎭 ${esc(r.cast.slice(0,3).join(', '))}`);
+    if(r.cast && r.cast.length && cf('cast')) extraInfo.push(
+      window.personChips
+        ? window.personChips(r.cast.slice(0,3), 'cast')
+        : `🎭 ${esc(r.cast.slice(0,3).join(', '))}`);
     const tmdbScoreHtml = (r.tmdb_score && cf('tmdbScore')) ? `<span class="tmdb-score-compare">⭐ TMDB ${r.tmdb_score}</span>` : '';
     const actionsInner = `
         <button class="btn-sm btn-edit" onclick="editReviewWithFlip(${r.id})">✏️ Muokkaa</button>
@@ -539,12 +624,11 @@ window.renderCards = function(){
     const inner = `${posterHtml}<div class="card-body">${body}</div>`;
 
     return `<div class="review-card type-${typeClass} ${scoreCardCls} ${favCls}${pc.cls} pp-${posterHtml ? pPos : 'none'}"${pc.id} style="animation-delay:${Math.min(idx*0.06,0.5)}s;${pc.style}" ondblclick="openReadModal(${r.id})">${inner}</div>`;
-  }).join('');
+  };
 
-  // Julisteet ladataan vasta kun kortti lähestyy ruutua. Tarkkailija on
-  // liitettävä uudelleen joka renderöinnillä, koska innerHTML korvaa
-  // kaikki solmut.
-  if(window.lazyPosters) window.lazyPosters();
+  // Julisteet ladataan vasta kun kortti lähestyy ruutua. Tarkkailija
+  // liitetään uudelleen jokaisen erän jälkeen renderCardChunksin sisällä.
+  renderCardChunks(grid, reviews, buildCard);
 };
 
 // ── LISÄÄ/MUOKKAA ──

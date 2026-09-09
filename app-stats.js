@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · tilastot ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_STATS = '2026-09-09.0';
+window.BUILD_STATS = '2026-09-08.18';
 //
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 //
@@ -84,7 +84,9 @@ function barRows(rows, opts){
   const max = Math.max(...rows.map(r => r.value), o.max || 0, 1);
   return `<div class="st-bars">` + rows.map(r => `
     <div class="st-bar-row">
-      <div class="st-bar-label">${esc(r.label)}</div>
+      <div class="st-bar-label">${r.person && window.openPerson
+        ? `<button type="button" class="st-person" onclick="openPerson('${escJs(r.person)}')">${esc(r.label)}</button>`
+        : esc(r.label)}</div>
       <div class="st-bar-track">
         <div class="st-bar-fill${r.cls ? ' ' + r.cls : ''}" style="width:${Math.max(2, (r.value / max) * 100)}%"></div>
       </div>
@@ -304,15 +306,17 @@ function secDirectors(list){
     .sort((a, b) => b.a - a.a)
     .slice(0, STATS_TOP_N);
 
-  const bodyMost = barRows(most.map(x => ({ label: x.d, value: x.n, text: String(x.n) })));
+  const bodyMost = barRows(most.map(x => ({ label: x.d, person: x.d, value: x.n, text: String(x.n) })));
   const bodyBest = best.length
     ? barRows(best.map(x => ({
-        label: `${x.d} (${x.n})`, value: x.a, text: String(x.a),
+        label: `${x.d} (${x.n})`, person: x.d, value: x.a, text: String(x.a),
         cls: window.scoreClass ? window.scoreClass(x.a) : ''
       })), { max: 100 })
     : statEmpty(`Yhdelläkään ohjaajalla ei ole vielä ${STATS_MIN_GROUP} pisteytettyä teosta.`);
 
-  return statSection('🎬 Eniten katsotut ohjaajat', null, bodyMost,
+  return statSection('👥 Tekijät', 'Napauta nimeä nähdäksesi kaikki teokset ja luvut',
+      `<button type="button" class="st-people-btn" onclick="openPeopleList()">👥 Selaa kaikkia tekijöitä</button>`, null)
+    + statSection('🎬 Eniten katsotut ohjaajat', null, bodyMost,
       `${withDir.length}/${list.length} arvostelulla on ohjaaja.`)
     + statSection('🏅 Parhaat ohjaajat', `Keskiarvon mukaan, vähintään ${STATS_MIN_GROUP} teosta`, bodyBest, null);
 }
@@ -341,7 +345,7 @@ function secActors(list){
 
   return statSection('🎭 Toistuvat näyttelijät',
     'Vähintään kaksi esiintymistä',
-    barRows(rows.map(x => ({ label: x.a, value: x.n, text: String(x.n) }))),
+    barRows(rows.map(x => ({ label: x.a, person: x.a, value: x.n, text: String(x.n) }))),
     `${withCast.length}/${list.length} arvostelulla on näyttelijätiedot. Jokaisesta teoksesta tallennetaan vain viisi pääosaa, joten sivuosat eivät näy näissä luvuissa.`);
 }
 

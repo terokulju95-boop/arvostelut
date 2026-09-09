@@ -593,6 +593,17 @@
 </div>
 
 <!-- LUKU-MODAALI -->
+<!-- TEKIJÄSIVU: yhden ohjaajan tai näyttelijän luvut ja teokset -->
+<div class="modal-overlay" id="personModal" onclick="closeModalIfOutside(event,'personModal')">
+  <div class="modal-sheet">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div id="personModalContent"></div>
+    <div class="modal-actions" style="margin-top:8px;">
+      <button class="btn-secondary" onclick="closeModal('personModal')">Sulje</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="readModal" onclick="closeModalIfOutside(event,'readModal')">
   <div class="modal-sheet">
     <div class="modal-grab"><div class="modal-handle"></div></div>
@@ -1393,6 +1404,7 @@
 <script src="app-watchlist.js"></script>
 <script src="app-lists.js"></script>
 <script src="app-stats.js"></script>
+<script src="app-people.js"></script>
 <script src="app-restore.js"></script>
 <script src="app-devmode.js"></script>
 <script type="module" src="app-firebase.js"></script>

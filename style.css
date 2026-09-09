@@ -2344,3 +2344,86 @@ html[data-cardstyle="vhs"] .review-card .card-top{
 .cardstyle-txt strong{font-size:calc(13.5px * var(--ts,1));font-weight:700;}
 .cardstyle-txt span{font-size:calc(11.5px * var(--ts,1));color:var(--muted);font-weight:400;line-height:1.35;}
 .cardstyle-btn.active .cardstyle-txt span{color:var(--accent);opacity:.75;}
+
+
+/* ══════════════════════════════════════════════════════════════
+   ERITTÄIN PIIRTO · vartija listan lopussa
+   ══════════════════════════════════════════════════════════════ */
+.cards-sentinel{padding:18px 0 26px;text-align:center;color:var(--muted);font-size:calc(12.5px * var(--ts,1));opacity:.7;}
+.cards-grid.mode-grid .cards-sentinel{grid-column:1 / -1;}
+
+/* ══════════════════════════════════════════════════════════════
+   TEKIJÄSIVUT
+   ══════════════════════════════════════════════════════════════ */
+.ppl-chip{display:inline-flex;align-items:center;gap:4px;background:var(--acc-08);border:1px solid var(--acc-20,var(--border));color:var(--accent);border-radius:999px;padding:3px 10px;font-size:calc(11.5px * var(--ts,1));font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;margin:0 4px 4px 0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ppl-chip:active{transform:scale(0.97);}
+
+.ppl-head{padding:2px 0 12px;border-bottom:1px solid var(--border);margin-bottom:14px;}
+.ppl-name{font-family:'Bebas Neue',sans-serif;font-size:calc(30px * var(--ts,1));line-height:1.05;letter-spacing:0.5px;}
+.ppl-roles{color:var(--muted);font-size:calc(12.5px * var(--ts,1));margin-top:4px;}
+.ppl-fav{color:var(--muted);font-size:calc(12.5px * var(--ts,1));margin-top:4px;}
+
+.ppl-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.ppl-stat{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 8px;text-align:center;}
+.ppl-stat-val{font-family:'Bebas Neue',sans-serif;font-size:calc(28px * var(--ts,1));line-height:1.1;}
+.ppl-stat-val.ppl-stat-sm{font-size:calc(18px * var(--ts,1));line-height:1.7;}
+.ppl-stat-lab{color:var(--muted);font-size:calc(11px * var(--ts,1));margin-top:2px;}
+.ppl-stat-val.score-top{color:var(--sc-top);}
+.ppl-stat-val.score-high{color:var(--sc-high);}
+.ppl-stat-val.score-mid{color:var(--sc-mid);}
+.ppl-stat-val.score-low{color:var(--sc-low);}
+.ppl-stat-val.score-bottom{color:var(--sc-bottom);}
+
+.ppl-note{color:var(--muted);font-size:calc(12.5px * var(--ts,1));line-height:1.45;margin-bottom:12px;}
+.ppl-genres{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.ppl-genre{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:4px 9px;font-size:calc(11.5px * var(--ts,1));color:var(--muted);}
+.ppl-genre b{color:var(--text);font-weight:700;}
+
+.ppl-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.ppl-btn{flex:1 1 auto;min-width:140px;padding:11px 12px;border-radius:11px;border:1px solid var(--accent);background:var(--acc-10);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:calc(13px * var(--ts,1));font-weight:600;cursor:pointer;}
+.ppl-btn-ghost{border-color:var(--border);background:var(--bg3);color:var(--muted);}
+
+.ppl-sec{margin-bottom:16px;}
+.ppl-sec-head{display:flex;align-items:center;gap:8px;font-size:calc(13px * var(--ts,1));font-weight:700;margin-bottom:8px;}
+.ppl-sec-head span{color:var(--muted);font-weight:400;}
+.ppl-work{display:flex;align-items:center;gap:10px;width:100%;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:11px;margin-bottom:6px;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;}
+.ppl-work:active{background:var(--acc-08);}
+.ppl-work-img{width:34px;height:50px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--card);}
+.ppl-work-noimg{display:flex;align-items:center;justify-content:center;font-size:calc(17px * var(--ts,1));border:1px solid var(--border);}
+.ppl-work-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.ppl-work-name{color:var(--text);font-size:calc(13.5px * var(--ts,1));font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ppl-work-sub{color:var(--muted);font-size:calc(11.5px * var(--ts,1));}
+.ppl-work-score{font-family:'Bebas Neue',sans-serif;font-size:calc(21px * var(--ts,1));min-width:30px;text-align:right;flex-shrink:0;}
+.ppl-work-score.score-top{color:var(--sc-top);}
+.ppl-work-score.score-high{color:var(--sc-high);}
+.ppl-work-score.score-mid{color:var(--sc-mid);}
+.ppl-work-score.score-low{color:var(--sc-low);}
+.ppl-work-score.score-bottom{color:var(--sc-bottom);}
+.ppl-work-none{color:var(--muted);opacity:.6;}
+
+.ppl-search{width:100%;padding:11px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:calc(14px * var(--ts,1));margin-bottom:8px;}
+.ppl-sort{display:flex;gap:6px;margin-bottom:10px;}
+.ppl-sort-btn{flex:1;padding:8px 6px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:calc(12px * var(--ts,1));font-weight:600;cursor:pointer;}
+.ppl-sort-btn.active{border-color:var(--accent);background:var(--acc-10);color:var(--accent);}
+.ppl-row{display:flex;align-items:center;gap:9px;width:100%;padding:10px 8px;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;}
+.ppl-row:active{background:var(--acc-08);}
+.ppl-row-role{font-size:calc(11px * var(--ts,1));width:34px;flex-shrink:0;letter-spacing:-1px;}
+.ppl-row-name{flex:1;min-width:0;color:var(--text);font-size:calc(13.5px * var(--ts,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ppl-row-n{color:var(--muted);font-size:calc(12px * var(--ts,1));min-width:22px;text-align:right;}
+.ppl-row-avg{font-family:'Bebas Neue',sans-serif;font-size:calc(18px * var(--ts,1));min-width:28px;text-align:right;color:var(--muted);}
+.ppl-row-avg.score-top{color:var(--sc-top);}
+.ppl-row-avg.score-high{color:var(--sc-high);}
+.ppl-row-avg.score-mid{color:var(--sc-mid);}
+.ppl-row-avg.score-low{color:var(--sc-low);}
+.ppl-row-avg.score-bottom{color:var(--sc-bottom);}
+.ppl-more{padding:12px 4px;color:var(--muted);font-size:calc(11.5px * var(--ts,1));text-align:center;}
+.ppl-empty{padding:26px 6px;color:var(--muted);font-size:calc(13px * var(--ts,1));text-align:center;line-height:1.5;}
+
+/* Tilastojen nimet napautettaviksi */
+.st-person{background:none;border:none;padding:0;color:var(--accent);font-family:inherit;font-size:inherit;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--acc-20,rgba(255,255,255,0.2));text-underline-offset:3px;}
+.st-people-btn{width:100%;padding:12px;background:var(--acc-10);border:1px solid var(--accent);border-radius:11px;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:calc(13px * var(--ts,1));font-weight:600;cursor:pointer;}
+
+/* Kortilla tekijänimet pysyvät kevyinä tekstilinkkeinä: tiivis
+   lisätietorivi täyttyisi pillereistä. Pilleri on käytössä vain
+   lukunäkymässä ja tekijäsivulla. */
+.card-extra-info .ppl-chip{background:none;border:none;padding:0;margin:0 9px 0 0;border-radius:0;font-weight:400;font-size:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;}
