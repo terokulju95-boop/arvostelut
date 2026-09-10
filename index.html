@@ -537,6 +537,17 @@
   </div>
 </div>
 
+<!-- KOKOELMAN KUNTO · TYÖJONO -->
+<div class="modal-overlay" id="healthQueueModal" onclick="closeModalIfOutside(event,'healthQueueModal')">
+  <div class="modal-sheet" style="max-width:460px;">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div class="modal-title">🧰 Täydennä puuttuvat</div>
+    <div id="hqBody"></div>
+    <div class="modal-actions" id="hqActions"></div>
+    <button type="button" class="btn-secondary" onclick="closeGapQueue()" style="width:100%;margin-top:8px;">Lopeta jono</button>
+  </div>
+</div>
+
 <!-- TALLENNUSJONO -->
 <div class="modal-overlay" id="syncQueueModal" onclick="closeModalIfOutside(event,'syncQueueModal')">
   <div class="modal-sheet" style="max-width:460px;">
@@ -1232,13 +1243,23 @@
       <div class="set-sec" data-sec="korjaukset">
         <button type="button" class="set-sec-head" onclick="toggleSetSec('korjaukset')" aria-expanded="false">
           <span class="set-sec-icon">🩹</span>
-          <span class="set-sec-title">Datan tarkistus<span class="set-sec-sum" id="sum-korjaukset"></span></span>
+          <span class="set-sec-title">Kokoelman kunto<span class="set-sec-sum" id="sum-korjaukset"></span></span>
           <span class="set-sec-arrow">▸</span>
         </button>
         <div class="set-sec-body" id="sec-korjaukset" hidden>
-<div class="toggle-row-sub" style="margin-bottom:10px;">Käy arvostelut läpi ja etsii rakenteellisia ongelmia: arvosteluja jotka eivät näy millään välilehdellä, päällekkäisiä tunnuksia, kelvottomia päivämääriä. Tarkistus tehdään laitteella eikä ota yhteyttä verkkoon. Mitään ei muuteta ennen kuin painat korjausnappia, eikä arvosanoihin, muistiinpanoihin tai jaksojen pisteisiin kosketa koskaan.</div>
+<div class="seg-row" id="hcTabs" style="margin-bottom:12px;">
+  <button type="button" class="seg-btn active" data-tab="virheet" onclick="setHealthTab('virheet')">Virheet</button>
+  <button type="button" class="seg-btn" data-tab="puutteet" onclick="setHealthTab('puutteet')">Puutteet</button>
+</div>
+<div id="hcVirheet">
+<div class="toggle-row-sub" style="margin-bottom:10px;">Etsii rakenteellisia ongelmia: arvosteluja jotka eivät näy millään välilehdellä, päällekkäisiä tunnuksia, kelvottomia päivämääriä. Tarkistus tehdään laitteella eikä ota yhteyttä verkkoon. Mitään ei muuteta ennen kuin painat korjausnappia, eikä arvosanoihin, muistiinpanoihin tai jaksojen pisteisiin kosketa koskaan.</div>
 <button type="button" class="btn-secondary" onclick="runDataCheck()">🩹 Tarkista data</button>
 <div id="dataCheckBox"></div>
+</div>
+<div id="hcPuutteet" hidden>
+<div class="toggle-row-sub" style="margin-bottom:10px;">Puute ei ole virhe: tyhjä muistiinpano tarkoittaa vain sitä ettet ole kirjoittanut vielä mitään. Jokaisesta kohdasta pääsee työjonoon, joka käy teokset läpi yksi kerrallaan kenttä valmiiksi auki. Kohdat joita et halua seurata voi piilottaa.</div>
+<div id="gapBox"></div>
+</div>
         </div>
       </div>
       <div class="set-sec" data-sec="virheloki">

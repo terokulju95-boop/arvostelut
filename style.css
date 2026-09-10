@@ -2067,6 +2067,29 @@ body.sandbox-on #fab{bottom:74px;}
 .disc-watch:active{transform:scale(0.95);}
 .dd-btn-watch{background:var(--bg3);border:1px solid var(--accent);color:var(--accent);}
 .dc-row-flat{cursor:default;}
+
+/* ── KOKOELMAN KUNTO · PUUTTEET ──
+   Puutteella on oma sävynsä eikä varoitusväriä: se ei ole vika vaan
+   tekemätön työ. Siksi neutraali reuna eikä punaista tai keltaista. */
+.dc-puute{border-left-color:var(--muted);}
+.hc-meter{border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+.hc-meter-top{display:flex;align-items:baseline;gap:8px;}
+.hc-meter-pct{font-size:calc(26px * var(--ts,1));font-weight:700;color:var(--accent);line-height:1;}
+.hc-meter-label{font-size:calc(11.5px * var(--ts,1));color:var(--muted);}
+.hc-bar{height:4px;border-radius:3px;background:var(--tint-15);overflow:hidden;margin-top:9px;}
+.hc-bar i{display:block;height:100%;background:var(--accent);
+  transition:width calc(0.4s * var(--anim,1)) ease;}
+.hc-goal{margin-top:9px;font-size:calc(11.5px * var(--ts,1));color:var(--muted);}
+.hc-goal-ok{color:var(--accent);}
+.hc-hidden{margin-top:16px;padding-top:12px;border-top:1px solid var(--border);}
+
+/* ── TYÖJONO ── */
+.hq-prog{height:4px;border-radius:3px;background:var(--tint-15);overflow:hidden;}
+.hq-prog i{display:block;height:100%;background:var(--accent);
+  transition:width calc(0.3s * var(--anim,1)) ease;}
+.hq-count{margin-top:8px;font-size:calc(11.5px * var(--ts,1));color:var(--muted);}
+.hq-name{font-size:calc(17px * var(--ts,1));font-weight:700;margin-top:2px;line-height:1.25;}
+.hq-meta{font-size:calc(12px * var(--ts,1));color:var(--muted);margin-top:2px;}
 .dc-row-flat:active{background:var(--bg2);}
 
 /* ════════════════════════════════════════════════════════════
