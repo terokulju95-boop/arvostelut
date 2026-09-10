@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-10.1';
+window.BUILD_THEME = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -716,6 +716,7 @@ const BACKUP_REMIND_OPTS = [
 ];
 const START_VIEW_OPTS = [
   { v: '',         label: 'Viimeksi käytetty' },
+  { v: 'home',     label: 'Etusivu' },
   { v: 'reviews',  label: 'Arvostelut' },
   { v: 'top',      label: 'Top' },
   { v: 'discover', label: 'Löydä' },

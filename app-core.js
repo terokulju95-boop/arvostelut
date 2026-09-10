@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-10.1';
+window.BUILD_CORE = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -258,7 +258,8 @@ function renderAll(){
   renderDecadeFilters();
   renderTrioFilters();
   if(window.updateFilterBadge) window.updateFilterBadge();
-  if(currentView==='reviews') renderCards();
+  if(currentView==='home' && window.renderHome) window.renderHome();
+  else if(currentView==='reviews') renderCards();
   else if(currentView==='top') renderTop();
   else if(currentView==='budget') renderBudget();
   else if(currentView==='quick' && window.renderQuickScores) window.renderQuickScores();
@@ -277,7 +278,7 @@ window.setView = function(view){
   if(window.renderDiscoverCount && view === 'discover') window.renderDiscoverCount();
   // Pikamuokkauksen kesken oleva tallennus lähtee heti kun poistut siitä
   if(currentView !== 'quick' && window.qsFlushSave) window.qsFlushSave();
-  ['reviews','top','watchlist','discover','budget','quick','stats'].forEach(v=>{
+  ['home','reviews','top','watchlist','discover','budget','quick','stats'].forEach(v=>{
     const el = document.getElementById('viewTab'+v.charAt(0).toUpperCase()+v.slice(1));
     if(el) el.classList.toggle('active', v===view);
   });
@@ -293,8 +294,10 @@ window.setView = function(view){
   if(wv) wv.style.display = view==='watchlist' ? 'block' : 'none';
   const sv = document.getElementById('statsView');
   if(sv) sv.style.display = view==='stats' ? 'block' : 'none';
+  const hv = document.getElementById('homeView');
+  if(hv) hv.style.display = view==='home' ? 'block' : 'none';
   // Korttilista ja lisäysnappi piiloon niissä näkymissä joilla on oma säiliö
-  const ownContainer = view==='discover' || view==='quick' || view==='watchlist' || view==='stats';
+  const ownContainer = view==='discover' || view==='quick' || view==='watchlist' || view==='stats' || view==='home';
   const grid = document.getElementById('cardsGrid');
   if(grid) grid.style.display = ownContainer ? 'none' : '';
   const fab = document.getElementById('fab');
@@ -314,7 +317,7 @@ window.setView = function(view){
 
 window.fabClick = function(){
   if(currentView==='budget') window.budgetFabClick();
-  else if(currentView==='discover' || currentView==='quick' || currentView==='watchlist' || currentView==='stats') return;
+  else if(currentView==='discover' || currentView==='quick' || currentView==='watchlist' || currentView==='stats' || currentView==='home') return;
   else window.openAddModal();
 };
 

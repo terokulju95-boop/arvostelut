@@ -63,6 +63,7 @@
 <div class="main">
   <!-- NÄKYMÄTABIT -->
   <div class="view-tabs">
+    <button class="view-tab" id="viewTabHome" onclick="setView('home')"><span class="vt-ico">🏠</span><span class="vt-label">Etusivu</span></button>
     <button class="view-tab active" id="viewTabReviews" onclick="setView('reviews')"><span class="vt-ico">⭐</span><span class="vt-label">Arvostelut</span></button>
     <button class="view-tab" id="viewTabTop" onclick="setView('top')"><span class="vt-ico">🏆</span><span class="vt-label">Top-lista</span></button>
     <button class="view-tab" id="viewTabWatchlist" onclick="setView('watchlist')"><span class="vt-ico">📌</span><span class="vt-label">Katselulista</span></button>
@@ -127,6 +128,7 @@
   <div class="watchlist" id="watchlistView" style="display:none;"></div>
 
   <!-- TILASTOT -->
+  <div class="home" id="homeView" style="display:none;"></div>
   <div class="stats" id="statsView" style="display:none;"></div>
 
   <!-- LÖYDÄ-NÄKYMÄ -->
@@ -771,6 +773,17 @@
           </div>
           <button type="button" class="toggle-switch" id="posterColorToggle" onclick="togglePosterColors()"></button>
         </div>
+        </div>
+      </div>
+      <div class="set-sec" data-sec="etusivu">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('etusivu')" aria-expanded="false">
+          <span class="set-sec-icon">🏠</span>
+          <span class="set-sec-title">Etusivu<span class="set-sec-sum" id="sum-etusivu"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-etusivu" hidden>
+<div class="toggle-row-sub" style="margin-bottom:10px;">Etusivu on lohkoista koottu näkymä siitä mitä juuri nyt kannattaa tehdä. Se on oma välilehtensä (🏠) eikä korvaa arvostelulistaa. Jos haluat sovelluksen avautuvan siihen, valitse Käyttäytyminen-osiosta aloitusnäkymäksi Etusivu.</div>
+<div id="homeSettingsBox"></div>
         </div>
       </div>
       <div class="set-sec" data-sec="asettelu">
@@ -1466,6 +1479,7 @@
 <script src="app-stats.js"></script>
 <script src="app-people.js"></script>
 <script src="app-restore.js"></script>
+<script src="app-home.js"></script>
 <script src="app-devmode.js"></script>
 <script type="module" src="app-firebase.js"></script>
 

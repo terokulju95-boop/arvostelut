@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-10.1';
+window.BUILD_MODALS = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1073,6 +1073,7 @@ const BUILD_FILES = [
   ['app-stats.js',     'BUILD_STATS',    true],
   ['app-people.js',    'BUILD_PEOPLE',   true],
   ['app-restore.js',   'BUILD_RESTORE',  true],
+  ['app-home.js',      'BUILD_HOME',     true],
   ['app-devmode.js',   'BUILD_DEVMODE',  true],
   ['app-firebase.js', 'BUILD_FIREBASE', false]   // moduuli, latautuu viimeisenä
 ];
@@ -1493,6 +1494,7 @@ window.openSettings = function(){
   safeRender('eikiinnosta', window.renderHiddenInfo);
   safeRender('testitila', window.renderSandboxSettings);
   safeRender('virheloki', window.renderErrorLog);
+  safeRender('etusivu', window.renderHomeSettings);
   safeRender('kokoelman kunto', window.resetHealth);
   safeRender('tarkkuus', renderPrecisionRow);
   safeRender('painotukset', renderWeightRows);

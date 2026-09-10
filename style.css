@@ -2510,3 +2510,70 @@ html[data-cardstyle="vhs"] .review-card .card-top{
    lisätietorivi täyttyisi pillereistä. Pilleri on käytössä vain
    lukunäkymässä ja tekijäsivulla. */
 .card-extra-info .ppl-chip{background:none;border:none;padding:0;margin:0 9px 0 0;border-radius:0;font-weight:400;font-size:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;}
+
+/* ════════════════════════════════════════════════════════════
+   ETUSIVU
+   Lohkot ovat pystysuunnassa puhelimessa ja kahdessa sarakkeessa
+   leveämmällä ruudulla. Koko (p/k/l) tarkoittaa puhelimessa ennen
+   kaikkea sisällön määrää — leveys on siellä joka tapauksessa koko
+   ruutu. Leveällä näytöllä laaja lohko vie molemmat sarakkeet.
+   ════════════════════════════════════════════════════════════ */
+.home{padding:0 0 90px;}
+.home-bar{display:flex;align-items:center;gap:10px;margin:4px 0 12px;}
+.home-hello{flex:1;min-width:0;font-size:calc(19px * var(--ts,1));font-weight:700;}
+.home-editbtn{flex:0 0 auto;background:var(--bg3);border:1px solid var(--border);
+  color:var(--muted);border-radius:10px;padding:8px 13px;
+  font-size:calc(13px * var(--ts,1));font-family:'DM Sans',sans-serif;cursor:pointer;}
+.home-editbtn:active{background:var(--tint-07);}
+.home-note{font-size:calc(12px * var(--ts,1));color:var(--muted);line-height:1.5;
+  margin-bottom:12px;padding:10px 12px;border:1px solid var(--border);border-radius:11px;}
+.home-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+
+.hm{border:1px solid var(--border);border-radius:14px;padding:12px 14px;background:var(--bg2);}
+.hm-off{opacity:0.45;}
+.hm-head{display:flex;align-items:center;gap:8px;}
+.hm-ico{font-size:calc(15px * var(--ts,1));}
+.hm-name{font-size:calc(12px * var(--ts,1));color:var(--muted);font-weight:600;
+  text-transform:uppercase;letter-spacing:0.4px;}
+.hm-body{margin-top:9px;}
+
+.hm-bigs{display:flex;gap:18px;flex-wrap:wrap;}
+.hm-big{display:flex;flex-direction:column;}
+.hm-big-v{font-size:calc(25px * var(--ts,1));font-weight:700;line-height:1.05;}
+.hm-big-l{font-size:calc(11px * var(--ts,1));color:var(--muted);margin-top:2px;}
+
+.hm-row{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;
+  background:none;border:none;color:var(--text);padding:7px 0;cursor:pointer;
+  border-top:1px solid var(--border);font-family:'DM Sans',sans-serif;}
+.hm-row:first-child{border-top:none;padding-top:2px;}
+.hm-row:active{background:var(--tint-07);}
+.hm-row-name{flex:1;min-width:0;font-size:calc(13.5px * var(--ts,1));font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hm-row-right{flex:0 0 auto;font-size:calc(12px * var(--ts,1));color:var(--muted);}
+.hm-empty{font-size:calc(12.5px * var(--ts,1));color:var(--muted);padding:4px 0;}
+.hm-link{background:none;border:none;color:var(--accent);padding:8px 0 0;cursor:pointer;
+  font-size:calc(12.5px * var(--ts,1));font-family:'DM Sans',sans-serif;}
+
+.hm-nosto{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+  background:none;border:none;color:var(--text);padding:0;cursor:pointer;
+  font-family:'DM Sans',sans-serif;}
+.hm-nosto-img{width:46px;height:69px;border-radius:8px;object-fit:cover;flex:0 0 auto;}
+.hm-nosto-empty{display:flex;align-items:center;justify-content:center;
+  background:var(--bg3);font-size:20px;}
+.hm-nosto-text{flex:1;min-width:0;display:flex;flex-direction:column;}
+.hm-nosto-name{font-size:calc(14.5px * var(--ts,1));font-weight:700;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hm-nosto-meta{font-size:calc(11.5px * var(--ts,1));color:var(--muted);margin-top:2px;}
+
+.hm-edit{display:flex;align-items:center;gap:6px;margin-top:9px;
+  padding-top:9px;border-top:1px dashed var(--border);}
+.hm-ebtn{background:var(--bg3);border:1px solid var(--border);color:var(--text);
+  border-radius:9px;min-width:38px;height:34px;cursor:pointer;
+  font-size:calc(13px * var(--ts,1));font-family:'DM Sans',sans-serif;}
+.hm-ebtn:disabled{opacity:0.35;}
+.hm-esize{flex:1;}
+
+@media (min-width:700px){
+  .home-grid{grid-template-columns:1fr 1fr;}
+  .hm.size-l{grid-column:1 / -1;}
+}
