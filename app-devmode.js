@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · kehittäjätila ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_DEVMODE = '2026-09-10.3';
+window.BUILD_DEVMODE = '2026-09-10.4';
 //
 // Tavallinen skripti. Ajetaan app-cards.js:n JÄLKEEN, koska se käärii
 // toggleSetSec-funktion.
