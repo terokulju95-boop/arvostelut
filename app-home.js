@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · etusivu (koontinäkymä) ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_HOME = '2026-09-09.1';
+window.BUILD_HOME = '2026-09-10.2';
 //
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 //

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · tekijäsivut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_PEOPLE = '2026-09-10.1';
+window.BUILD_PEOPLE = '2026-09-10.2';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 //
 // Ohjaaja ja näyttelijät ovat arvostelun kenttiä, eivät omia tietueitaan.
