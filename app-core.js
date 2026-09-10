@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-10.3';
+window.BUILD_CORE = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -258,6 +258,7 @@ function renderAll(){
   renderDecadeFilters();
   renderTrioFilters();
   if(window.updateFilterBadge) window.updateFilterBadge();
+  applyTabsVisibility(currentView);
   if(currentView==='home' && window.renderHome) window.renderHome();
   else if(currentView==='reviews') renderCards();
   else if(currentView==='top') renderTop();
@@ -296,6 +297,7 @@ window.setView = function(view){
   if(sv) sv.style.display = view==='stats' ? 'block' : 'none';
   const hv = document.getElementById('homeView');
   if(hv) hv.style.display = view==='home' ? 'block' : 'none';
+  applyTabsVisibility(view);
   // Korttilista ja lisäysnappi piiloon niissä näkymissä joilla on oma säiliö
   const ownContainer = view==='discover' || view==='quick' || view==='watchlist' || view==='stats' || view==='home';
   const grid = document.getElementById('cardsGrid');
@@ -461,6 +463,24 @@ function renderCatTabs(){
   setTimeout(updateTabsOverflow, 0);
   renderSubTabs();
 }
+
+// Näkymävälilehtien näkyvyys. 'etusivu' piilottaa rivin muualla kuin
+// etusivulla: kahdeksan nappia vie ruudusta ison siivun, ja etusivu on
+// muutenkin se paikka josta muualle lähdetään. Yläpalkin pikanapit
+// hoitavat liikkumisen — ja koti-nappi lisätään niihin automaattisesti,
+// jottei mihinkään näkymään voi jäädä jumiin.
+function tabsMode(){
+  const v = (appData.settings || {}).tabsMode;
+  return (v === 'aina') ? 'aina' : 'etusivu';
+}
+window.tabsMode = tabsMode;
+
+function applyTabsVisibility(view){
+  const el = document.getElementById('viewTabs');
+  if(!el) return;
+  el.style.display = (tabsMode() === 'aina' || view === 'home') ? '' : 'none';
+}
+window.applyTabsVisibility = applyTabsVisibility;
 
 // Alalajien esitystapa. Oletus 'laput' = entinen toiminta. Koskee vain
 // listanäkymän valintariviä: lomakkeessa alalaji on jo valikko, eikä sitä

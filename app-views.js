@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-10.3';
+window.BUILD_VIEWS = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -3258,6 +3258,12 @@ window.setTopGenre = function(g){
   renderTop();
 };
 
+// Valikosta tulee aina se arvo joka valittiin, ei kytkintä: tyhjä = kaikki.
+window.setTopGenreValue = function(v){
+  topGenreFilter = v || null;
+  renderTop();
+};
+
 function topControlsHtml(){
   const limit = (appData.settings && appData.settings.topLimit != null) ? appData.settings.topLimit : 5;
   const lenBtns = TOP_LIMITS.map(n=>`
@@ -3271,9 +3277,18 @@ function topControlsHtml(){
     g.forEach(x=>used.add(x));
   });
   const genres = GENRES.filter(g=>used.has(g));
-  const genreBtns = genres.length ? `<div class="top-genre-row">${
-    genres.map(g=>`<button type="button" class="filter-chip ${g===topGenreFilter?'active':''}" onclick="setTopGenre('${escJs(g)}')">${esc(g)}</button>`).join('')
-  }</div>` : '';
+
+  // Genrelappuja voi olla parikymmentä, jolloin ne täyttävät koko ruudun
+  // ennen kuin ensimmäistäkään listaa näkyy. Valikko vie yhden rivin.
+  const asMenu = !window.topGenreStyle || window.topGenreStyle() === 'valikko';
+  const genreBtns = !genres.length ? '' : (asMenu
+    ? `<div class="top-genre-row"><select class="top-genre-select" onchange="setTopGenreValue(this.value)">
+        <option value=""${topGenreFilter ? '' : ' selected'}>Kaikki genret</option>
+        ${genres.map(g=>`<option value="${esc(g)}"${g===topGenreFilter?' selected':''}>${esc(g)}</option>`).join('')}
+      </select></div>`
+    : `<div class="top-genre-row">${
+        genres.map(g=>`<button type="button" class="filter-chip ${g===topGenreFilter?'active':''}" onclick="setTopGenre('${escJs(g)}')">${esc(g)}</button>`).join('')
+      }</div>`);
 
   // Omat listat asuvat Top-näkymän sisällä. Valintarivi tulee moduulista,
   // jos se on ladattu — ilman sitä näkymä toimii täsmälleen kuten ennen.

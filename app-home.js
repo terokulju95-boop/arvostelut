@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · etusivu (koontinäkymä) ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_HOME = '2026-09-10.3';
+window.BUILD_HOME = '2026-09-09.1';
 //
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 //
@@ -264,7 +264,7 @@ window.renderHome = function(){
   const visible = cfg.filter(c => c.on);
 
   const bar = `<div class="home-bar">
-    <div class="home-hello">${esc(homeGreeting())}</div>
+    <div class="home-hello" onclick="logoTap()" style="cursor:pointer;user-select:none;">${esc(homeGreeting())}</div>
     <button type="button" class="home-editbtn" onclick="homeEditToggle()">${homeEdit ? 'Valmis' : 'Muokkaa'}</button>
   </div>`;
 

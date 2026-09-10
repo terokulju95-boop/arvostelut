@@ -2581,7 +2581,9 @@ html[data-cardstyle="vhs"] .review-card .card-top{
 /* ── YLÄPALKIN PIKANAPIT ──
    Enintään kaksi, logon ja asetusnapin väliin. Kosketusalue on täydet
    40 px vaikka kuvake on pienempi. */
-.header-actions{display:flex;gap:4px;margin-left:auto;}
+/* Napit ovat siinä kohdassa jossa sovelluksen nimi ennen oli: vasemmassa
+   reunassa, asetusnappi omalla puolellaan oikealla. */
+.header-actions{display:flex;gap:2px;margin-right:auto;flex-wrap:nowrap;}
 .header-act{width:40px;height:40px;display:flex;align-items:center;justify-content:center;
   background:none;border:none;color:var(--text);font-size:calc(18px * var(--ts,1));
   border-radius:10px;cursor:pointer;}
@@ -2595,3 +2597,8 @@ html[data-cardstyle="vhs"] .review-card .card-top{
 .sub-select{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);
   border-radius:10px;color:var(--text);font-size:calc(13.5px * var(--ts,1));
   font-family:'DM Sans',sans-serif;outline:none;}
+
+/* Top-listan genrevalitsin valikkona. Sama ilme kuin alalajivalikossa. */
+.top-genre-select{width:100%;padding:9px 12px;background:var(--bg3);
+  border:1px solid var(--border);border-radius:10px;color:var(--text);
+  font-size:calc(13.5px * var(--ts,1));font-family:'DM Sans',sans-serif;outline:none;}

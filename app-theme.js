@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-10.3';
+window.BUILD_THEME = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -209,12 +209,36 @@ const HEADER_ACTIONS = [
   { id:'stats',  icon:'📊', label:'Tilastot',     run:"setView('stats')" },
   { id:'wl',     icon:'📌', label:'Katselulista', run:"setView('watchlist')" }
 ];
-const HEADER_MAX = 2;
+const HEADER_MAX = 5;
+
+// Kuinka monta nappia käyttäjä voi itse valita. Jos koti-nappi pakotetaan
+// mukaan, se vie yhden paikan viidestä.
+// Käyttäjän oma valinta ilman pakotettua koti-nappia. Muokkaus tehdään
+// AINA tähän listaan: jos muokattaisiin näytettävää listaa, automaattinen
+// koti tallentuisi valinnaksi ja söisi yhden paikan pysyvästi.
+function rawHeaderActions(){
+  const list = Array.isArray(ensureSettings().headerActions) ? ensureSettings().headerActions : [];
+  return list.filter(id => HEADER_ACTIONS.some(a => a.id === id));
+}
+
+function headerChooseMax(){
+  const list = rawHeaderActions();
+  const forced = (window.tabsMode && window.tabsMode() !== 'aina') && list.indexOf('home') < 0;
+  return forced ? HEADER_MAX - 1 : HEADER_MAX;
+}
 
 function headerActions(){
   const s = ensureSettings();
-  const list = Array.isArray(s.headerActions) ? s.headerActions : [];
-  return list.filter(id => HEADER_ACTIONS.some(a => a.id === id)).slice(0, HEADER_MAX);
+  const list = (Array.isArray(s.headerActions) ? s.headerActions : [])
+    .filter(id => HEADER_ACTIONS.some(a => a.id === id));
+
+  // Jos välilehdet näkyvät vain etusivulla, koti-nappi on ainoa tie takaisin.
+  // Se lisätään aina ensimmäiseksi, myös silloin kun käyttäjä ei ole sitä
+  // valinnut — muuten arvostelunäkymään voisi jäädä jumiin.
+  const needHome = window.tabsMode && window.tabsMode() !== 'aina';
+  if(needHome && list.indexOf('home') < 0) list.unshift('home');
+
+  return list.slice(0, HEADER_MAX);
 }
 
 window.renderHeaderActions = function(){
@@ -229,11 +253,15 @@ window.renderHeaderActions = function(){
 
 window.toggleHeaderAction = async function(id){
   const s = ensureSettings();
-  const list = headerActions();
+  const list = rawHeaderActions();
   const i = list.indexOf(id);
+  // Koti-napin voi poistaa vapaasti: jos välilehdet näkyvät vain
+  // etusivulla, se palaa automaattisesti eikä vie enää omaa paikkaansa.
   if(i >= 0) list.splice(i, 1);
-  else if(list.length >= HEADER_MAX) list.shift();   // vanhin väistyy
   if(i < 0) list.push(id);
+  // Vanhimmat väistyvät kunnes mahdutaan palkkiin.
+  const cap = (id === 'home') ? HEADER_MAX : headerChooseMax();
+  while(list.length > cap) list.shift();
   s.headerActions = list;
   window.renderHeaderActions();
   window.renderHeaderSettings();
@@ -245,10 +273,14 @@ window.renderHeaderSettings = function(){
   const host = document.getElementById('headerActionsBox');
   if(!host) return;
   const list = headerActions();
+  const max  = headerChooseMax();
+  const forced = (window.tabsMode && window.tabsMode() !== 'aina') && rawHeaderActions().indexOf('home') < 0;
   host.innerHTML = `
-    <div class="toggle-row-sub" style="margin-bottom:8px;">Valitse enintään kaksi nappia yläpalkkiin. Jos valitset kolmannen, ensimmäisenä valittu väistyy.</div>
+    <div class="toggle-row-sub" style="margin-bottom:8px;">Valitse enintään ${max} nappia. Jos valitset yhden yli, ensimmäisenä valittu väistyy.${
+      forced ? ' Koti-nappi on mukana automaattisesti, koska välilehdet näkyvät vain etusivulla — se vie yhden paikan.' : ''}</div>
     <div class="filter-row">${HEADER_ACTIONS.map(a =>
-      `<button type="button" class="filter-chip${list.indexOf(a.id) >= 0 ? ' active' : ''}" onclick="toggleHeaderAction('${escJs(a.id)}')">${a.icon} ${esc(a.label)}</button>`
+      `<button type="button" class="filter-chip${list.indexOf(a.id) >= 0 ? ' active' : ''}" onclick="toggleHeaderAction('${escJs(a.id)}')">${a.icon} ${esc(a.label)}${
+        (a.id === 'home' && forced) ? ' 🔒' : ''}</button>`
     ).join('')}</div>`;
 };
 
@@ -894,6 +926,35 @@ window.renderTieSettings = function(){
   renderSeg('tieModeBox', TIE_MODE_OPTS, window.tieMode(), 'setTieMode');
 };
 
+const TABS_MODE_OPTS = [
+  { v: 'etusivu', label: 'Vain etusivulla' },
+  { v: 'aina',    label: 'Aina näkyvissä' }
+];
+window.setTabsMode = async function(v){
+  ensureSettings().tabsMode = v;
+  // renderAll kutsuu applyTabsVisibility oikealla näkymällä, joten
+  // näkyvyyttä ei tarvitse päätellä täällä erikseen.
+  if(window.renderAll) window.renderAll();
+  window.renderHeaderActions();
+  window.renderLayoutSettings();
+  await window.fbSave();
+};
+
+const TOP_GENRE_OPTS = [
+  { v: 'valikko', label: 'Valikoksi' },
+  { v: 'laput',   label: 'Lapuiksi' }
+];
+window.topGenreStyle = function(){
+  const v = (appData.settings || {}).topGenreStyle;
+  return (v === 'laput') ? 'laput' : 'valikko';
+};
+window.setTopGenreStyle = async function(v){
+  ensureSettings().topGenreStyle = v;
+  if(window.renderTop) window.renderTop();
+  window.renderLayoutSettings();
+  await window.fbSave();
+};
+
 const SUBCAT_STYLE_OPTS = [
   { v: 'laput',   label: 'Lapuiksi' },
   { v: 'valikko', label: 'Valikoksi' },
@@ -935,6 +996,8 @@ window.renderLayoutSettings = function(){
   renderSeg('animSpeedBox', ANIM_SPEED_OPTS, String(animSpeed(s)), 'setAnimSpeed');
   renderSeg('openAnimBox', OPEN_ANIM_OPTS, openAnim(s), 'setOpenAnim');
   renderSeg('subcatStyleBox', SUBCAT_STYLE_OPTS, window.subcatStyle ? window.subcatStyle() : 'laput', 'setSubcatStyle');
+  renderSeg('tabsModeBox', TABS_MODE_OPTS, window.tabsMode ? window.tabsMode() : 'etusivu', 'setTabsMode');
+  renderSeg('topGenreBox', TOP_GENRE_OPTS, window.topGenreStyle(), 'setTopGenreStyle');
   // Nopeussäädin ei tee mitään jos animaatiot on kytketty pois, joten se
   // piilotetaan kokonaan sen sijaan että se jäisi harhaanjohtavasti
   // säädettäväksi.
