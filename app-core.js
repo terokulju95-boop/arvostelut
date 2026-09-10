@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-10.0';
+window.BUILD_CORE = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1768,10 +1768,89 @@ window.pendingCharCost = function(jobs){
   return sum;
 };
 
+// ── ERISNIMIEN SUOJAUS ──
+// Konekäännös kääntää hahmojen ja paikkojen nimiä surutta: Bishopista tulee
+// piispa ja Cliffistä kallio. Paikanpitäjätekniikkaa (nimi pois, merkki
+// tilalle, nimi takaisin) EI käytetä, koska palvelu sotkee merkit usein ja
+// lopputulos on huonompi kuin ilman koko suojausta.
+//
+// Tässä tehdään sen sijaan tarkistus: jos lähdetekstissä ollut erisnimi ei
+// löydy käännöksestä, käännös on todennäköisesti pilannut sen. Silloin
+// teksti jätetään englanniksi tai nostetaan tarkistettavaksi — kumpi tahansa
+// on parempi kuin väärä nimi joka jää sinne pysyvästi.
+window.protectedTerms = function(r){
+  const s = ensureSettings();
+  const out = [];
+  const push = v => {
+    String(v || '').split(/[,;]/).forEach(part => {
+      const t = part.trim();
+      if(t.length >= 4) out.push(t);
+    });
+  };
+  if(r){
+    push(window.plainName ? window.plainName(r) : r.name);
+    push(r.director);
+    (Array.isArray(r.cast) ? r.cast : []).forEach(push);
+  }
+  push(s.translateProtectList);
+
+  // Monisanaisista nimistä otetaan myös yksittäiset sanat: käännös voi
+  // säilyttää sukunimen mutta kääntää etunimen.
+  const words = [];
+  out.forEach(t => {
+    t.split(/\s+/).forEach(w => {
+      const clean = w.replace(/[^\wåäöÅÄÖ-]/g, '');
+      if(clean.length >= 4 && /^[A-ZÅÄÖ]/.test(clean)) words.push(clean);
+    });
+  });
+  // Kaksoiskappaleet pois, pisimmät ensin.
+  const seen = {};
+  return out.concat(words).filter(t => {
+    const k = t.toLowerCase();
+    if(seen[k]) return false;
+    seen[k] = 1;
+    return true;
+  }).sort((a, b) => b.length - a.length);
+};
+
+// Palauttaa ne suojatut termit, jotka olivat lähdetekstissä mutta katosivat
+// käännöksestä. Tyhjä taulukko = kaikki kunnossa.
+window.lostTerms = function(src, out, terms){
+  if(!terms || !terms.length) return [];
+  const s = String(src || '').toLowerCase();
+  const o = String(out || '').toLowerCase();
+  return terms.filter(t => {
+    const k = String(t).toLowerCase();
+    return s.indexOf(k) >= 0 && o.indexOf(k) < 0;
+  });
+};
+
+// Käännöksen kirjoittaminen jaksoon. Erillään ajosta, koska tarkistustilassa
+// tämä tapahtuu vasta hyväksynnän jälkeen.
+window.applyTranslation = function(job, text){
+  if(!job || !text) return false;
+  const src = job.ep[job.field];
+  if(job.field === 'name'){
+    job.ep.nameOriginal = src;
+    job.ep.name = text;
+    job.ep.nameLang = 'fi-auto';
+  } else {
+    job.ep.plotOriginal = src;
+    job.ep.plot = text;
+    job.ep.plotLang = 'fi-auto';
+  }
+  return true;
+};
+
 // Ajaa käännösjonon. Keskeytyy siististi jos kiintiö loppuu tai käyttäjä
 // peruu — siihen asti tehdyt käännökset jäävät voimaan.
-async function runTranslationJobs(jobs, onProgress, isCancelled, onCheckpoint){
-  let done = 0, ok = 0, failed = 0, cancelled = false;
+//
+// opts.collect  = älä kirjoita mitään, kerää tulokset tarkistettaviksi
+// opts.protect  = suojattavat erisnimet (window.protectedTerms)
+async function runTranslationJobs(jobs, onProgress, isCancelled, onCheckpoint, opts){
+  const o = opts || {};
+  let done = 0, ok = 0, failed = 0, cancelled = false, protectedCount = 0;
+  const pending = [];
   for(let i = 0; i < jobs.length; i++){
     if(isCancelled && isCancelled()){ cancelled = true; break; }
     if(trUsage().exhausted) break;
@@ -1780,16 +1859,20 @@ async function runTranslationJobs(jobs, onProgress, isCancelled, onCheckpoint){
     const src = job.ep[job.field];
     const t = await translateToFi(src);
     if(t){
-      if(job.field === 'name'){
-        job.ep.nameOriginal = src;
-        job.ep.name = t;
-        job.ep.nameLang = 'fi-auto';
+      const lost = o.protect ? window.lostTerms(src, t, o.protect) : [];
+      if(o.collect){
+        // Tarkistustila: mitään ei kirjoiteta vielä. Käännös odottaa
+        // hyväksyntää, ja kadonneet erisnimet kulkevat mukana lippuna.
+        pending.push({ job: job, src: src, out: t, lost: lost });
+        ok++;
+      } else if(lost.length){
+        // Suoraan tallentava tila: pilalle mennyt erisnimi tarkoittaa että
+        // käännös jätetään käyttämättä. Englanti on parempi kuin väärä nimi.
+        protectedCount++;
       } else {
-        job.ep.plotOriginal = src;
-        job.ep.plot = t;
-        job.ep.plotLang = 'fi-auto';
+        window.applyTranslation(job, t);
+        ok++;
       }
-      ok++;
     } else if(trUsage().exhausted){
       // Kiintiö loppui juuri tähän kohteeseen. Se ei ole virhe vaan
       // jatkokohta huomiselle, joten sitä ei lasketa epäonnistuneeksi.
@@ -1803,7 +1886,8 @@ async function runTranslationJobs(jobs, onProgress, isCancelled, onCheckpoint){
     if(onCheckpoint && done % 8 === 0) await onCheckpoint();
     await new Promise(r => setTimeout(r, 120));
   }
-  return { done, ok, failed, cancelled, quota: trUsage().exhausted, total: jobs.length };
+  return { done, ok, failed, cancelled, quota: trUsage().exhausted, total: jobs.length,
+           pending: pending, protectedCount: protectedCount };
 }
 window.runTranslationJobs = runTranslationJobs;
 

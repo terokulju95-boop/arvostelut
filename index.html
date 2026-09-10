@@ -1148,6 +1148,21 @@
           </div>
           <button type="button" class="toggle-switch" id="translateNamesToggle" onclick="toggleTranslateNames()"></button>
         </div>
+        <label style="margin-top:14px;">Käännöstapa</label>
+        <div class="toggle-row-sub" style="margin-bottom:2px;">Tarkistustilassa käännökset eivät mene suoraan jaksoihin: näet alkuperäisen ja käännöksen rinnakkain ja hyväksyt ne yksi kerrallaan. Isossa ajossa voit hyväksyä loput yhdellä napilla, joten koko kausi ei jää tarkistuksen taakse.</div>
+        <div class="seg-row" id="translateModeBox"></div>
+        <div class="toggle-row" style="margin-top:14px;">
+          <div>
+            <div class="toggle-row-label">Suojaa erisnimet</div>
+            <div class="toggle-row-sub">Tarkistaa että hahmojen, tekijöiden ja teoksen omat nimet ovat yhä mukana käännöksen jälkeen. Jos nimi katosi, käännös jää englanniksi tai nousee tarkistettavaksi.</div>
+          </div>
+          <button type="button" class="toggle-switch" id="translateProtectToggle" onclick="toggleTranslateProtect()"></button>
+        </div>
+        <label style="margin-top:14px;">Omat suojattavat nimet (valinnainen)</label>
+        <input type="text" id="translateProtectInput" placeholder="Ripley, Nostromo, Weyland-Yutani"
+          style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;outline:none;"
+          onchange="saveTranslateProtectList(this.value)">
+        <div class="toggle-row-sub" style="margin-top:6px;">Pilkulla erotettuna. Teoksen nimi, ohjaaja ja näyttelijät tunnistetaan jo automaattisesti — tähän vain ne joita ne eivät kata.</div>
         <label style="margin-top:14px;">Käännöspalvelun sähköposti (valinnainen)</label>
         <input type="email" id="translateEmailInput" placeholder="sinä@email.com" autocomplete="email"
           style="width:100%;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;outline:none;"

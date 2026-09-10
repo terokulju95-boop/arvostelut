@@ -2089,6 +2089,23 @@ body.sandbox-on #fab{bottom:74px;}
   transition:width calc(0.3s * var(--anim,1)) ease;}
 .hq-count{margin-top:8px;font-size:calc(11.5px * var(--ts,1));color:var(--muted);}
 .hq-name{font-size:calc(17px * var(--ts,1));font-weight:700;margin-top:2px;line-height:1.25;}
+/* ── KÄÄNNÖSTEN TARKISTUS ──
+   Alkuperäinen ja käännös rinnakkain. Alkuperäinen on tarkoituksella
+   himmeämpi: sitä luetaan vain vertailun vuoksi, käännös on se jota
+   muokataan. */
+.tr-review{margin-top:14px;}
+.tr-item-head{font-size:calc(12px * var(--ts,1));color:var(--muted);font-weight:600;}
+.tr-label{font-size:calc(11px * var(--ts,1));color:var(--muted);text-transform:uppercase;
+  letter-spacing:0.5px;margin-top:12px;}
+.tr-orig{font-size:calc(13px * var(--ts,1));color:var(--muted);line-height:1.5;margin-top:4px;
+  padding:9px 11px;background:var(--bg3);border-radius:9px;max-height:132px;overflow:auto;}
+.tr-review textarea{width:100%;margin-top:4px;padding:10px 12px;background:var(--bg3);
+  border:1px solid var(--border);border-radius:9px;color:var(--text);
+  font-size:calc(14px * var(--ts,1));font-family:'DM Sans',sans-serif;line-height:1.5;
+  outline:none;resize:vertical;}
+.tr-warn{margin-top:8px;padding:8px 11px;border-radius:9px;background:var(--tint-07);
+  border:1px solid var(--border);font-size:calc(12px * var(--ts,1));line-height:1.45;}
+
 .hq-meta{font-size:calc(12px * var(--ts,1));color:var(--muted);margin-top:2px;}
 .dc-row-flat:active{background:var(--bg2);}
 

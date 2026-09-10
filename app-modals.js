@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · budjetti, asetukset, modaalit, TMDB-haku ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_MODALS = '2026-09-10.0';
+window.BUILD_MODALS = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -989,6 +989,17 @@ function renderTranslateSettings(){
   const c = document.getElementById('translateCacheInfo');
   if(p) p.classList.toggle('on', !!s.translatePlots);
   if(n) n.classList.toggle('on', !!s.translateNames);
+  const pr = document.getElementById('translateProtectToggle');
+  if(pr) pr.classList.toggle('on', !!s.translateProtect);
+  const pl = document.getElementById('translateProtectInput');
+  if(pl && document.activeElement !== pl) pl.value = s.translateProtectList || '';
+  const modeBox = document.getElementById('translateModeBox');
+  if(modeBox){
+    const mode = (s.translateReview === 'check') ? 'check' : 'auto';
+    modeBox.innerHTML = [['auto', 'Käännä suoraan'], ['check', 'Näytä tarkistettavaksi']]
+      .map(o => `<button type="button" class="seg-btn${mode === o[0] ? ' active' : ''}" onclick="setTranslateMode('${o[0]}')">${o[1]}</button>`)
+      .join('');
+  }
   if(e && document.activeElement !== e) e.value = s.translateEmail || '';
   if(c){
     const n2 = window.translationCacheSize();
@@ -1012,6 +1023,21 @@ window.toggleTranslateNames = async function(){
   await window.fbSave();
 };
 
+window.setTranslateMode = async function(v){
+  ensureSettings().translateReview = v;
+  renderTranslateSettings();
+  await window.fbSave();
+};
+window.toggleTranslateProtect = async function(){
+  const s = ensureSettings();
+  s.translateProtect = !s.translateProtect;
+  renderTranslateSettings();
+  await window.fbSave();
+};
+window.saveTranslateProtectList = async function(val){
+  ensureSettings().translateProtectList = String(val || '').trim();
+  await window.fbSave();
+};
 window.saveTranslateEmail = async function(val){
   ensureSettings().translateEmail = String(val || '').trim();
   window.resetTranslateQuotaFlag();
@@ -1927,6 +1953,10 @@ window.runTranslate = async function(){
   const label = document.getElementById('trmLabel');
   const sub   = document.getElementById('trmSub');
 
+  const s2        = ensureSettings();
+  const checkMode = (s2.translateReview === 'check');
+  const protect   = s2.translateProtect ? window.protectedTerms(r) : null;
+
   const result = await runTranslationJobs(
     jobs,
     (done, total, job) => {
@@ -1936,8 +1966,15 @@ window.runTranslate = async function(){
       sub.textContent = `${job.field === 'name' ? 'Nimi' : 'Juoni'}: ${name}`;
     },
     () => _trCancel,
-    async () => { await window.fbSave(); }   // välitallennus 8 kohteen välein
+    // Tarkistustilassa ei ole mitään välitallennettavaa: jaksoihin ei ole
+    // vielä koskettu, ja käännökset odottavat muistissa hyväksyntää.
+    checkMode ? null : async () => { await window.fbSave(); },
+    { collect: checkMode, protect: protect }
   );
+
+  if(checkMode && result.pending && result.pending.length){
+    return trReviewStart(result.pending);
+  }
 
   await window.fbSave();
   renderCards();
@@ -1962,6 +1999,7 @@ window.runTranslate = async function(){
       <div class="trm-result-text">
         Käännetty ${result.ok}/${jobs.length} kohdetta.
         ${result.failed ? `${result.failed} epäonnistui ja jäi englanniksi.<br>` : ''}
+        ${result.protectedCount ? `${result.protectedCount} jätettiin englanniksi, koska käännös hukkasi suojatun erisnimen.<br>` : ''}
         ${left > 0
           ? (result.quota
               ? `<strong>${left} ${left === 1 ? 'kohde jäi' : 'kohdetta jäi'} jäljelle.</strong> Kiintiö nollautuu vuorokauden kuluessa — avaa tämä ikkuna huomenna uudelleen ja jatka siitä mihin jäit. Jo käännetyt tekstit on tallennettu.`
@@ -1972,6 +2010,130 @@ window.runTranslate = async function(){
       <button class="btn-primary" style="width:100%;margin-top:14px;" onclick="closeModal('translateModal')">Sulje</button>
     </div>
   `;
+};
+
+// ══ KÄÄNNÖSTEN TARKISTUS ══
+// Tarkistustilassa käännökset eivät mene suoraan jaksoihin vaan jäävät
+// odottamaan hyväksyntää. Yksi kerrallaan, alkuperäinen ja käännös
+// rinnakkain — sama jonon logiikka kuin kokoelman kunnon työjonossa.
+//
+// "Hyväksy kaikki loput" on tässä olennainen: sadan jakson kausi ei saa
+// muuttua käyttökelvottomaksi vain siksi että tarkistus on päällä. Kun
+// huomaat muutaman ensimmäisen olevan kunnossa, loput menevät yhdellä
+// napautuksella.
+let _trReview = null;   // { items, idx, accepted, rejected }
+
+function trReviewStart(pending){
+  _trReview = { items: pending, idx: 0, accepted: 0, rejected: 0 };
+  renderTrReview();
+}
+
+function trReviewItemHtml(it){
+  const ep    = it.job.ep;
+  const name  = ep.name || ('Jakso ' + ep.episode);
+  const field = it.job.field === 'name' ? 'Jakson nimi' : 'Juoni';
+  const warn  = (it.lost && it.lost.length)
+    ? `<div class="tr-warn">⚠️ Käännöksestä puuttuu suojattu nimi: <strong>${esc(it.lost.slice(0, 3).join(', '))}</strong></div>`
+    : '';
+  return `
+    <div class="tr-item-head">${esc(field)} · ${esc(name)}</div>
+    ${warn}
+    <div class="tr-label">Alkuperäinen</div>
+    <div class="tr-orig">${esc(it.src)}</div>
+    <div class="tr-label">Käännös — voit muokata ennen hyväksyntää</div>
+    <textarea id="trEdit" rows="${it.job.field === 'name' ? 2 : 5}">${esc(it.out)}</textarea>`;
+}
+
+function renderTrReview(){
+  const prog = document.getElementById('trmProgress');
+  if(!prog || !_trReview) return;
+  const total = _trReview.items.length;
+
+  if(_trReview.idx >= total){
+    const a = _trReview.accepted, rj = _trReview.rejected;
+    const rejLine = rj ? `Hylätty ${rj} — ne jäivät englanniksi ja voit kääntää ne myöhemmin uudelleen.` : '';
+    prog.innerHTML = `
+      <div class="trm-result trm-ok">
+        <div class="trm-result-title">✅ Tarkistus valmis</div>
+        <div class="trm-result-text">
+          Hyväksytty ${a} ${a === 1 ? 'käännös' : 'käännöstä'}. ${rejLine}
+        </div>
+        <button class="btn-primary" style="width:100%;margin-top:14px;" onclick="closeModal('translateModal')">Sulje</button>
+      </div>`;
+    _trReview = null;
+    return;
+  }
+
+  const it  = _trReview.items[_trReview.idx];
+  const pct = Math.round((_trReview.idx / total) * 100);
+  const rest = total - _trReview.idx;
+  prog.innerHTML = `
+    <div class="trm-run">
+      <div class="trm-run-head">
+        <span>${_trReview.idx + 1} / ${total}</span>
+        <span class="trm-run-pct">Tarkistettavana</span>
+      </div>
+      <div class="trm-quota-track"><div class="trm-quota-bar" style="width:${pct}%"></div></div>
+      <div class="tr-review">${trReviewItemHtml(it)}</div>
+      <div class="modal-actions" style="margin-top:12px;">
+        <button class="btn-secondary" onclick="trReject()">Hylkää</button>
+        <button class="btn-primary" onclick="trAccept()">Hyväksy</button>
+      </div>
+      <button class="btn-secondary" style="width:100%;margin-top:8px;" onclick="trAcceptRest()">Hyväksy kaikki loput (${rest})</button>
+      <button class="btn-secondary" style="width:100%;margin-top:8px;" onclick="trReviewStop()">Lopeta tarkistus</button>
+      <div class="trm-run-note">Hylätyt jäävät englanniksi. Mitään ei ole vielä tallennettu jaksoihin.</div>
+    </div>`;
+}
+
+window.trAccept = async function(){
+  if(!_trReview) return;
+  const it = _trReview.items[_trReview.idx];
+  const el = document.getElementById('trEdit');
+  const text = el ? String(el.value).trim() : it.out;
+  if(text){
+    window.applyTranslation(it.job, text);
+    _trReview.accepted++;
+  } else {
+    // Tyhjäksi muokattu käännös tarkoittaa hylkäystä: alkuperäinen jää.
+    _trReview.rejected++;
+  }
+  _trReview.idx++;
+  await window.fbSave();
+  renderTrReview();
+  if(window.renderCards) window.renderCards();
+};
+
+window.trReject = function(){
+  if(!_trReview) return;
+  _trReview.rejected++;
+  _trReview.idx++;
+  renderTrReview();
+};
+
+window.trAcceptRest = async function(){
+  if(!_trReview) return;
+  // Kesken oleva muokkaus otetaan mukaan, muuten juuri kirjoitettu korjaus
+  // katoaisi napin painalluksessa.
+  const el = document.getElementById('trEdit');
+  const first = _trReview.items[_trReview.idx];
+  if(el && first) first.out = String(el.value).trim() || first.out;
+
+  for(let i = _trReview.idx; i < _trReview.items.length; i++){
+    const it = _trReview.items[i];
+    if(it.out){ window.applyTranslation(it.job, it.out); _trReview.accepted++; }
+  }
+  _trReview.idx = _trReview.items.length;
+  await window.fbSave();
+  renderTrReview();
+  if(window.renderCards) window.renderCards();
+};
+
+window.trReviewStop = function(){
+  if(!_trReview) return;
+  const a = _trReview.accepted;
+  _trReview = null;
+  if(window.closeModal) window.closeModal('translateModal');
+  if(a && window.renderCards) window.renderCards();
 };
 
 // ══ KAUSIEN TUONTI TMDB:STÄ ══

@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-09-10.0';
+window.BUILD_CARDS = '2026-09-09.1';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -593,7 +593,9 @@ function sectionSummaries(){
     rajat:        `${window.bandCount()} luokkaa · ${defs.cuts.join(' / ')}`,
     tunnus:       (s.tmdbToken || '').trim() ? 'oma tunnus' : 'oletus',
     juonet:       noPlot ? `${noPlot} puuttuu` : 'ei puutu',
-    kaannokset:   s.translatePlots ? 'juonet mukana' : 'juonet pois',
+    kaannokset:   (s.translatePlots ? 'juonet mukana' : 'juonet pois') +
+                  (s.translateReview === 'check' ? ' · tarkistus' : '') +
+                  (s.translateProtect ? ' · nimet suojattu' : ''),
     korjaukset:   (window.gapPercent && window.gapPercent() != null) ? window.gapPercent() + ' % täydellinen' : '',
     virheloki:    errSummary(),
     testitila:    window._sandbox ? 'PÄÄLLÄ' : 'pois'
@@ -624,7 +626,7 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-09-10.0', items:[
+  { build:'2026-09-09.1', items:[
     { icon:'🛠️', title:'Kehittäjätila',
       text:'Jokaisen asetuksen viereen ilmestyy lippu. Merkitse mikä on turhaa, väärin toteutettua tai rikki, ja lataa lopuksi lista. Merkinnät elävät vain tällä laitteella eivätkä koske dataan.',
       tab:'data', sec:'kehittaja' },
