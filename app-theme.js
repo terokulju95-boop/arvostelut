@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-10.2';
+window.BUILD_THEME = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -109,6 +109,11 @@ window.applyTheme = function(){
   if(oa === 'liuku') root.removeAttribute('data-openanim');
   else root.setAttribute('data-openanim', oa);
 
+  // Yläpalkin pikanapit piirretään teeman mukana: applyTheme ajetaan
+  // käynnistyksessä ja jokaisen asetusmuutoksen jälkeen, joten napit ovat
+  // aina ajan tasalla ilman erillistä kutsua eri paikoissa.
+  if(window.renderHeaderActions) window.renderHeaderActions();
+
   const spd = (prefersReduce && prefersReduce.matches) ? 0.001 : animSpeed(s);
   if(spd === 1) root.style.removeProperty('--anim');
   else root.style.setProperty('--anim', String(spd));
@@ -189,6 +194,95 @@ window.loaderHide = function(el){
 
 // Skriptit ladataan bodyn lopussa, joten elementit ovat jo olemassa.
 installLoaderDelay('tmdbLoadingOverlay');
+
+// ── YLÄPALKIN PIKANAPIT ──
+// Yläpalkissa on ollut logo ja asetusnappi. Tähän voi valita enintään kaksi
+// omaa nappia niiden väliin. Tallennuksen tila ja päivitysbanneri eivät ole
+// valittavissa: ne kertovat onko data pilvessä, eikä sitä saa voida piilottaa
+// vahingossa.
+const HEADER_ACTIONS = [
+  { id:'home',   icon:'🏠', label:'Etusivu',      run:"setView('home')" },
+  { id:'search', icon:'🔎', label:'Haku',         run:"headerSearch()" },
+  { id:'filter', icon:'⚡', label:'Suodattimet',  run:"headerFilter()" },
+  { id:'add',    icon:'➕', label:'Uusi arvostelu', run:"openAddModal()" },
+  { id:'random', icon:'🎲', label:'Satunnainen',  run:"headerRandom()" },
+  { id:'stats',  icon:'📊', label:'Tilastot',     run:"setView('stats')" },
+  { id:'wl',     icon:'📌', label:'Katselulista', run:"setView('watchlist')" }
+];
+const HEADER_MAX = 2;
+
+function headerActions(){
+  const s = ensureSettings();
+  const list = Array.isArray(s.headerActions) ? s.headerActions : [];
+  return list.filter(id => HEADER_ACTIONS.some(a => a.id === id)).slice(0, HEADER_MAX);
+}
+
+window.renderHeaderActions = function(){
+  const host = document.getElementById('headerActions');
+  if(!host) return;
+  const list = headerActions();
+  host.innerHTML = list.map(id => {
+    const a = HEADER_ACTIONS.filter(x => x.id === id)[0];
+    return `<button type="button" class="header-act" onclick="${a.run}" aria-label="${esc(a.label)}">${a.icon}</button>`;
+  }).join('');
+};
+
+window.toggleHeaderAction = async function(id){
+  const s = ensureSettings();
+  const list = headerActions();
+  const i = list.indexOf(id);
+  if(i >= 0) list.splice(i, 1);
+  else if(list.length >= HEADER_MAX) list.shift();   // vanhin väistyy
+  if(i < 0) list.push(id);
+  s.headerActions = list;
+  window.renderHeaderActions();
+  window.renderHeaderSettings();
+  if(window.renderSectionSummaries) window.renderSectionSummaries();
+  await window.fbSave();
+};
+
+window.renderHeaderSettings = function(){
+  const host = document.getElementById('headerActionsBox');
+  if(!host) return;
+  const list = headerActions();
+  host.innerHTML = `
+    <div class="toggle-row-sub" style="margin-bottom:8px;">Valitse enintään kaksi nappia yläpalkkiin. Jos valitset kolmannen, ensimmäisenä valittu väistyy.</div>
+    <div class="filter-row">${HEADER_ACTIONS.map(a =>
+      `<button type="button" class="filter-chip${list.indexOf(a.id) >= 0 ? ' active' : ''}" onclick="toggleHeaderAction('${escJs(a.id)}')">${a.icon} ${esc(a.label)}</button>`
+    ).join('')}</div>`;
+};
+
+// Haku: siirry listaan ja kohdista hakukenttään. Muissa näkymissä kenttää
+// ei ole näkyvissä, joten pelkkä kohdistus ei riittäisi.
+window.headerSearch = function(){
+  if(window.setView) window.setView('reviews');
+  setTimeout(() => {
+    const el = document.getElementById('searchInput');
+    if(el){ el.focus(); el.select(); }
+  }, 60);
+};
+
+window.headerFilter = function(){
+  if(window.setView) window.setView('reviews');
+  setTimeout(() => { if(window.toggleFilter) window.toggleFilter(); }, 60);
+};
+
+// Satunnainen arvostelu suoraan lukunäkymään. Ei suodattimia: tämä on
+// nopea nappi, ei löytötyökalu.
+window.headerRandom = function(){
+  const R = (appData.reviews || []).filter(r => r && r.id != null);
+  if(!R.length) return;
+  const r = R[Math.floor(Math.random() * R.length)];
+  if(window.openReadModal) window.openReadModal(r.id);
+};
+
+window.headerActionSummary = function(){
+  try{
+    const list = headerActions();
+    if(!list.length) return 'ei pikanappeja';
+    return list.map(id => (HEADER_ACTIONS.filter(a => a.id === id)[0] || {}).label).join(' · ');
+  } catch(e){ return ''; }
+};
 
 // ── FILMIRAITA ──
 // Rei'itetty filminauha ruudun molemmissa reunoissa. Puhdasta CSS:ää:
@@ -782,6 +876,36 @@ window.setAnimSpeed = async function(v){
   window.renderLayoutSettings();
   await window.fbSave();
 };
+const TIE_MODE_OPTS = [
+  { v: 'copy',     label: 'Sama piste' },
+  { v: 'continue', label: 'Jatka kysymyksiä' },
+  { v: 'nudge',    label: 'Pykälä ylemmäs' }
+];
+window.tieMode = function(){
+  const v = (appData.settings || {}).tieMode;
+  return TIE_MODE_OPTS.some(o => o.v === v) ? v : 'copy';
+};
+window.setTieMode = async function(v){
+  ensureSettings().tieMode = v;
+  window.renderTieSettings();
+  await window.fbSave();
+};
+window.renderTieSettings = function(){
+  renderSeg('tieModeBox', TIE_MODE_OPTS, window.tieMode(), 'setTieMode');
+};
+
+const SUBCAT_STYLE_OPTS = [
+  { v: 'laput',   label: 'Lapuiksi' },
+  { v: 'valikko', label: 'Valikoksi' },
+  { v: 'auto',    label: 'Automaattinen' }
+];
+window.setSubcatStyle = async function(v){
+  ensureSettings().subcatStyle = v;
+  if(window.renderSubTabs) window.renderSubTabs();
+  window.renderLayoutSettings();
+  await window.fbSave();
+};
+
 window.setOpenAnim = async function(v){
   ensureSettings().openAnim = v;
   window.applyTheme();
@@ -810,6 +934,7 @@ window.renderLayoutSettings = function(){
   sw('animToggle', 'animations');
   renderSeg('animSpeedBox', ANIM_SPEED_OPTS, String(animSpeed(s)), 'setAnimSpeed');
   renderSeg('openAnimBox', OPEN_ANIM_OPTS, openAnim(s), 'setOpenAnim');
+  renderSeg('subcatStyleBox', SUBCAT_STYLE_OPTS, window.subcatStyle ? window.subcatStyle() : 'laput', 'setSubcatStyle');
   // Nopeussäädin ei tee mitään jos animaatiot on kytketty pois, joten se
   // piilotetaan kokonaan sen sijaan että se jäisi harhaanjohtavasti
   // säädettäväksi.

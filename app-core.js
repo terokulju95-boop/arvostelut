@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ydin (data, apufunktiot, värit, pisteytys) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CORE = '2026-09-10.2';
+window.BUILD_CORE = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -462,6 +462,15 @@ function renderCatTabs(){
   renderSubTabs();
 }
 
+// Alalajien esitystapa. Oletus 'laput' = entinen toiminta. Koskee vain
+// listanäkymän valintariviä: lomakkeessa alalaji on jo valikko, eikä sitä
+// kannata muuttaa tämän mukana.
+function subcatStyle(){
+  const v = (appData.settings || {}).subcatStyle;
+  return (v === 'valikko' || v === 'auto') ? v : 'laput';
+}
+window.subcatStyle = subcatStyle;
+
 // Alalajirivi näkyy vain jos aktiivisella kategorialla on alalajeja.
 function renderSubTabs(){
   const el = document.getElementById('subTabs');
@@ -480,7 +489,24 @@ function renderSubTabs(){
     { val: '', label: 'Perus' },
     ...subs.map(s => ({ val: s, label: s }))
   ];
-  el.style.display = 'flex';
+
+  // Laput vai pudotusvalikko. Automaattinen vaihtaa valikkoon vasta kun
+  // lappurivi alkaa olla pitkä: harvalla alalajilla laput ovat nopeammat,
+  // koska valinta on yhden napautuksen päässä.
+  const style = subcatStyle();
+  const useMenu = (style === 'valikko') || (style === 'auto' && opts.length > 6);
+
+  el.style.display = useMenu ? 'block' : 'flex';
+  el.classList.toggle('sub-tabs-menu', useMenu);
+
+  if(useMenu){
+    el.innerHTML = `<select class="sub-select" onchange="setActiveSub(this.value)">${
+      opts.map(o => `<option value="${esc(o.val)}"${o.val === activeSub ? ' selected' : ''}>${
+        esc(o.label)}${setOn('subCounts') ? ' (' + count(o.val) + ')' : ''}</option>`).join('')
+    }</select>`;
+    return;
+  }
+
   el.innerHTML = opts.map(o => `
     <button class="sub-tab ${o.val === activeSub ? 'active' : ''}" onclick="setActiveSub('${escJs(o.val)}')">
       ${esc(o.label)}${setOn('subCounts') ? `<span class="sub-tab-count">${count(o.val)}</span>` : ''}

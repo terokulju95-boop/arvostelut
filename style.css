@@ -2577,3 +2577,21 @@ html[data-cardstyle="vhs"] .review-card .card-top{
   .home-grid{grid-template-columns:1fr 1fr;}
   .hm.size-l{grid-column:1 / -1;}
 }
+
+/* ── YLÄPALKIN PIKANAPIT ──
+   Enintään kaksi, logon ja asetusnapin väliin. Kosketusalue on täydet
+   40 px vaikka kuvake on pienempi. */
+.header-actions{display:flex;gap:4px;margin-left:auto;}
+.header-act{width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+  background:none;border:none;color:var(--text);font-size:calc(18px * var(--ts,1));
+  border-radius:10px;cursor:pointer;}
+.header-act:active{background:var(--tint-07);}
+
+/* ── ALALAJIT VALIKKONA ──
+   Vaihtoehto lappuriville silloin kun alalajeja on paljon. Rivi ei enää
+   vieri sivusuunnassa, joten .tabs-more-nuoli piilotetaan. */
+.sub-tabs-menu{display:block;padding:0;}
+.sub-tabs-menu + .tabs-more{display:none;}
+.sub-select{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-size:calc(13.5px * var(--ts,1));
+  font-family:'DM Sans',sans-serif;outline:none;}

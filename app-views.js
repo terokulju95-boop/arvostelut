@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · näkymät (kortit, lomake, vertailu, TV-osat, Top) ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_VIEWS = '2026-09-10.2';
+window.BUILD_VIEWS = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ylätason muuttujat ja funktiot
 // jaetaan tiedostojen kesken globaalin skoopin kautta.
 // LATAUSJÄRJESTYS ON MERKITSEVÄ — katso index.html:n loppu.
@@ -1390,7 +1390,24 @@ window.compareChoose = function(side){
     st.currentProbeIdx = null;
     if(side === 'a') st.loIdx = idx;
     else if(side === 'b') st.hiIdx = idx;
-    else if(side === 'tie') st.tieScore = st.candidates[idx].finalScore;
+    else if(side === 'tie'){
+      const tied = st.candidates[idx].finalScore;
+      const mode = window.tieMode ? window.tieMode() : 'copy';
+      if(mode === 'nudge'){
+        // Sama piste tarkoittaisi tasapistettä listalla. Yksi pykälä
+        // ylöspäin pitää järjestyksen yksiselitteisenä.
+        st.tieScore = Math.min(100, (tied ?? 0) + 1);
+      } else if(mode === 'continue'){
+        // Tasapeli kertoo suunnan mutta ei lopeta kierrosta: väli
+        // kavennetaan tämän teoksen naapureihin ja yksi kysymys lisää
+        // ratkaisee kummalle puolelle uusi teos asettuu. Rajat pidetään
+        // aiemmin vastattujen sisällä, jottei vanha vastaus kumoudu.
+        st.loIdx = Math.max(st.loIdx, idx - 1);
+        st.hiIdx = Math.min(st.hiIdx, idx + 1);
+      } else {
+        st.tieScore = tied;
+      }
+    }
     st.round++;
     closeModal('compareModal');
     setTimeout(showNextCompareRound, 250);

@@ -56,6 +56,7 @@
 <!-- HEADER -->
 <div id="appHeader">
   <div class="header-logo" id="appLogo" onclick="logoTap()" style="cursor:pointer;user-select:none;">★ <span>ARVOSTELUT</span></div>
+  <div class="header-actions" id="headerActions"></div>
   <button class="settings-btn" onclick="openSettings()">⚙️</button>
 </div>
 
@@ -757,6 +758,8 @@
         </button>
         <div class="set-sec-body" id="sec-logo" hidden>
 <div id="logoBox"></div>
+<label style="margin-top:16px;">Pikanapit yläpalkkiin</label>
+<div id="headerActionsBox"></div>
         </div>
       </div>
       <div class="set-sec" data-sec="julistevari">
@@ -817,6 +820,9 @@
             <div class="toggle-row-sub" style="margin-bottom:2px;">Kerroin kaikkiin siirtymiin ja avautumisiin. Normaali on entinen nopeus — muut vaihtoehdot muuttavat vain kestoa, eivät sitä mitä animoidaan.</div>
             <div class="seg-row" id="animSpeedBox"></div>
           </div>
+          <label style="margin-top:14px;">Alalajien esitystapa</label>
+          <div class="toggle-row-sub" style="margin-bottom:2px;">Koskee listanäkymän alalajiriviä. Automaattinen vaihtaa valikkoon kun alalajeja on yli kuusi. Lapuiksi on entinen tapa.</div>
+          <div class="seg-row" id="subcatStyleBox"></div>
           <div id="openAnimWrap">
             <label style="margin-top:14px;">Ikkunoiden avautuminen</label>
             <div class="toggle-row-sub" style="margin-bottom:2px;">Koskee myös kortin avaamista, koska kortti avautuu lukuikkunaan. Liuku alhaalta on entinen tapa.</div>
@@ -1082,6 +1088,9 @@
         <div class="set-sec-body" id="sec-tarkkuus" hidden>
 <div class="precision-row" id="precisionRow"></div>
         <div class="toggle-row-sub" style="margin-top:6px;">Montako kysymystä vertailu esittää enintään. Enemmän kysymyksiä = tarkempi piste.</div>
+        <label style="margin-top:16px;">Kun vastaat "yhtä hyviä"</label>
+        <div class="toggle-row-sub" style="margin-bottom:2px;">Sama piste on entinen tapa: vertailu päättyy ja uusi teos saa saman luvun. Jatka kysymyksiä kaventaa välin naapureihin ja kysyy vielä yhden kerran. Pykälä ylemmäs välttää tasapisteet listalla.</div>
+        <div class="seg-row" id="tieModeBox"></div>
         </div>
       </div>
     </div>
