@@ -2583,7 +2583,15 @@ html[data-cardstyle="vhs"] .review-card .card-top{
    40 px vaikka kuvake on pienempi. */
 /* Napit ovat siinä kohdassa jossa sovelluksen nimi ennen oli: vasemmassa
    reunassa, asetusnappi omalla puolellaan oikealla. */
-.header-actions{display:flex;gap:2px;margin-right:auto;flex-wrap:nowrap;}
+.header-actions{display:flex;gap:2px;margin-right:auto;flex-wrap:nowrap;
+  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
+.header-actions::-webkit-scrollbar{display:none;}
+/* Napit kapenevat portaittain kun niitä on paljon. Kahdeksan mahtuu
+   tavallisen puhelimen leveydelle asetusnapin viereen; sitä kapeammalla
+   ruudulla rivi vierittyy eikä mikään mene päällekkäin. */
+.header-actions[data-count="6"] .header-act{width:36px;}
+.header-actions[data-count="7"] .header-act{width:33px;font-size:calc(17px * var(--ts,1));}
+.header-actions[data-count="8"] .header-act{width:31px;font-size:calc(16px * var(--ts,1));}
 .header-act{width:40px;height:40px;display:flex;align-items:center;justify-content:center;
   background:none;border:none;color:var(--text);font-size:calc(18px * var(--ts,1));
   border-radius:10px;cursor:pointer;}

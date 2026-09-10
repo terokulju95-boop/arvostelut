@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · ulkoasu, testitila ja työkalut ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_THEME = '2026-09-10.4';
+window.BUILD_THEME = '2026-09-09.1';
 // Tavallinen skripti (ei moduuli): ajetaan app-core.js:n JÄLKEEN,
 // koska se käyttää ensureSettings()- ja appData-muuttujia.
 
@@ -200,16 +200,26 @@ installLoaderDelay('tmdbLoadingOverlay');
 // omaa nappia niiden väliin. Tallennuksen tila ja päivitysbanneri eivät ole
 // valittavissa: ne kertovat onko data pilvessä, eikä sitä saa voida piilottaa
 // vahingossa.
+// Kaikki kahdeksan näkymää ja neljä toimintoa. Järjestys on sama kuin
+// välilehtirivillä, jotta valikko tuntuu tutulta.
 const HEADER_ACTIONS = [
-  { id:'home',   icon:'🏠', label:'Etusivu',      run:"setView('home')" },
-  { id:'search', icon:'🔎', label:'Haku',         run:"headerSearch()" },
-  { id:'filter', icon:'⚡', label:'Suodattimet',  run:"headerFilter()" },
-  { id:'add',    icon:'➕', label:'Uusi arvostelu', run:"openAddModal()" },
-  { id:'random', icon:'🎲', label:'Satunnainen',  run:"headerRandom()" },
-  { id:'stats',  icon:'📊', label:'Tilastot',     run:"setView('stats')" },
-  { id:'wl',     icon:'📌', label:'Katselulista', run:"setView('watchlist')" }
+  { id:'home',     icon:'🏠', label:'Etusivu',        run:"setView('home')" },
+  { id:'reviews',  icon:'⭐', label:'Arvostelut',     run:"setView('reviews')" },
+  { id:'top',      icon:'🏆', label:'Top-lista',      run:"setView('top')" },
+  { id:'wl',       icon:'📌', label:'Katselulista',   run:"setView('watchlist')" },
+  { id:'discover', icon:'🔮', label:'Löydä',          run:"setView('discover')" },
+  { id:'budget',   icon:'💰', label:'Budjetti',       run:"setView('budget')" },
+  { id:'quick',    icon:'🎚️', label:'Pisteet',        run:"setView('quick')" },
+  { id:'stats',    icon:'📊', label:'Tilastot',       run:"setView('stats')" },
+  { id:'search',   icon:'🔎', label:'Haku',           run:"headerSearch()" },
+  { id:'filter',   icon:'⚡', label:'Suodattimet',    run:"headerFilter()" },
+  { id:'add',      icon:'➕', label:'Uusi arvostelu', run:"openAddModal()" },
+  { id:'random',   icon:'🎲', label:'Satunnainen',    run:"headerRandom()" }
 ];
-const HEADER_MAX = 5;
+// Kahdeksan on se määrä joka mahtuu puhelimen leveydelle asetusnapin
+// viereen. Napit kapenevat portaittain määrän kasvaessa, ja jos ruutu on
+// poikkeuksellisen kapea, rivi vierittyy sivusuunnassa.
+const HEADER_MAX = 8;
 
 // Kuinka monta nappia käyttäjä voi itse valita. Jos koti-nappi pakotetaan
 // mukaan, se vie yhden paikan viidestä.
@@ -245,6 +255,8 @@ window.renderHeaderActions = function(){
   const host = document.getElementById('headerActions');
   if(!host) return;
   const list = headerActions();
+  // Nappien koko määräytyy määrästä: CSS lukee tämän attribuutin.
+  host.dataset.count = String(list.length);
   host.innerHTML = list.map(id => {
     const a = HEADER_ACTIONS.filter(x => x.id === id)[0];
     return `<button type="button" class="header-act" onclick="${a.run}" aria-label="${esc(a.label)}">${a.icon}</button>`;
@@ -276,7 +288,7 @@ window.renderHeaderSettings = function(){
   const max  = headerChooseMax();
   const forced = (window.tabsMode && window.tabsMode() !== 'aina') && rawHeaderActions().indexOf('home') < 0;
   host.innerHTML = `
-    <div class="toggle-row-sub" style="margin-bottom:8px;">Valitse enintään ${max} nappia. Jos valitset yhden yli, ensimmäisenä valittu väistyy.${
+    <div class="toggle-row-sub" style="margin-bottom:8px;">Valitse enintään ${max} nappia — kaikki näkymät ja neljä toimintoa ovat valittavissa. Jos valitset yhden yli, ensimmäisenä valittu väistyy.${
       forced ? ' Koti-nappi on mukana automaattisesti, koska välilehdet näkyvät vain etusivulla — se vie yhden paikan.' : ''}</div>
     <div class="filter-row">${HEADER_ACTIONS.map(a =>
       `<button type="button" class="filter-chip${list.indexOf(a.id) >= 0 ? ' active' : ''}" onclick="toggleHeaderAction('${escJs(a.id)}')">${a.icon} ${esc(a.label)}${
