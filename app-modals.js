@@ -924,7 +924,7 @@ window.restoreBackup = function(input){
     GENRES = [...appData.genres];
     if(!appData.categories.includes(activeCat)) activeCat = appData.categories[0] || null;
     // Muistissa oleva alalajivalinta voi osoittaa alalajiin jota ei enää ole
-    if(typeof window.setActiveSub === 'function') window.setActiveSub('');
+    if(typeof window.setActiveSub === 'function') window.setActiveSub(window.SUB_ALL || '__all');
     if(window.applyAccent && appData.settings) window.applyAccent(appData.settings.accent);
     if(window.applyTheme) window.applyTheme();
 
@@ -1300,7 +1300,10 @@ window.addSubcat = async function(){
   const inp = document.getElementById('newSubcatInput');
   const val = (inp?.value || '').trim();
   if(!cat || !val) return;
-  if(val.toLowerCase() === 'perus'){ alert('"Perus" on varattu nimi — se tarkoittaa arvosteluja ilman alalajia.'); return; }
+  // Varatut nimet: Kaikki on alalajirivin oma kohta joka näyttää koko
+  // kategorian, eikä siksi voi olla myös alalaji.
+  if(val.toLowerCase() === 'kaikki'){ alert('"Kaikki" on varattu nimi — se on alalajirivin ensimmäinen kohta, joka näyttää kategorian kaikki arvostelut.'); return; }
+  if(val.toLowerCase() === 'perus' || val.toLowerCase() === 'ei alalajia'){ alert('Varattu nimi — se tarkoittaa arvosteluja ilman alalajia.'); return; }
   const subs = ensureSubcats();
   if(!Array.isArray(subs[cat])) subs[cat] = [];
   if(subs[cat].includes(val)){ alert('Alalaji on jo olemassa.'); return; }
@@ -1319,7 +1322,7 @@ window.deleteSubcat = async function(i){
   if(!name) return;
   const n = (appData.reviews || []).filter(r => r.category === cat && subcatOf(r) === name).length;
   const msg = n
-    ? `Poistetaanko alalaji "${name}"? ${n} ${n === 1 ? 'arvostelu siirtyy' : 'arvostelua siirtyy'} takaisin Perus-listaan. Arvosteluja ei poisteta.`
+    ? `Poistetaanko alalaji "${name}"? ${n} ${n === 1 ? 'arvostelu jää' : 'arvostelua jää'} ilman alalajia — ne näkyvät edelleen Kaikki-listassa. Arvosteluja ei poisteta.`
     : `Poistetaanko alalaji "${name}"?`;
   if(!confirm(msg)) return;
   subs[cat].splice(i, 1);
@@ -1345,7 +1348,7 @@ window.openMoveModal = function(preselectId){
   if(r){
     srcGroup.style.display = 'none';
     info.innerHTML = `<div class="si-info">Siirretään <strong>${esc(plainName(r))}</strong><br>
-      Nyt: ${esc(r.category)}${subcatOf(r) ? ' · ' + esc(subcatOf(r)) : ' · Perus'}</div>`;
+      Nyt: ${esc(r.category)}${subcatOf(r) ? ' · ' + esc(subcatOf(r)) : ' · ei alalajia'}</div>`;
   } else {
     srcGroup.style.display = 'block';
     info.innerHTML = `<div class="si-info">Valitse arvostelut ja kohde. Pisteet, muistiinpanot ja jaksotiedot säilyvät ennallaan.</div>`;
@@ -1368,7 +1371,7 @@ function subOptions(cat, includeAll){
   const subs = subcatsFor(cat);
   const opts = [];
   if(includeAll) opts.push({ v:'__all', l:'Kaikki alalajit' });
-  opts.push({ v:'', l: subs.length ? 'Perus' : '(ei alalajeja)' });
+  opts.push({ v:'', l: subs.length ? 'Ei alalajia' : '(ei alalajeja)' });
   subs.forEach(s => opts.push({ v:s, l:s }));
   return opts;
 }
@@ -1431,7 +1434,7 @@ window.renderMoveList = function(){
     return `<label class="si-row">
       <input type="checkbox" class="mv-check" data-id="${r.id}">
       <span class="si-name">${esc(plainName(r))}${r.year ? ` <span class="si-count">${r.year}</span>` : ''}</span>
-      <span class="si-badge">${sc ? esc(sc) : 'Perus'}</span>
+      <span class="si-badge">${sc ? esc(sc) : '—'}</span>
     </label>`;
   }).join('');
 };

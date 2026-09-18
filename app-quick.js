@@ -83,7 +83,7 @@ window.renderQuickScores = function(){
   const subs = window.subcatsFor ? window.subcatsFor(qsCat()) : [];
   const choices = [
     { id:'all', label:'Kaikki' },
-    { id:'',    label:'Perus'  },
+    { id:'',    label:'Ei alalajia' },
     ...subs.map(s => ({ id:s, label:s }))
   ];
   // Jos aiemmin valittu alalaji on poistettu, palataan kaikkiin

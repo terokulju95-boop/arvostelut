@@ -106,9 +106,10 @@ function scanData(){
   });
 
   // ── 5. ALALAJIA EI OLE ──
-  // Sama oire lievempänä: arvostelu ei näy missään alalajivälilehdessä.
-  // Tässä oikea arvo on yksiselitteinen — tyhjä alalaji tarkoittaa Perus,
-  // eikä mitään käyttäjän kirjoittamaa katoa.
+  // Sama oire lievempänä: arvostelu näkyy enää Kaikki-listassa, ei
+  // yhdessäkään alalajissa. Tässä oikea arvo on yksiselitteinen — tyhjä
+  // alalaji tarkoittaa "ei alalajia", eikä mitään käyttäjän kirjoittamaa
+  // katoa.
   const orphanSub = R.filter(r => {
     const sub = window.subcatOf ? window.subcatOf(r) : String(r.subcat || '').trim();
     if(!sub) return false;
@@ -118,12 +119,12 @@ function scanData(){
   add({
     id: 'orphansub', level: 'huomio',
     title: 'Alalajia ei ole enää olemassa',
-    why: 'Arvostelu ei näy yhdessäkään alalajivälilehdessä. Korjaus siirtää sen Perus-alalajiin, jolloin se tulee taas näkyviin.',
+    why: 'Arvostelu näkyy enää Kaikki-listassa eikä yhdessäkään alalajivälilehdessä. Korjaus tyhjentää alalajin, jolloin sen voi valita uudelleen.',
     rows: orphanSub.map(r => ({
       id: r.id, name: dcName(r),
       detail: 'alalaji “' + (window.subcatOf ? window.subcatOf(r) : r.subcat) + '”'
     })),
-    fixLabel: 'Siirrä Perus-alalajiin',
+    fixLabel: 'Tyhjennä alalaji',
     fix: () => { orphanSub.forEach(r => { r.subcat = ''; }); return orphanSub.length; }
   });
 

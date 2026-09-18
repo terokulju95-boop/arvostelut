@@ -326,7 +326,7 @@ function afterRestore(){
   if(window.ensureLists) window.ensureLists();
   GENRES = [...appData.genres];
   if(!appData.categories.includes(activeCat)) activeCat = appData.categories[0] || null;
-  if(typeof window.setActiveSub === 'function') window.setActiveSub('');
+  if(typeof window.setActiveSub === 'function') window.setActiveSub(window.SUB_ALL || '__all');
   if(window.applyAccent && appData.settings) window.applyAccent(appData.settings.accent);
   if(window.applyTheme) window.applyTheme();
 }

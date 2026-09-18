@@ -223,8 +223,7 @@ let selectedPartScore = null;
 function initApp(){
   if(!activeCat && appData.categories.length) activeCat = appData.categories[0];
   ensureSubcats();
-  activeSub = loadSubChoice(activeCat);
-  if(activeSub !== '' && !subcatsFor(activeCat).includes(activeSub)) activeSub = '';
+  activeSub = validSub(activeCat, loadSubChoice(activeCat));
   ensureSettings();
   window.applyAccent(appData.settings.accent);
   if(window.applyTheme) window.applyTheme();
@@ -324,9 +323,19 @@ window.fabClick = function(){
 };
 
 // ══ ALALAJIT ══
-// Kategorian sisäinen jako, esimerkiksi Elokuvat → Perus / Dokumentit.
-// Arvostelussa kenttä on `subcat`: tyhjä tai puuttuva tarkoittaa "Perus",
-// joten vanhat arvostelut toimivat sellaisenaan ilman migraatiota.
+// Kategorian sisäinen jako, esimerkiksi Elokuvat → Draama / Dokumentit.
+// Arvostelussa kenttä on `subcat`: tyhjä tai puuttuva tarkoittaa "ei
+// alalajia", joten vanhat arvostelut toimivat sellaisenaan ilman migraatiota.
+//
+// ── KAIKKI-VALINTA ──
+// Alalajirivin ensimmäinen kohta on Kaikki: se ei ole alalaji vaan valinta
+// joka päästää läpi kategorian jokaisen arvostelun. Sama teos näkyy siis
+// sekä omassa alalajissaan että Kaikki-listassa. Arvosteluun ei koskaan
+// tallenneta tätä arvoa — se elää vain valintana, ja lomake muuntaa sen
+// tyhjäksi. Arvo on sama '__all' jota siirtotyökalu jo käytti, jottei
+// sovelluksessa ole kahta eri erikoisarvoa samalle asialle.
+const SUB_ALL = '__all';
+window.SUB_ALL = SUB_ALL;
 const DEFAULT_SUBCATS = {
   'Elokuvat':  ['Dokumentit', 'Animaatiot', 'Tositarinat'],
   'TV-sarjat': ['Dokumentit', 'Animaatiot', 'Tositarinat']
@@ -392,7 +401,7 @@ window.sameGroup = sameGroup;
 // pelkkä kategorian nimi riittää.
 function groupLabel(cat, sub){
   if(!subcatsFor(cat).length) return cat;
-  return cat + ' · ' + (sub || 'Perus');
+  return cat + ' · ' + (sub || 'ei alalajia');
 }
 window.groupLabel = groupLabel;
 
@@ -407,16 +416,37 @@ function findReview(id){
 }
 window.findReview = findReview;
 
-// Arvostelun alalaji normalisoituna. '' = Perus.
+// Arvostelun alalaji normalisoituna. '' = ei alalajia.
 function subcatOf(r){
   const v = String((r && r.subcat) || '').trim();
   return v;
 }
 window.subcatOf = subcatOf;
 
-// Valittu alalaji per kategoria. '' = perus, muu = alalajin nimi.
-let activeSub = '';
-const SUB_KEY = 'arvostelut_activeSub_v1';
+// Kelpaako arvostelu valittuun alalajiin. Kaikki päästää läpi kaiken,
+// muuten vaaditaan täsmälleen sama alalaji. Tätä käytetään jokaisessa
+// paikassa jossa listaa rajataan, jottei sääntö ole kirjoitettu viiteen
+// kertaan hieman eri tavalla.
+function subMatches(r, sub){
+  return sub === SUB_ALL ? true : subcatOf(r) === sub;
+}
+window.subMatches = subMatches;
+
+// Onko kategoriassa arvosteluja joilta alalaji puuttuu. Tämän mukaan
+// "Ei alalajia" -kohta joko näkyy tai ei: aina näkyvä mutta aina tyhjä
+// välilehti on pelkkää kohinaa.
+function hasBareReviews(cat){
+  return (appData.reviews || []).some(r => r.category === cat && subcatOf(r) === '');
+}
+
+// Valittu alalaji per kategoria. SUB_ALL = Kaikki, '' = ei alalajia,
+// muu = alalajin nimi.
+let activeSub = SUB_ALL;
+
+// Avain on v2, koska valinnan merkitys muuttui: vanha tyhjä tarkoitti
+// Perus-listaa, uusi oletus on Kaikki. Vanhoja valintoja ei siis lueta
+// väärin, vaan jokainen kategoria aloittaa Kaikki-listasta.
+const SUB_KEY = 'arvostelut_activeSub_v2';
 
 function loadSubChoice(cat){
   try{
@@ -424,13 +454,25 @@ function loadSubChoice(cat){
     if(raw){
       const o = JSON.parse(raw);
       if(o && Object.prototype.hasOwnProperty.call(o, cat)){
-        // Vanha "kaikki"-valinta ei ole enää olemassa → Perus
-        return o[cat] === 'all' ? '' : o[cat];
+        const v = o[cat];
+        if(v === 'all' || v === SUB_ALL) return SUB_ALL;
+        return typeof v === 'string' ? v : SUB_ALL;
       }
     }
   } catch(e){}
-  return '';
+  return SUB_ALL;
 }
+
+// Muistissa oleva valinta voi osoittaa alalajiin joka on sittemmin
+// poistettu, tai "ei alalajia" -listaan joka on tyhjentynyt. Molemmissa
+// palataan Kaikki-listaan, joka on aina olemassa.
+function validSub(cat, val){
+  if(val === SUB_ALL) return SUB_ALL;
+  if(!subcatsFor(cat).length) return SUB_ALL;
+  if(val === '') return hasBareReviews(cat) ? '' : SUB_ALL;
+  return subcatsFor(cat).includes(val) ? val : SUB_ALL;
+}
+window.validSub = validSub;
 
 function saveSubChoice(cat, val){
   try{
@@ -502,13 +544,25 @@ function renderSubTabs(){
     return;
   }
   const count = (val) => (appData.reviews || []).filter(r =>
-    r.category === activeCat && subcatOf(r) === val
+    r.category === activeCat && subMatches(r, val)
   ).length;
 
+  // Kaikki on aina ensimmäisenä: se on ainoa kohta joka näyttää koko
+  // kategorian, ja siksi luonteva paikka aloittaa. Alalajit seuraavat
+  // siinä järjestyksessä kuin ne on asetuksissa luotu.
   const opts = [
-    { val: '', label: 'Perus' },
+    { val: SUB_ALL, label: 'Kaikki' },
     ...subs.map(s => ({ val: s, label: s }))
   ];
+
+  // Alalajiton arvostelu ei saa jäädä näkymättömiin. Oma kohta ilmestyy
+  // rivin loppuun vain jos sellaisia oikeasti on — kun jokainen teos on
+  // omassa alalajissaan, riviltä ei näy jälkeäkään tästä.
+  if(count('') > 0) opts.push({ val: '', label: 'Ei alalajia' });
+
+  // Valinta on voinut kadota alta (viimeinen alalajiton arvostelu sai
+  // alalajin toisella laitteella), jolloin mikään kohta ei olisi auki.
+  if(!opts.some(o => o.val === activeSub)) activeSub = SUB_ALL;
 
   // Laput vai pudotusvalikko. Automaattinen vaihtaa valikkoon vasta kun
   // lappurivi alkaa olla pitkä: harvalla alalajilla laput ovat nopeammat,
@@ -575,9 +629,8 @@ window.addEventListener('resize', updateTabsOverflow);
 
 window.setActiveCat = function(cat){
   activeCat = cat;
-  activeSub = loadSubChoice(cat);
-  // Jos muistissa oleva alalaji on poistettu, palataan kaikkiin
-  if(activeSub !== '' && !subcatsFor(cat).includes(activeSub)) activeSub = '';
+  // Jos muistissa oleva alalaji on poistettu, palataan Kaikki-listaan
+  activeSub = validSub(cat, loadSubChoice(cat));
   activeGenreFilter = null;
   activeScoreFilter = null;
   activeMarkFilter = null;
@@ -648,10 +701,10 @@ function renderTrioFilters(){
   // Lukumäärä lasketaan täsmälleen siitä joukosta jota lista näyttää:
   // sekä kategoria että auki oleva alalajivälilehti rajaavat sitä.
   // Ilman alalajirajausta lappu lupaisi enemmän osumia kuin niitä näkyy.
-  const sub = window.getActiveSub ? window.getActiveSub() : '';
+  const sub = window.getActiveSub ? window.getActiveSub() : SUB_ALL;
   let inCat = activeCat ? all.filter(r => r.category === activeCat) : all;
   if(activeCat && subcatsFor(activeCat).length){
-    inCat = inCat.filter(r => subcatOf(r) === sub);
+    inCat = inCat.filter(r => subMatches(r, sub));
   }
 
   TRIO_FILTERS.forEach(t => {

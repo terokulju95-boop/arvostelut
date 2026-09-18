@@ -273,7 +273,7 @@ window.renderCards = function(){
   const searchEl = document.getElementById('searchInput');
   const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
   let reviews = [...appData.reviews];
-  const sub = window.getActiveSub ? window.getActiveSub() : '';
+  const sub = window.getActiveSub ? window.getActiveSub() : window.SUB_ALL;
 
   if(activeDirectorFilter){
     // Ohjaajasuodatin ohittaa kategoria- ja alalajirajauksen tarkoituksella:
@@ -283,10 +283,11 @@ window.renderCards = function(){
     reviews = reviews.filter(r => r.director && normName(r.director) === want);
   } else {
     if(activeCat) reviews = reviews.filter(r=>r.category===activeCat);
-    // Alalaji: '' = perus, muu = kyseinen alalaji. Kategoriassa jolla ei ole
-    // alalajeja rajausta ei tehdä lainkaan.
+    // Alalaji: Kaikki päästää läpi kaiken, '' = ilman alalajia, muu =
+    // kyseinen alalaji. Kategoriassa jolla ei ole alalajeja rajausta ei
+    // tehdä lainkaan.
     if(activeCat && subcatsFor(activeCat).length){
-      reviews = reviews.filter(r => subcatOf(r) === sub);
+      reviews = reviews.filter(r => window.subMatches(r, sub));
     }
   }
 
@@ -392,7 +393,9 @@ window.renderCards = function(){
         <div class="empty-sub">Muut suodattimet saattavat rajata tuloksia.</div></div>`;
       return;
     }
-    const subLabel = !subcatsFor(activeCat).length ? '' : (sub === '' ? 'Perus' : sub);
+    // Kaikki-valinnalla tyhjyys ei johdu alalajista, joten sitä ei mainita.
+    const subLabel = (!subcatsFor(activeCat).length || sub === window.SUB_ALL)
+      ? '' : (sub === '' ? 'Ei alalajia' : sub);
     grid.innerHTML = q
       ? `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Ei osumia haulle “${esc(q)}”</div></div>`
       : `<div class="empty-state"><div class="empty-icon">🎬</div><div class="empty-title">Ei arvosteluja${subLabel ? ` alalajissa “${esc(subLabel)}”` : ' vielä'}</div>
@@ -854,7 +857,10 @@ window.openAddModal = function(){
   // Uusi arvostelu perii sen alalajin jota parhaillaan selaat — jos katsot
   // Dokumentit-välilehteä, lisäät todennäköisesti dokumentin.
   // Tämä on populateFormCatin JÄLKEEN, koska se nollaa valitsimen.
-  const curSub = window.getActiveSub ? window.getActiveSub() : '';
+  // Kaikki ei ole alalaji vaan valinta, joten siitä ei voi periä mitään:
+  // uusi arvostelu jäisi muuten alalajiin nimeltä '__all'.
+  let curSub = window.getActiveSub ? window.getActiveSub() : '';
+  if(curSub === window.SUB_ALL) curSub = '';
   populateFormSubcat(document.getElementById('formCat').value, curSub);
   buildScorePicker('scorePicker', 'selectedScore');
   window.toggleMark(null);
@@ -928,7 +934,9 @@ function populateFormSubcat(cat, preselect){
   }
   const want = preselect !== undefined ? preselect : sel.value;
   sec.style.display = 'block';
-  const opts = [{ v:'', l:'Perus' }, ...subs.map(x => ({ v:x, l:x }))];
+  // Lomakkeessa ei ole Kaikki-kohtaa: teos kuuluu aina joko yhteen
+  // alalajiin tai ei mihinkään.
+  const opts = [{ v:'', l:'Ei alalajia' }, ...subs.map(x => ({ v:x, l:x }))];
   sel.innerHTML = opts.map(o =>
     `<option value="${esc(o.v)}" ${o.v === want ? 'selected' : ''}>${esc(o.l)}</option>`
   ).join('');
@@ -3245,6 +3253,32 @@ function topHeroIcon(cat){
 
 let topGenreFilter = null;
 
+// ── TOP-NÄKYMÄN ALALAJIVALINTA ──
+// Genren rinnalle toinen rajaus, koska alalaji on monelle se varsinainen
+// jako: "parhaat draamat" on eri kysymys kuin "parhaat elokuvat".
+// Arvot:
+//   '__split'  jokainen alalaji omana osionaan (entinen toiminta)
+//   '__all'    kategorian kaikki teokset yhtenä listana
+//   '__none'   vain teokset joilta alalaji puuttuu
+//   muu        vain kyseinen alalaji
+// Valintaa ei tallenneta asetuksiin, samoin kuin genreä ei tallenneta:
+// rajaus on hetken työkalu eikä pysyvä tila johon voi unohtua.
+const TOP_SPLIT = '__split';
+const TOP_ALL   = '__all';
+const TOP_NONE  = '__none';
+let topSubFilter = TOP_SPLIT;
+
+window.setTopSub = function(v){
+  topSubFilter = v || TOP_SPLIT;
+  renderTop();
+};
+
+// Lappurivillä sama napautus sammuttaa rajauksen, kuten genrelapuissa.
+window.setTopSubToggle = function(v){
+  topSubFilter = (topSubFilter === v) ? TOP_SPLIT : v;
+  renderTop();
+};
+
 const TOP_LIMITS = [5, 10, 25, 0];   // 0 = kaikki
 
 window.setTopLimit = async function(n){
@@ -3290,10 +3324,65 @@ function topControlsHtml(){
         genres.map(g=>`<button type="button" class="filter-chip ${g===topGenreFilter?'active':''}" onclick="setTopGenre('${escJs(g)}')">${esc(g)}</button>`).join('')
       }</div>`);
 
+  // Alalajirivi tulee genrerivin yläpuolelle: se rajaa isompaa joukkoa,
+  // joten se on luonteva lukea ensin.
+  const subBtns = topSubOptionsHtml();
+
   // Omat listat asuvat Top-näkymän sisällä. Valintarivi tulee moduulista,
   // jos se on ladattu — ilman sitä näkymä toimii täsmälleen kuten ennen.
   const listChips = window.listChipsHtml ? window.listChipsHtml() : '';
-  return `${listChips}<div class="top-controls">${lenBtns}</div>${genreBtns}`;
+  return `${listChips}<div class="top-controls">${lenBtns}</div>${subBtns}${genreBtns}`;
+}
+
+// Alalajivalitsin Top-näkymään. Alalajit ovat kategoriakohtaisia mutta
+// Top näyttää kaikki kategoriat kerralla, joten lista on kategorioiden
+// alalajien yhdiste. Mukaan otetaan vain ne joissa on arvosteluja: tyhjä
+// vaihtoehto veisi tilaa ja tuottaisi aina tyhjän näkymän.
+function topSubOptionsHtml(){
+  const reviews = appData.reviews || [];
+  const used = new Set();
+  let anyBare = false;
+  reviews.forEach(r => {
+    const s = subcatOf(r);
+    if(s) used.add(s);
+    else if(subcatsFor(r.category).length) anyBare = true;
+  });
+
+  const subs = [];
+  (appData.categories || []).forEach(cat => {
+    subcatsFor(cat).forEach(s => {
+      if(used.has(s) && !subs.includes(s)) subs.push(s);
+    });
+  });
+  if(!subs.length) return '';
+
+  const opts = [
+    { v: TOP_SPLIT, l: 'Alalajit eriteltyinä' },
+    { v: TOP_ALL,   l: 'Kaikki yhtenä listana' },
+    ...subs.map(s => ({ v: s, l: s }))
+  ];
+  if(anyBare) opts.push({ v: TOP_NONE, l: 'Ilman alalajia' });
+
+  // Sama esitystapa kuin genreillä, jottei näkymässä ole kahta eri
+  // tyylistä valitsinta allekkain.
+  const asMenu = !window.topGenreStyle || window.topGenreStyle() === 'valikko';
+  if(asMenu){
+    return `<div class="top-genre-row"><select class="top-genre-select" onchange="setTopSub(this.value)">${
+      opts.map(o => `<option value="${esc(o.v)}"${o.v === topSubFilter ? ' selected' : ''}>${esc(o.l)}</option>`).join('')
+    }</select></div>`;
+  }
+  // Lappuina eriteltynä-tila on lappujen sammutettu tila, joten sille ei
+  // tarvita omaa nappia — muut kaksi erikoisvalintaa ovat mukana.
+  const chips = opts.filter(o => o.v !== TOP_SPLIT).map(o =>
+    `<button type="button" class="filter-chip ${o.v === topSubFilter ? 'active' : ''}" onclick="setTopSubToggle('${escJs(o.v)}')">${esc(o.l)}</button>`
+  ).join('');
+  return `<div class="top-genre-row">${chips}</div>`;
+}
+
+// Auki olevan alalajirajauksen nimi otsikkoon ja tyhjän näkymän viestiin.
+function topSubLabel(){
+  if(topSubFilter === TOP_SPLIT || topSubFilter === TOP_ALL) return '';
+  return topSubFilter === TOP_NONE ? 'ilman alalajia' : topSubFilter;
 }
 
 window.renderTop = function(){
@@ -3304,19 +3393,37 @@ window.renderTop = function(){
   let html = topControlsHtml();
   let anySection = false;
 
-  // Alalajit saavat omat osionsa, jotta dokumentit eivät kilpaile
-  // fiktion kanssa samassa listassa.
+  // Alalajit saavat oletuksena omat osionsa, jotta dokumentit eivät
+  // kilpaile fiktion kanssa samassa listassa. Alalajivalinta muuttaa
+  // tämän: yksi alalaji näyttää vain sen, ja Kaikki sulattaa kategorian
+  // takaisin yhdeksi listaksi. sub === null tarkoittaa "ei rajausta".
   const groups = [];
   appData.categories.forEach(cat => {
     const subs = subcatsFor(cat);
-    if(subs.length){
-      // Perusosio nimetään erikseen, jotta otsikko ei näytä siltä kuin
-      // se sisältäisi myös dokumentit ja animaatiot.
-      groups.push({ cat, sub: '',  label: `${cat} · Perus` });
-      subs.forEach(sc => groups.push({ cat, sub: sc, label: `${cat} · ${sc}` }));
-    } else {
+    if(!subs.length){
       groups.push({ cat, sub: null, label: cat });
+      return;
     }
+    if(topSubFilter === TOP_ALL){
+      groups.push({ cat, sub: null, label: cat });
+      return;
+    }
+    if(topSubFilter === TOP_NONE){
+      groups.push({ cat, sub: '', label: `${cat} · Ei alalajia` });
+      return;
+    }
+    if(topSubFilter !== TOP_SPLIT){
+      // Alalaji on kategoriakohtainen: kategoria joka ei tunne sitä
+      // jätetään kokonaan pois eikä näytetä tyhjänä osiona.
+      if(subs.includes(topSubFilter)){
+        groups.push({ cat, sub: topSubFilter, label: `${cat} · ${topSubFilter}` });
+      }
+      return;
+    }
+    // Alalajiton osio näkyy vain jos siinä on jotain — tyhjät osiot
+    // karsiutuvat alempana pool-tarkistuksessa.
+    groups.push({ cat, sub: '',  label: `${cat} · Ei alalajia` });
+    subs.forEach(sc => groups.push({ cat, sub: sc, label: `${cat} · ${sc}` }));
   });
 
   groups.forEach(g=>{
@@ -3373,8 +3480,12 @@ window.renderTop = function(){
     </div>`;
   });
   if(!anySection){
-    html += topGenreFilter
-      ? `<div class="top-empty-note">Ei arvosteluja genressä <strong>${esc(topGenreFilter)}</strong>.</div>`
+    const sl = topSubLabel();
+    const parts = [];
+    if(sl) parts.push(`alalajissa <strong>${esc(sl)}</strong>`);
+    if(topGenreFilter) parts.push(`genressä <strong>${esc(topGenreFilter)}</strong>`);
+    html += parts.length
+      ? `<div class="top-empty-note">Ei arvosteluja ${parts.join(' ja ')}.</div>`
       : `<div class="empty-state"><div class="empty-icon">🏆</div><div class="empty-title">Ei arvosteluja vielä</div></div>`;
   }
   grid.innerHTML = html;

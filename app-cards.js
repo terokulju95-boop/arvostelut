@@ -629,6 +629,14 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-09-18.1', items:[
+    { icon:'🗂️', title:'Kaikki-alalaji',
+      text:'Alalajirivin ensimmäinen kohta on nyt Kaikki. Se ei ole alalaji vaan valinta, joka näyttää kategorian jokaisen arvostelun — draamaelokuva näkyy siis sekä Draama- että Kaikki-listassa. Entinen Perus ilmestyy rivin loppuun nimellä “Ei alalajia” vain jos alalajittomia arvosteluja on jäljellä.',
+      view:'reviews' },
+    { icon:'🏆', title:'Top-lista alalajeittain',
+      text:'Top-näkymään tuli genrevalitsimen rinnalle alalajivalitsin. Voit katsoa yhden alalajin kärkilistan, sulattaa kategorian yhdeksi listaksi tai pitää alalajit eriteltyinä kuten ennen.',
+      view:'top' }
+  ]},
   { build:'2026-09-10.5', items:[
     { icon:'🛠️', title:'Kehittäjätila',
       text:'Jokaisen asetuksen viereen ilmestyy lippu. Merkitse mikä on turhaa, väärin toteutettua tai rikki, ja lataa lopuksi lista. Merkinnät elävät vain tällä laitteella eivätkä koske dataan.',
