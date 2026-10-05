@@ -251,6 +251,7 @@ function renderAll(){
   // Katselulistan merkkiluku päivittyy jokaisella renderöinnillä, jotta
   // se on ajan tasalla myös kun muutos tulee toiselta laitteelta.
   if(window.updateWatchlistBadge) window.updateWatchlistBadge();
+  if(window.updateDvdBadge) window.updateDvdBadge();
   renderCatTabs();
   renderGenreFilters();
   renderYearFilters();
@@ -264,6 +265,7 @@ function renderAll(){
   else if(currentView==='budget') renderBudget();
   else if(currentView==='quick' && window.renderQuickScores) window.renderQuickScores();
   else if(currentView==='watchlist' && window.renderWatchlist) window.renderWatchlist();
+  else if(currentView==='dvd' && window.renderDvd) window.renderDvd();
   else if(currentView==='stats' && window.renderStats) window.renderStats();
   // Löydä-näkymä ei renderöi mitään itsestään: tulokset syntyvät vasta
   // kun käyttäjä painaa nappia, eivätkä ne katoa muuta näkymää päivitettäessä.
@@ -278,7 +280,7 @@ window.setView = function(view){
   if(window.renderDiscoverCount && view === 'discover') window.renderDiscoverCount();
   // Pikamuokkauksen kesken oleva tallennus lähtee heti kun poistut siitä
   if(currentView !== 'quick' && window.qsFlushSave) window.qsFlushSave();
-  ['home','reviews','top','watchlist','discover','budget','quick','stats'].forEach(v=>{
+  ['home','reviews','top','watchlist','dvd','discover','budget','quick','stats'].forEach(v=>{
     const el = document.getElementById('viewTab'+v.charAt(0).toUpperCase()+v.slice(1));
     if(el) el.classList.toggle('active', v===view);
   });
@@ -292,13 +294,15 @@ window.setView = function(view){
   if(qv) qv.style.display = view==='quick' ? 'block' : 'none';
   const wv = document.getElementById('watchlistView');
   if(wv) wv.style.display = view==='watchlist' ? 'block' : 'none';
+  const dv = document.getElementById('dvdView');
+  if(dv) dv.style.display = view==='dvd' ? 'block' : 'none';
   const sv = document.getElementById('statsView');
   if(sv) sv.style.display = view==='stats' ? 'block' : 'none';
   const hv = document.getElementById('homeView');
   if(hv) hv.style.display = view==='home' ? 'block' : 'none';
   applyTabsVisibility(view);
   // Korttilista ja lisäysnappi piiloon niissä näkymissä joilla on oma säiliö
-  const ownContainer = view==='discover' || view==='quick' || view==='watchlist' || view==='stats' || view==='home';
+  const ownContainer = view==='discover' || view==='quick' || view==='watchlist' || view==='dvd' || view==='stats' || view==='home';
   const grid = document.getElementById('cardsGrid');
   if(grid) grid.style.display = ownContainer ? 'none' : '';
   const fab = document.getElementById('fab');
@@ -318,7 +322,7 @@ window.setView = function(view){
 
 window.fabClick = function(){
   if(currentView==='budget') window.budgetFabClick();
-  else if(currentView==='discover' || currentView==='quick' || currentView==='watchlist' || currentView==='stats' || currentView==='home') return;
+  else if(currentView==='discover' || currentView==='quick' || currentView==='watchlist' || currentView==='dvd' || currentView==='stats' || currentView==='home') return;
   else window.openAddModal();
 };
 

@@ -854,6 +854,7 @@ window.openDiscoverDetail = async function(type, id){
     <div class="dd-btns">
       <button class="dd-btn dd-btn-add" onclick="closeModal('discDetailModal'); addFromDiscover('${escJs(title)}','${type}','${escJs(window._discSubcat || '')}')">+ Lisää arvosteluihin</button>
       <button class="dd-btn dd-btn-watch" onclick="closeModal('discDetailModal'); addToWatchlist('${escJs(title)}','${type}',${Number(id)},'${escJs(d.poster_path || '')}','${escJs(String(year || ''))}')">📌 Katselulistalle</button>
+      ${window.dvdOpenAddFor ? `<button class="dd-btn dd-btn-watch" onclick="closeModal('discDetailModal'); dvdOpenAddFor('${type}',${Number(id)})">${window.dvdHas && window.dvdHas(type, id) ? '📀 Hyllyssä' : '📀 Omistan levyn'}</button>` : ''}
       <button class="dd-btn dd-btn-no" onclick="hideFromDiscover('${type}',${Number(id)},'${escJs(title)}')">🚫 Ei kiinnosta</button>
     </div>`;
 };

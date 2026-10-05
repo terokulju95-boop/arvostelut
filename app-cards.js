@@ -629,6 +629,17 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-10-05.0', items:[
+    { icon:'📀', title:'DVD-hylly',
+      text:'Uusi välilehti omistamillesi levyille. Hae elokuva tai sarja TMDB:stä, niin kansikuva tulee mukaan. Valitse formaatiksi DVD, Blu-ray tai 4K.',
+      view:'dvd' },
+    { icon:'🧩', title:'Kokoelmat ja puuttuvat osat',
+      text:'Saman elokuvasarjan osat ryhmittyvät automaattisesti kokoelmaksi, ja puuttuvat osat näkyvät harmaina. Kun ostat puuttuvan osan, lisää se ＋-napista, niin se menee suoraan oikeaan kokoelmaan. Sarjoissa merkitset omistamasi kaudet.',
+      view:'dvd' },
+    { icon:'🔍', title:'Onko minulla jo tämä?',
+      text:'Hyllyn haku etsii omistamiesi levyjen lisäksi kokoelmiesi puuttuvista osista. Kaupassa näet heti, onko elokuva jo hyllyssä vai puuttuuko se.',
+      view:'dvd' }
+  ]},
   { build:'2026-09-18.1', items:[
     { icon:'🗂️', title:'Kaikki-alalaji',
       text:'Alalajirivin ensimmäinen kohta on nyt Kaikki. Se ei ole alalaji vaan valinta, joka näyttää kategorian jokaisen arvostelun — draamaelokuva näkyy siis sekä Draama- että Kaikki-listassa. Entinen Perus ilmestyy rivin loppuun nimellä “Ei alalajia” vain jos alalajittomia arvosteluja on jäljellä.',

@@ -207,6 +207,7 @@ const HEADER_ACTIONS = [
   { id:'reviews',  icon:'⭐', label:'Arvostelut',     run:"setView('reviews')" },
   { id:'top',      icon:'🏆', label:'Top-lista',      run:"setView('top')" },
   { id:'wl',       icon:'📌', label:'Katselulista',   run:"setView('watchlist')" },
+  { id:'dvd',      icon:'📀', label:'DVD-hylly',      run:"setView('dvd')" },
   { id:'discover', icon:'🔮', label:'Löydä',          run:"setView('discover')" },
   { id:'budget',   icon:'💰', label:'Budjetti',       run:"setView('budget')" },
   { id:'quick',    icon:'🎚️', label:'Pisteet',        run:"setView('quick')" },
@@ -859,7 +860,8 @@ const START_VIEW_OPTS = [
   { v: 'top',      label: 'Top' },
   { v: 'discover', label: 'Löydä' },
   { v: 'budget',   label: 'Budjetti' },
-  { v: 'quick',    label: 'Pisteet' }
+  { v: 'quick',    label: 'Pisteet' },
+  { v: 'dvd',      label: 'Hylly' }
 ];
 const START_SORT_OPTS = [
   { v: '',         label: 'Viimeksi käytetty' },

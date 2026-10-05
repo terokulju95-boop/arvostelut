@@ -127,11 +127,12 @@ function looksLikeDefaults(m){
   const per  = (m.budget && m.budget.periods) || [];
   const wl   = m.watchlist || [];
   const lst  = m.lists || [];
+  const dvd  = m.dvds || [];
   const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
   // Katselulista ja omat listat ovat mukana samasta syystä kuin budjetti:
   // jos kirjoitus näyttää oletuksilta MUTTA sisältöä on, se ei ole oletus.
   return sameList(cats, DEFAULT_CATS) && sameList(gens, DEFAULT_GENRES)
-    && per.length === 0 && wl.length === 0 && lst.length === 0;
+    && per.length === 0 && wl.length === 0 && lst.length === 0 && dvd.length === 0;
 }
 
 // Onko metassa jotain säilyttämisen arvoista
@@ -185,6 +186,7 @@ function metaWouldWipe(meta){
   if(((good.budget||{}).periods||[]).length) bits.push('budjetti');
   if((good.watchlist||[]).length) bits.push('katselulista');
   if((good.lists||[]).length) bits.push('omat listat');
+  if((good.dvds||[]).length) bits.push('DVD-hylly');
   return bits.length ? bits.join(', ') : null;
 }
 
@@ -505,6 +507,9 @@ function metaObject(){
     // Omat listat sisältävät vain viittauksia arvostelujen tunnuksiin,
     // joten ne vievät vähän tilaa myös sadan teoksen listalla.
     lists:      Array.isArray(appData.lists) ? appData.lists : [],
+    // DVD-hylly: omistetut levyt. Kokoelmien osaluettelot EIVÄT ole täällä
+    // vaan laitteen välimuistissa, ks. app-dvd.js.
+    dvds:       Array.isArray(appData.dvds) ? appData.dvds : [],
     schema:     SCHEMA
   };
 }
@@ -520,6 +525,7 @@ function assembleAppData(meta, reviews){
     settings:   m.settings || {},
     watchlist:  Array.isArray(m.watchlist) ? m.watchlist : [],
     lists:      Array.isArray(m.lists) ? m.lists : [],
+    dvds:       Array.isArray(m.dvds) ? m.dvds : [],
     reviews:    reviews
   };
 }
@@ -877,6 +883,7 @@ window.fbRestoreMeta = async function(src){
   if(src.settings) appData.settings = src.settings;
   if(Array.isArray(src.watchlist)) appData.watchlist = src.watchlist;
   if(Array.isArray(src.lists))     appData.lists     = src.lists;
+  if(Array.isArray(src.dvds))      appData.dvds      = src.dvds;
 
   try{ if(typeof ensureSettings === 'function') ensureSettings(); } catch(e){}
   if(typeof GENRES !== 'undefined') GENRES = [...(appData.genres||[])];

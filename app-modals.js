@@ -1069,6 +1069,7 @@ const BUILD_FILES = [
   ['app-quick.js',     'BUILD_QUICK',    true],
   ['app-datacheck.js', 'BUILD_DATACHECK', true],
   ['app-watchlist.js', 'BUILD_WATCHLIST', true],
+  ['app-dvd.js',       'BUILD_DVD',       true],
   ['app-lists.js',     'BUILD_LISTS',    true],
   ['app-stats.js',     'BUILD_STATS',    true],
   ['app-people.js',    'BUILD_PEOPLE',   true],

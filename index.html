@@ -67,6 +67,7 @@
     <button class="view-tab active" id="viewTabReviews" onclick="setView('reviews')"><span class="vt-ico">⭐</span><span class="vt-label">Arvostelut</span></button>
     <button class="view-tab" id="viewTabTop" onclick="setView('top')"><span class="vt-ico">🏆</span><span class="vt-label">Top-lista</span></button>
     <button class="view-tab" id="viewTabWatchlist" onclick="setView('watchlist')"><span class="vt-ico">📌</span><span class="vt-label">Katselulista</span></button>
+    <button class="view-tab" id="viewTabDvd" onclick="setView('dvd')"><span class="vt-ico">📀</span><span class="vt-label">Hylly</span></button>
     <button class="view-tab" id="viewTabDiscover" onclick="setView('discover')"><span class="vt-ico">🔮</span><span class="vt-label">Löydä</span></button>
     <button class="view-tab" id="viewTabBudget" onclick="setView('budget')"><span class="vt-ico">💰</span><span class="vt-label">Budjetti</span></button>
     <button class="view-tab" id="viewTabQuick" onclick="setView('quick')"><span class="vt-ico">🎚️</span><span class="vt-label">Pisteet</span></button>
@@ -126,6 +127,9 @@
 
   <!-- KATSELULISTA -->
   <div class="watchlist" id="watchlistView" style="display:none;"></div>
+
+  <!-- DVD-HYLLY -->
+  <div class="watchlist dvd" id="dvdView" style="display:none;"></div>
 
   <!-- TILASTOT -->
   <div class="home" id="homeView" style="display:none;"></div>
@@ -222,6 +226,28 @@
     <div id="discDetailBody"></div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('discDetailModal')">Sulje</button>
+    </div>
+  </div>
+</div>
+
+<!-- DVD-HYLLY: LISÄYS -->
+<div class="modal-overlay" id="dvdAddModal" onclick="closeModalIfOutside(event,'dvdAddModal')">
+  <div class="modal-sheet">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div id="dvdAddBody"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('dvdAddModal')">Sulje</button>
+    </div>
+  </div>
+</div>
+
+<!-- DVD-HYLLY: LEVYN TIEDOT -->
+<div class="modal-overlay" id="dvdItemModal" onclick="closeModalIfOutside(event,'dvdItemModal')">
+  <div class="modal-sheet">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div id="dvdItemBody"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('dvdItemModal')">Sulje</button>
     </div>
   </div>
 </div>
@@ -1488,6 +1514,7 @@
 <script src="app-quick.js"></script>
 <script src="app-datacheck.js"></script>
 <script src="app-watchlist.js"></script>
+<script src="app-dvd.js"></script>
 <script src="app-lists.js"></script>
 <script src="app-stats.js"></script>
 <script src="app-people.js"></script>

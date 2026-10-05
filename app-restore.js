@@ -65,7 +65,7 @@ window.backupSizeText = function(){
 
 let rsFile = null;      // { data, meta, checksumOk }
 let rsMode = 'merge';   // merge | replace | partial
-let rsParts = { reviews:true, cats:false, genres:false, settings:false, watchlist:false, lists:false, budget:false };
+let rsParts = { reviews:true, cats:false, genres:false, settings:false, watchlist:false, lists:false, dvds:false, budget:false };
 
 const RS_PARTS = [
   { id:'reviews',   label:'Arvostelut' },
@@ -74,6 +74,7 @@ const RS_PARTS = [
   { id:'settings',  label:'Asetukset' },
   { id:'watchlist', label:'Katselulista' },
   { id:'lists',     label:'Omat listat' },
+  { id:'dvds',      label:'DVD-hylly' },
   { id:'budget',    label:'Budjetti' }
 ];
 
@@ -132,6 +133,7 @@ function analyze(incoming){
     genres: listDiff(appData.genres, incoming.genres),
     watchlist: { cur: (appData.watchlist || []).length, inc: (incoming.watchlist || []).length },
     lists:     { cur: (appData.lists || []).length,     inc: (incoming.lists || []).length },
+    dvds:      { cur: (appData.dvds || []).length,      inc: (incoming.dvds || []).length },
     budget:    { cur: ((appData.budget || {}).periods || []).length,
                  inc: ((incoming.budget || {}).periods || []).length },
     settings:  settingsDiffCount(appData.settings, incoming.settings)
@@ -190,7 +192,7 @@ window.restoreBackup = function(input){
       diff: analyze(data)
     };
     rsMode = 'merge';
-    rsParts = { reviews:true, cats:false, genres:false, settings:false, watchlist:false, lists:false, budget:false };
+    rsParts = { reviews:true, cats:false, genres:false, settings:false, watchlist:false, lists:false, dvds:false, budget:false };
     window.renderRestore();
     const el = document.getElementById('restoreModal');
     if(el) el.classList.add('open');
@@ -253,6 +255,7 @@ window.renderRestore = function(){
     ${d.settings.diff ? rsRow('Asetuseroja', `${d.settings.diff}/${d.settings.total}`) : ''}
     ${rsRow('Katselulista', `${d.watchlist.cur} → ${d.watchlist.inc}`)}
     ${rsRow('Omat listat', `${d.lists.cur} → ${d.lists.inc}`)}
+    ${rsRow('DVD-hylly', `${d.dvds.cur} → ${d.dvds.inc}`)}
   </div>`;
 
   // ── TILA ──
@@ -324,6 +327,7 @@ function afterRestore(){
   if(window.migrateYearField) window.migrateYearField();
   if(window.ensureWatchlist) window.ensureWatchlist();
   if(window.ensureLists) window.ensureLists();
+  if(window.ensureDvds) window.ensureDvds();
   GENRES = [...appData.genres];
   if(!appData.categories.includes(activeCat)) activeCat = appData.categories[0] || null;
   if(typeof window.setActiveSub === 'function') window.setActiveSub(window.SUB_ALL || '__all');
@@ -341,7 +345,7 @@ window.restoreConfirm = async function(){
   if(rsMode === 'replace'){
     const msg = R.onlyCurrent.length
       ? `${R.onlyCurrent.length} arvostelua katoaa lopullisesti.\n\nTämä kirjoitetaan myös pilveen. Jatketaanko?`
-      : `Kaikki asetukset, katselulista, omat listat ja budjetti korvataan.\n\nJatketaanko?`;
+      : `Kaikki asetukset, katselulista, omat listat, DVD-hylly ja budjetti korvataan.\n\nJatketaanko?`;
     if(!confirm(msg)) return;
   } else if(rsMode === 'partial' && rsParts.reviews && R.onlyCurrent.length){
     if(!confirm(`${R.onlyCurrent.length} arvostelua katoaa lopullisesti.\n\nJatketaanko?`)) return;
@@ -384,6 +388,7 @@ window.restoreConfirm = async function(){
     if(rsParts.settings)  appData.settings  = inc.settings || {};
     if(rsParts.watchlist) appData.watchlist = inc.watchlist || [];
     if(rsParts.lists)     appData.lists     = inc.lists || [];
+    if(rsParts.dvds)      appData.dvds      = inc.dvds || [];
     if(rsParts.budget)    appData.budget    = inc.budget || { monthlyPrice: 26.90, periods: [] };
     msg = 'Valitut osat korvattu.';
   }
