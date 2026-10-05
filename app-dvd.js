@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · DVD-hylly ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_DVD = '2026-09-18.0';
+window.BUILD_DVD = '2026-10-06.0';
 //
 // Tavallinen skripti. Ajetaan app-core.js:n, app-views.js:n ja
 // app-watchlist.js:n JÄLKEEN.

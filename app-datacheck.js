@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · datan tarkistus ja korjaukset ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_DATACHECK = '2026-09-18.0';
+window.BUILD_DATACHECK = '2026-10-06.0';
 //
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 //
