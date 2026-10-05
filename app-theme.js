@@ -644,7 +644,14 @@ const DRAG_FLICK_V  = 0.55;     // ...tai tätä nopeampi heilautus (px/ms)
     // eikä kosketus ole vieritettävän tai säädettävän elementin päällä.
     if(!g){
       if(s.scrollTop > 2) return;
-      if(t.closest('input,textarea,select,.weight-slider,.thr-slider,.tmdb-results,.autocomplete-list,.bulk-list,.sq-list,#moveList')) return;
+      if(t.closest('input,textarea,select,.weight-slider,.thr-slider,.tmdb-results,.autocomplete-list,.bulk-list,.sq-list,#moveList,.dvd-add-results,.dvd-strip')) return;
+      // Yleinen suoja: jos jokin arkin SISÄINEN vieritettävä alue ei ole
+      // ylhäällä, alaspäin veto on sen alueen vieritystä eikä sulkemista.
+      // Ilman tätä jokainen uusi sisäinen lista piti muistaa lisätä yllä
+      // olevaan luetteloon — ja unohdus sulki ikkunan kesken selaamisen.
+      for(let el = t; el && el !== s; el = el.parentElement){
+        if(el.scrollTop > 2) return;
+      }
     }
     sheet = s; overlay = overlayOf(s); grab = g;
     startY = lastY = e.touches[0].clientY;

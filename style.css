@@ -2718,7 +2718,40 @@ html[data-cardstyle="vhs"] .review-card .card-top{
 
 /* Modaalit */
 .dvd-add-title{font-family:'Bebas Neue',sans-serif;font-size:calc(22px * var(--ts,1));letter-spacing:1px;margin:2px 0 10px;}
-.dvd-add-results{margin-top:10px;max-height:58vh;overflow-y:auto;}
+/* Tulokset vierittyvät koko arkin mukana, ei omassa laatikossaan: sisäinen
+   vierityslaatikko sai alaspäin vedon sulkemaan ikkunan kesken selaamisen. */
+.dvd-add-results{margin-top:6px;}
+.dvd-add-head{position:sticky;top:-20px;z-index:2;background:var(--bg2);margin:-20px -16px 0;padding:20px 16px 8px;
+  box-shadow:0 6px 10px -8px rgba(0,0,0,.6);}
+.dvd-add-head .dvd-add-title{margin-top:0;}
+.dvd-add-chips{margin-top:8px;}
+.dvd-row-o{font-size:calc(11.5px * var(--ts,1));color:var(--muted);font-style:italic;margin-top:1px;}
+.dvd-row-ov{font-size:calc(11px * var(--ts,1));color:var(--muted);margin-top:3px;line-height:1.35;opacity:.85;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.dvd-manual{border-style:solid;color:var(--muted);margin-top:10px;}
+
+.dvd-input{width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);color:var(--text);
+  border-radius:10px;padding:10px 11px;font-family:'DM Sans',sans-serif;font-size:calc(14px * var(--ts,1));}
+.dvd-input:focus{outline:none;border-color:var(--accent);}
+.dvd-edit-row{display:flex;gap:7px;align-items:stretch;}
+.dvd-edit-row .dvd-input{flex:1;min-width:0;}
+.dvd-edit-row .dvd-input-year{flex:0 0 74px;text-align:center;}
+.dvd-mini-btns{flex-wrap:wrap;}
+.dvd-mini.dvd-mini-go{flex:0 0 auto;background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700;padding:0 14px;}
+
+.dvd-cover-btn{position:relative;background:none;border:none;padding:0;cursor:pointer;flex:0 0 auto;}
+.dvd-cover-edit{position:absolute;left:4px;right:4px;bottom:4px;background:rgba(0,0,0,.72);color:#fff;border-radius:7px;
+  font-size:10.5px;font-weight:700;padding:3px 0;text-align:center;}
+.dvd-cover-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;}
+.dvd-cover-opt{position:relative;background:none;border:2px solid transparent;border-radius:10px;padding:0;cursor:pointer;overflow:hidden;}
+.dvd-cover-opt img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:var(--bg3);}
+.dvd-cover-opt.on{border-color:var(--accent);}
+.dvd-cover-lang{position:absolute;top:4px;left:4px;background:rgba(0,0,0,.7);color:#fff;border-radius:5px;padding:0 4px;font-size:11px;}
+.dvd-cover-cur{position:absolute;left:0;right:0;bottom:0;background:var(--accent);color:var(--bg);font-size:10.5px;font-weight:800;padding:2px 0;}
+
+.dvd-confirm-row{display:flex;gap:8px;margin-top:16px;}
+.dvd-confirm-row .dvd-confirm{margin-top:0;flex:1.4;}
+.dvd-confirm-2{flex:1 !important;background:var(--bg3) !important;color:var(--text) !important;border:1px solid var(--accent) !important;font-size:calc(13px * var(--ts,1)) !important;}
 .dvd-back{background:none;border:none;color:var(--accent);font-family:'DM Sans',sans-serif;font-weight:700;
   font-size:calc(13px * var(--ts,1));padding:2px 0 10px;cursor:pointer;}
 .dvd-item-top{display:flex;gap:13px;align-items:flex-start;}

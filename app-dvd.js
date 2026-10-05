@@ -312,8 +312,14 @@ function dvdCmp(a, b, nameA, nameB, yearA, yearB, addedA, addedB){
   return String(nameA || '').localeCompare(String(nameB || ''), 'fi');
 }
 
+// Kansi on joko TMDB:n polku (/abc.jpg) tai käyttäjän antama täysi osoite.
+function dvdPosterUrl(path, size){
+  if(!path) return '';
+  return /^https?:\/\//i.test(path) ? String(path) : DVD_IMG + size + path;
+}
+
 function dvdPoster(path, size, cls, fallback){
-  if(path) return `<img class="${cls}" src="${DVD_IMG}${size}${esc(path)}" loading="lazy" alt="">`;
+  if(path) return `<img class="${cls}" src="${esc(dvdPosterUrl(path, size))}" loading="lazy" alt="" onerror="this.outerHTML='<div class=&quot;${cls} dvd-noposter&quot;>${fallback || '📀'}</div>'">`;
   return `<div class="${cls} dvd-noposter">${fallback || '📀'}</div>`;
 }
 
@@ -627,11 +633,16 @@ window.dvdRemove = async function(id){
 };
 
 // ── LEVYN TIEDOT ──
+// Nimi, vuosi ja kansi ovat muokattavissa. TMDB:ssä ei aina ole suomen-
+// kielistä nimeä, ja hyllyn levyn kansi voi olla eri kuin julisteen.
+// Muokkaus koskee vain tätä tietuetta: taustahaku ei koskaan kirjoita
+// nimen tai kannen päälle.
 window.dvdOpenItem = function(id){
   const d = dvdById(id);
   if(!d) return;
   const body = document.getElementById('dvdItemBody');
   const isTv = d.tmdb_type === 'tv';
+  const sid = escJs(String(d.id));
 
   const review = (appData.reviews || []).find(r => r && r.tmdb_id != null && String(r.tmdb_id) === String(d.tmdb_id)
     && (r.tmdb_type || (r.tvType ? 'tv' : 'movie')) === (d.tmdb_type || 'movie'));
@@ -649,91 +660,329 @@ window.dvdOpenItem = function(id){
   if(isTv){
     const s = dvdTvSeasons(d);
     seasons = `<div class="dvd-item-sect">Omistamasi kaudet</div>
-      <div class="dvd-seasons">${s.all.map(x => `<button type="button" class="dvd-season${x.owned ? ' on' : x.aired ? ' miss' : ' soon'}" onclick="dvdToggleSeason('${escJs(String(d.id))}', ${x.n})">K${x.n}</button>`).join('') || '<span class="dvd-dim">Kausitietoja ei ole vielä haettu.</span>'}</div>`;
+      <div class="dvd-seasons">${s.all.map(x => `<button type="button" class="dvd-season${x.owned ? ' on' : x.aired ? ' miss' : ' soon'}" onclick="dvdToggleSeason('${sid}', ${x.n})">K${x.n}</button>`).join('') || '<span class="dvd-dim">Kausitietoja ei ole vielä haettu.</span>'}</div>`;
   }
 
-  const fmt = DVD_FORMATS.map(f => `<button type="button" class="dvd-seg${(d.format || 'DVD') === f ? ' on' : ''}" onclick="dvdSetFormat('${escJs(String(d.id))}','${f}')">${f}</button>`).join('');
+  const fmt = DVD_FORMATS.map(f => `<button type="button" class="dvd-seg${(d.format || 'DVD') === f ? ' on' : ''}" onclick="dvdSetFormat('${sid}','${f}')">${f}</button>`).join('');
+  const origBtn = d.orig && d.orig !== d.name
+    ? `<button type="button" class="dvd-mini" onclick="dvdUseName('${sid}', 'orig')">↺ Alkuperäinen: ${esc(d.orig)}</button>` : '';
+  const tmdbBtn = d.tmdb_id != null
+    ? `<button type="button" class="dvd-mini" onclick="dvdUseName('${sid}', 'tmdb')">🌐 Hae nimi TMDB:stä</button>` : '';
 
   body.innerHTML = `
-    <div class="dvd-item-top">
-      ${dvdPoster(d.poster, 'w342', 'dvd-item-img', isTv ? '📺' : '🎬')}
-      <div class="dvd-item-info">
-        <div class="dvd-item-t">${esc(d.name)}</div>
-        <div class="dvd-item-line">${isTv ? '📺 Sarja' : '🎬 Elokuva'}${d.year ? ' · ' + esc(String(d.year)) : ''}</div>
-        ${d.orig && d.orig !== d.name ? `<div class="dvd-item-line dvd-dim">${esc(d.orig)}</div>` : ''}
-        <div class="dvd-item-line dvd-dim">Lisätty ${esc(d.added || '')}</div>
-        ${collLine}
-        ${reviewLine}
+    <div id="dvdItemMain">
+      <div class="dvd-item-top">
+        <button type="button" class="dvd-cover-btn" onclick="dvdOpenCoverPicker('${sid}')" title="Vaihda kansi">
+          ${dvdPoster(d.poster, 'w342', 'dvd-item-img', isTv ? '📺' : '🎬')}
+          <span class="dvd-cover-edit">🖼️ Vaihda</span>
+        </button>
+        <div class="dvd-item-info">
+          <div class="dvd-item-t">${esc(d.name)}</div>
+          <div class="dvd-item-line">${isTv ? '📺 Sarja' : '🎬 Elokuva'}${d.year ? ' · ' + esc(String(d.year)) : ''}</div>
+          <div class="dvd-item-line dvd-dim">Lisätty ${esc(d.added || '')}</div>
+          ${collLine}
+          ${reviewLine}
+        </div>
+      </div>
+      <div class="dvd-item-sect">Nimi</div>
+      <div class="dvd-edit-row">
+        <input type="text" class="dvd-input" id="dvdEditName" value="${esc(d.name)}" placeholder="Nimi" onchange="dvdSetName('${sid}', this.value)" onkeydown="if(event.key==='Enter') this.blur()">
+        <input type="text" class="dvd-input dvd-input-year" inputmode="numeric" maxlength="4" value="${esc(String(d.year || ''))}" placeholder="Vuosi" onchange="dvdSetYear('${sid}', this.value)" onkeydown="if(event.key==='Enter') this.blur()">
+      </div>
+      ${origBtn || tmdbBtn ? `<div class="dvd-mini-btns">${origBtn}${tmdbBtn}</div>` : ''}
+      <div class="dvd-item-sect">Formaatti</div>
+      <div class="dvd-segs">${fmt}</div>
+      ${seasons}
+      <div class="dvd-item-sect">Muistiinpano</div>
+      <textarea class="dvd-note" rows="2" placeholder="Esim. erikoisjulkaisu, steelbook, lainassa…" onchange="dvdSetNote('${sid}', this.value)">${esc(d.note || '')}</textarea>
+      <div class="dvd-item-btns">
+        ${d.tmdb_id != null && window.openDiscoverDetail ? `<button type="button" class="wl-btn" onclick="closeModal('dvdItemModal'); openDiscoverDetail('${isTv ? 'tv' : 'movie'}', ${Number(d.tmdb_id)})">ℹ️ Tiedot</button>` : ''}
+        <button type="button" class="wl-btn wl-del" onclick="dvdRemove('${sid}')">🗑️ Poista hyllystä</button>
       </div>
     </div>
-    <div class="dvd-item-sect">Formaatti</div>
-    <div class="dvd-segs">${fmt}</div>
-    ${seasons}
-    <div class="dvd-item-sect">Muistiinpano</div>
-    <textarea class="dvd-note" rows="2" placeholder="Esim. erikoisjulkaisu, steelbook, lainassa…" onchange="dvdSetNote('${escJs(String(d.id))}', this.value)">${esc(d.note || '')}</textarea>
-    <div class="dvd-item-btns">
-      ${d.tmdb_id != null && window.openDiscoverDetail ? `<button type="button" class="wl-btn" onclick="closeModal('dvdItemModal'); openDiscoverDetail('${isTv ? 'tv' : 'movie'}', ${Number(d.tmdb_id)})">ℹ️ Tiedot</button>` : ''}
-      <button type="button" class="wl-btn wl-del" onclick="dvdRemove('${escJs(String(d.id))}')">🗑️ Poista hyllystä</button>
-    </div>`;
-  if(window.openModalOnTop) window.openModalOnTop('dvdItemModal');
+    <div id="dvdCoverPane" style="display:none;"></div>`;
+  const modal = document.getElementById('dvdItemModal');
+  if(!modal.classList.contains('open') && window.openModalOnTop) window.openModalOnTop('dvdItemModal');
+};
+
+// Tallentaa ilman koko modaalin uudelleenpiirtoa, jottei kenttä hyppää
+// kesken kirjoittamisen.
+async function dvdSaveQuiet(){
+  if(window.fbSave) await window.fbSave();
+  window.renderDvd();
+}
+
+window.dvdSetName = async function(id, v){
+  const d = dvdById(id);
+  const t = String(v || '').trim();
+  if(!d) return;
+  if(!t){ window.dvdOpenItem(id); return; }   // tyhjää nimeä ei hyväksytä
+  if(t === d.name) return;
+  d.name = t;
+  await dvdSaveQuiet();
+  const h = document.querySelector('#dvdItemBody .dvd-item-t');
+  if(h) h.textContent = t;
+  if(window.showStatus) window.showStatus('✏️ Nimi tallennettu', '#22c55e', 1800);
+};
+
+window.dvdSetYear = async function(id, v){
+  const d = dvdById(id);
+  if(!d) return;
+  const y = String(v || '').replace(/\D/g, '').slice(0, 4);
+  const val = y.length === 4 ? y : null;
+  if(String(d.year || '') === String(val || '')) return;
+  d.year = val;
+  await dvdSaveQuiet();
+  window.dvdOpenItem(id);
+};
+
+window.dvdUseName = async function(id, which){
+  const d = dvdById(id);
+  if(!d) return;
+  let name = null;
+  if(which === 'orig') name = d.orig;
+  else if(which === 'tmdb' && d.tmdb_id != null){
+    const type = d.tmdb_type === 'tv' ? 'tv' : 'movie';
+    const r = await window.tmdbGet(`/${type}/${d.tmdb_id}?language=fi-FI`);
+    if(r) name = type === 'tv' ? (r.name || r.original_name) : (r.title || r.original_title);
+    if(r && !d.orig) d.orig = type === 'tv' ? r.original_name : r.original_title;
+  }
+  if(!name){ if(window.showStatus) window.showStatus('Nimeä ei saatu', '#8b8b9e', 2000); return; }
+  d.name = name;
+  await dvdSaveQuiet();
+  window.dvdOpenItem(id);
+};
+
+// ── KANNEN VAIHTO ──
+// Vaihtoehdot tulevat TMDB:n kuvagalleriasta (suomenkieliset ensin, sitten
+// englanninkieliset ja tekstittömät). Lisäksi voi liittää minkä tahansa
+// kuvan osoitteen, esim. kaupan sivulta kopioidun DVD-kannen.
+window.dvdOpenCoverPicker = async function(id){
+  const d = dvdById(id);
+  if(!d) return;
+  const main = document.getElementById('dvdItemMain');
+  const pane = document.getElementById('dvdCoverPane');
+  if(!main || !pane) return;
+  const sid = escJs(String(d.id));
+  main.style.display = 'none';
+  pane.style.display = '';
+  const sheet = document.querySelector('#dvdItemModal .modal-sheet');
+  if(sheet) sheet.scrollTop = 0;
+
+  pane.innerHTML = `
+    <button type="button" class="dvd-back" onclick="dvdOpenItem('${sid}')">‹ Takaisin</button>
+    <div class="dvd-add-title">🖼️ Vaihda kansi</div>
+    <div class="dvd-item-line dvd-dim">${esc(d.name)}</div>
+    <div class="dvd-item-sect">Oma kuva verkosta</div>
+    <div class="dvd-edit-row">
+      <input type="url" class="dvd-input" id="dvdCoverUrl" placeholder="Liitä kuvan osoite (https://…)">
+      <button type="button" class="dvd-mini dvd-mini-go" onclick="dvdSetCoverUrl('${sid}')">OK</button>
+    </div>
+    <div class="dvd-item-sect">TMDB:n kannet</div>
+    <div id="dvdCoverGrid" class="dvd-cover-grid">${d.tmdb_id != null ? '<div class="dvd-dim dvd-pad">Haetaan kansia…</div>' : '<div class="dvd-dim dvd-pad">Tällä levyllä ei ole TMDB-tunnusta.</div>'}</div>`;
+
+  if(d.tmdb_id == null) return;
+  const type = d.tmdb_type === 'tv' ? 'tv' : 'movie';
+  const data = await window.tmdbGet(`/${type}/${d.tmdb_id}/images?include_image_language=fi,en,sv,null`);
+  const grid = document.getElementById('dvdCoverGrid');
+  if(!grid) return;
+  const rank = l => l === 'fi' ? 0 : l === 'sv' ? 1 : l === 'en' ? 2 : 3;
+  let posters = ((data && data.posters) || []).slice()
+    .sort((a, b) => rank(a.iso_639_1) - rank(b.iso_639_1) || (b.vote_average || 0) - (a.vote_average || 0));
+  // TV-sarjassa kausien kannet ovat usein juuri ne joita levyissä on.
+  if(type === 'tv'){
+    const c = dvdCacheGet('t:' + d.tmdb_id);
+    ((c && c.seasons) || []).forEach(s => { if(s.p) posters.push({ file_path: s.p, iso_639_1: 'K' + s.n }); });
+  }
+  const seen = new Set();
+  posters = posters.filter(p => p.file_path && !seen.has(p.file_path) && seen.add(p.file_path)).slice(0, 60);
+  if(!posters.length){ grid.innerHTML = '<div class="dvd-dim dvd-pad">TMDB:ssä ei ole muita kansia.</div>'; return; }
+  const LANG = { fi:'🇫🇮', sv:'🇸🇪', en:'🇬🇧' };
+  grid.innerHTML = posters.map(p => {
+    const cur = p.file_path === d.poster;
+    const tag = LANG[p.iso_639_1] || (String(p.iso_639_1 || '').charAt(0) === 'K' ? p.iso_639_1 : '');
+    return `<button type="button" class="dvd-cover-opt${cur ? ' on' : ''}" onclick="dvdSetCover('${sid}','${escJs(p.file_path)}')">
+      <img src="${DVD_IMG}w185${esc(p.file_path)}" loading="lazy" alt="">
+      ${tag ? `<span class="dvd-cover-lang">${esc(tag)}</span>` : ''}
+      ${cur ? '<span class="dvd-cover-cur">✓ Nykyinen</span>' : ''}
+    </button>`;
+  }).join('');
+};
+
+window.dvdSetCover = async function(id, path){
+  const d = dvdById(id);
+  if(!d) return;
+  d.poster = path || null;
+  await dvdSaveQuiet();
+  window.dvdOpenItem(id);
+  if(window.showStatus) window.showStatus('🖼️ Kansi vaihdettu', '#22c55e', 2000);
+};
+
+window.dvdSetCoverUrl = function(id){
+  const inp = document.getElementById('dvdCoverUrl');
+  const v = String((inp && inp.value) || '').trim();
+  if(!/^https:\/\/\S+$/i.test(v)){
+    if(window.showStatus) window.showStatus('Osoitteen pitää alkaa https://', '#f59e0b', 2500);
+    return;
+  }
+  window.dvdSetCover(id, v);
 };
 
 // ════════════════════════════════════════════════════════════
 // LISÄYS
 // ════════════════════════════════════════════════════════════
+//
+// Hakunäkymä ja valitun teoksen vaihe 2 ovat samassa ikkunassa rinnakkain.
+// Vaiheeseen 2 siirryttäessä hakutulokset vain piilotetaan, eikä niitä
+// tuhota: Takaisin palauttaa saman listan samaan vierityskohtaan ilman
+// uutta hakua.
 
 let dvdAddSeq = 0;      // vanhentuneet hakuvastaukset hylätään
 let dvdSearchTimer = null;
-let dvdPending = null;  // vaihe 2: { type, detail, coll, tvEntry }
-let dvdLastAddQuery = '';
+let dvdPending = null;  // vaihe 2: { type, detail, coll, tvEntry } tai { type:'manual' }
+let dvdAddResults = []; // viimeisimmän haun tulokset
+let dvdAddPage = 1, dvdAddPages = 1, dvdAddQ = '';
+let dvdAddType = 'all'; // all | movie | tv
+let dvdAddScroll = 0;
+
+function dvdAddSheet(){ return document.querySelector('#dvdAddModal .modal-sheet'); }
 
 window.dvdOpenAdd = function(query){
   dvdPending = null;
+  dvdAddResults = []; dvdAddPage = 1; dvdAddPages = 1; dvdAddQ = '';
   const body = document.getElementById('dvdAddBody');
   body.innerHTML = `
-    <div class="dvd-add-title">📀 Lisää hyllyyn</div>
-    <div class="search-box">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="dvdAddInput" placeholder="Elokuvan tai sarjan nimi…" autocomplete="off" oninput="dvdAddSearch(this.value)">
+    <div id="dvdAddSearchPane">
+      <div class="dvd-add-head">
+        <div class="dvd-add-title">📀 Lisää hyllyyn</div>
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="search" id="dvdAddInput" placeholder="Elokuvan tai sarjan nimi…" autocomplete="off" enterkeyhint="search"
+                 oninput="dvdAddSearch(this.value)" onkeydown="if(event.key==='Enter'){ dvdAddSearch(this.value, true); this.blur(); }">
+        </div>
+        <div class="wl-chips dvd-add-chips" id="dvdAddChips"></div>
+      </div>
+      <div id="dvdAddResults" class="dvd-add-results"></div>
     </div>
-    <div id="dvdAddResults" class="dvd-add-results"></div>`;
-  if(window.openModalOnTop) window.openModalOnTop('dvdAddModal');
+    <div id="dvdAddStep" style="display:none;"></div>`;
+  dvdRenderAddChips();
+  const modal = document.getElementById('dvdAddModal');
+  if(!modal.classList.contains('open') && window.openModalOnTop) window.openModalOnTop('dvdAddModal');
+  const sh = dvdAddSheet(); if(sh) sh.scrollTop = 0;
   const inp = document.getElementById('dvdAddInput');
   if(query){ inp.value = query; window.dvdAddSearch(query, true); }
-  setTimeout(() => { try{ inp.focus(); } catch(e){} }, 80);
+  else setTimeout(() => { try{ inp.focus(); } catch(e){} }, 80);
 };
+
+function dvdRenderAddChips(){
+  const el = document.getElementById('dvdAddChips');
+  if(!el) return;
+  const n = t => dvdAddResults.filter(r => t === 'all' || r.media_type === t).length;
+  const chip = (v, label) => `<button type="button" class="wl-chip${dvdAddType === v ? ' on' : ''}" onclick="dvdSetAddType('${v}')">${label}${dvdAddResults.length ? ' ' + n(v) : ''}</button>`;
+  el.innerHTML = chip('all', 'Kaikki') + chip('movie', '🎬 Elokuvat') + chip('tv', '📺 Sarjat');
+}
+
+window.dvdSetAddType = function(v){ dvdAddType = v; dvdRenderAddChips(); dvdRenderAddResults(); };
+
+function dvdResultRow(r){
+  const type = r.media_type;
+  const title = type === 'tv' ? (r.name || r.original_name) : (r.title || r.original_title);
+  const orig = type === 'tv' ? r.original_name : r.original_title;
+  const year = dvdYear(type === 'tv' ? r.first_air_date : r.release_date);
+  const own = dvdFind(type, r.id);
+  const action = own ? `dvdOpenItem('${escJs(String(own.id))}')` : `dvdPick('${type}', ${Number(r.id)})`;
+  const overview = r.overview ? String(r.overview).slice(0, 110) + (r.overview.length > 110 ? '…' : '') : '';
+  return `<button type="button" class="dvd-row${own ? ' is-owned' : ''}" onclick="${action}">
+    ${dvdPoster(r.poster_path, 'w92', 'dvd-row-img', type === 'tv' ? '📺' : '🎬')}
+    <div class="dvd-row-body">
+      <div class="dvd-row-t">${esc(title || '')}${year ? ` <span class="dvd-dim">${esc(year)}</span>` : ''}</div>
+      ${orig && orig !== title ? `<div class="dvd-row-o">${esc(orig)}</div>` : ''}
+      <div class="dvd-row-s">${type === 'tv' ? '📺 Sarja' : '🎬 Elokuva'}${own ? ' · <b class="dvd-yes">✅ Jo hyllyssä</b>' : ''}</div>
+      ${overview ? `<div class="dvd-row-ov">${esc(overview)}</div>` : ''}
+    </div>
+  </button>`;
+}
+
+function dvdRenderAddResults(){
+  const out = document.getElementById('dvdAddResults');
+  if(!out) return;
+  if(dvdAddQ.length < 2){ out.innerHTML = dvdManualBtn(); return; }
+  const list = dvdAddResults.filter(r => dvdAddType === 'all' || r.media_type === dvdAddType);
+  const more = dvdAddPage < dvdAddPages
+    ? `<button type="button" class="dvd-search-tmdb" id="dvdAddMore" onclick="dvdAddMore()">⬇️ Näytä lisää tuloksia</button>` : '';
+  out.innerHTML = (list.length ? list.map(dvdResultRow).join('') : `<div class="dvd-dim dvd-pad">Ei tuloksia${dvdAddType !== 'all' ? ' tällä rajauksella' : ''}.</div>`)
+    + more + dvdManualBtn();
+}
+
+function dvdManualBtn(){
+  return `<button type="button" class="dvd-search-tmdb dvd-manual" onclick="dvdPickManual()">✍️ Ei löydy? Lisää käsin ilman TMDB:tä</button>`;
+}
+
+async function dvdAddFetch(page){
+  const query = dvdAddQ;
+  const seq = ++dvdAddSeq;
+  const data = await window.tmdbGet(`/search/multi?query=${encodeURIComponent(query)}&language=fi-FI&include_adult=false&page=${page}`);
+  if(seq !== dvdAddSeq) return false;
+  const res = ((data && data.results) || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv');
+  if(page === 1) dvdAddResults = res;
+  else {
+    const have = new Set(dvdAddResults.map(r => r.media_type + r.id));
+    res.forEach(r => { if(!have.has(r.media_type + r.id)) dvdAddResults.push(r); });
+  }
+  dvdAddPage = page;
+  dvdAddPages = (data && data.total_pages) || 1;
+  return true;
+}
 
 window.dvdAddSearch = function(q, now){
   clearTimeout(dvdSearchTimer);
-  dvdLastAddQuery = String(q || '');
   const run = async () => {
     const out = document.getElementById('dvdAddResults');
     if(!out) return;
     const query = String(q || '').trim();
-    if(query.length < 2){ out.innerHTML = ''; return; }
+    if(query === dvdAddQ && dvdAddResults.length) return;   // sama haku, ei uutta kutsua
+    dvdAddQ = query;
+    if(query.length < 2){ dvdAddResults = []; dvdRenderAddChips(); dvdRenderAddResults(); return; }
     if(!window.tmdbToken){ out.innerHTML = `<div class="dvd-dim dvd-pad">TMDB-tunnus ei ole vielä latautunut.</div>`; return; }
-    const seq = ++dvdAddSeq;
     out.innerHTML = `<div class="dvd-dim dvd-pad">Haetaan…</div>`;
-    const data = await window.tmdbGet(`/search/multi?query=${encodeURIComponent(query)}&language=fi-FI&include_adult=false`);
-    if(seq !== dvdAddSeq) return;
-    const res = ((data && data.results) || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv').slice(0, 20);
-    if(!res.length){ out.innerHTML = `<div class="dvd-dim dvd-pad">Ei tuloksia.</div>`; return; }
-    out.innerHTML = res.map(r => {
-      const type = r.media_type;
-      const title = type === 'tv' ? (r.name || r.original_name) : (r.title || r.original_title);
-      const year = dvdYear(type === 'tv' ? r.first_air_date : r.release_date);
-      const own = dvdFind(type, r.id);
-      const action = own ? `dvdOpenItem('${escJs(String(own.id))}')` : `dvdPick('${type}', ${Number(r.id)})`;
-      return `<button type="button" class="dvd-row${own ? ' is-owned' : ''}" onclick="${action}">
-        ${dvdPoster(r.poster_path, 'w92', 'dvd-row-img', type === 'tv' ? '📺' : '🎬')}
-        <div class="dvd-row-body">
-          <div class="dvd-row-t">${esc(title || '')}${year ? ` <span class="dvd-dim">${esc(year)}</span>` : ''}</div>
-          <div class="dvd-row-s">${type === 'tv' ? '📺 Sarja' : '🎬 Elokuva'}${own ? ' · <b class="dvd-yes">✅ Jo hyllyssä</b>' : ''}</div>
-        </div>
-      </button>`;
-    }).join('');
+    if(!(await dvdAddFetch(1))) return;
+    dvdRenderAddChips();
+    dvdRenderAddResults();
   };
-  if(now) run(); else dvdSearchTimer = setTimeout(run, 350);
+  if(now) run(); else dvdSearchTimer = setTimeout(run, 400);
+};
+
+window.dvdAddMore = async function(){
+  const b = document.getElementById('dvdAddMore');
+  if(b){ b.disabled = true; b.textContent = 'Haetaan…'; }
+  if(!(await dvdAddFetch(dvdAddPage + 1))) return;
+  dvdRenderAddChips();
+  dvdRenderAddResults();
+};
+
+function dvdShowStep(html){
+  const sp = document.getElementById('dvdAddSearchPane');
+  const st = document.getElementById('dvdAddStep');
+  const sh = dvdAddSheet();
+  if(sp && sp.style.display !== 'none' && sh) dvdAddScroll = sh.scrollTop;
+  if(sp) sp.style.display = 'none';
+  if(st){ st.style.display = ''; st.innerHTML = html; }
+  if(sh) sh.scrollTop = 0;
+}
+
+// Takaisin hakuun: lista on tallessa, palautetaan vierityskohta.
+window.dvdBackToSearch = function(){
+  dvdPending = null;
+  dvdAddSeq++;   // kesken oleva tietohaku ei saa enää avata vaihetta 2
+  const sp = document.getElementById('dvdAddSearchPane');
+  const st = document.getElementById('dvdAddStep');
+  if(!sp){ window.dvdOpenAdd(); return; }
+  if(st){ st.style.display = 'none'; st.innerHTML = ''; }
+  sp.style.display = '';
+  dvdRenderAddChips();
+  dvdRenderAddResults();   // "Jo hyllyssä" -merkit ajan tasalle
+  const sh = dvdAddSheet();
+  if(sh) requestAnimationFrame(() => { sh.scrollTop = dvdAddScroll; });
 };
 
 // Suora reitti vaiheeseen 2, esim. puuttuvan osan ＋-napista tai Löydä-osiosta.
@@ -745,20 +994,21 @@ window.dvdOpenAddFor = function(type, tmdbId){
 };
 
 window.dvdPick = async function(type, tmdbId){
-  const out = document.getElementById('dvdAddResults') || document.getElementById('dvdAddBody');
-  const body = document.getElementById('dvdAddBody');
-  if(out) out.innerHTML = `<div class="dvd-dim dvd-pad">Haetaan tietoja…</div>`;
+  dvdShowStep(`<button type="button" class="dvd-back" onclick="dvdBackToSearch()">‹ Takaisin hakutuloksiin</button>
+    <div class="dvd-dim dvd-pad">Haetaan tietoja…</div>`);
   const seq = ++dvdAddSeq;
+  const fail = () => dvdShowStep(`<button type="button" class="dvd-back" onclick="dvdBackToSearch()">‹ Takaisin hakutuloksiin</button>
+    <div class="dvd-dim dvd-pad">Tietojen haku epäonnistui. Tarkista yhteys ja yritä uudelleen.</div>`);
 
   if(type === 'tv'){
     const r = await dvdFetchTv(tmdbId);
     if(seq !== dvdAddSeq) return;
-    if(!r){ if(out) out.innerHTML = `<div class="dvd-dim dvd-pad">Tietojen haku epäonnistui.</div>`; return; }
+    if(!r) return fail();
     dvdPending = { type: 'tv', detail: r.detail, tvEntry: r.entry };
   } else {
     const m = await window.tmdbGet(`/movie/${tmdbId}?language=fi-FI`);
     if(seq !== dvdAddSeq) return;
-    if(!m){ if(out) out.innerHTML = `<div class="dvd-dim dvd-pad">Tietojen haku epäonnistui.</div>`; return; }
+    if(!m) return fail();
     let coll = null;
     if(m.belongs_to_collection){
       coll = await dvdFetchCollection(m.belongs_to_collection.id);
@@ -767,15 +1017,46 @@ window.dvdPick = async function(type, tmdbId){
     dvdPending = { type: 'movie', detail: m, coll, collId: m.belongs_to_collection ? m.belongs_to_collection.id : null,
                    collName: m.belongs_to_collection ? m.belongs_to_collection.name : null };
   }
-  dvdRenderStep2(body);
+  dvdRenderStep2();
 };
 
-function dvdRenderStep2(body){
+window.dvdPickManual = function(){
+  dvdPending = { type: 'manual', detail: {} };
+  const q = dvdAddQ;
+  const fmt = dvdLastFormat();
+  dvdShowStep(`
+    <button type="button" class="dvd-back" onclick="dvdBackToSearch()">‹ Takaisin hakutuloksiin</button>
+    <div class="dvd-add-title">✍️ Lisää käsin</div>
+    <div class="dvd-item-line dvd-dim">Ilman TMDB-tunnusta levylle ei tule kansikuvaa automaattisesti eikä kokoelmaa. Kannen voi lisätä myöhemmin kuvan osoitteella.</div>
+    <div class="dvd-item-sect">Nimi</div>
+    <div class="dvd-edit-row">
+      <input type="text" class="dvd-input" id="dvdAddName" value="${esc(q)}" placeholder="Nimi">
+      <input type="text" class="dvd-input dvd-input-year" id="dvdAddYear" inputmode="numeric" maxlength="4" placeholder="Vuosi">
+    </div>
+    <div class="dvd-item-sect">Tyyppi</div>
+    <div class="dvd-segs" id="dvdAddKind">
+      <button type="button" class="dvd-seg on" data-kind="movie" onclick="dvdPickSeg(this,'dvdAddKind')">🎬 Elokuva</button>
+      <button type="button" class="dvd-seg" data-kind="tv" onclick="dvdPickSeg(this,'dvdAddKind')">📺 Sarja</button>
+    </div>
+    <div class="dvd-item-sect">Formaatti</div>
+    <div class="dvd-segs" id="dvdAddFmt">${DVD_FORMATS.map(f => `<button type="button" class="dvd-seg${f === fmt ? ' on' : ''}" data-fmt="${f}" onclick="dvdPickSeg(this,'dvdAddFmt')">${f}</button>`).join('')}</div>
+    ${dvdConfirmBtns()}`);
+};
+
+function dvdConfirmBtns(){
+  return `<div class="dvd-confirm-row">
+    <button type="button" class="dvd-confirm" onclick="dvdConfirmAdd(false)">📀 Lisää hyllyyn</button>
+    <button type="button" class="dvd-confirm dvd-confirm-2" onclick="dvdConfirmAdd(true)" title="Lisää ja palaa hakutuloksiin">＋ Lisää ja jatka</button>
+  </div>`;
+}
+
+function dvdRenderStep2(){
   const P = dvdPending;
-  if(!P || !body) return;
+  if(!P) return;
   const d = P.detail;
   const isTv = P.type === 'tv';
   const title = isTv ? (d.name || d.original_name) : (d.title || d.original_title);
+  const orig = isTv ? d.original_name : d.original_title;
   const year = dvdYear(isTv ? d.first_air_date : d.release_date);
   const fmt = dvdLastFormat();
 
@@ -805,57 +1086,74 @@ function dvdRenderStep2(body){
       }).join('')}</div>` : ''}`;
   }
 
-  body.innerHTML = `
-    <button type="button" class="dvd-back" onclick="dvdOpenAdd(dvdAddLastQuery())">‹ Takaisin hakuun</button>
+  dvdShowStep(`
+    <button type="button" class="dvd-back" onclick="dvdBackToSearch()">‹ Takaisin hakutuloksiin</button>
     <div class="dvd-item-top">
       ${dvdPoster(d.poster_path, 'w342', 'dvd-item-img', isTv ? '📺' : '🎬')}
       <div class="dvd-item-info">
         <div class="dvd-item-t">${esc(title || '')}</div>
+        ${orig && orig !== title ? `<div class="dvd-item-line dvd-dim">${esc(orig)}</div>` : ''}
         <div class="dvd-item-line">${isTv ? '📺 Sarja' : '🎬 Elokuva'}${year ? ' · ' + esc(year) : ''}</div>
         ${isTv && d.number_of_seasons ? `<div class="dvd-item-line dvd-dim">${d.number_of_seasons} kautta TMDB:ssä</div>` : ''}
       </div>
     </div>
+    <div class="dvd-item-sect">Nimi hyllyssä</div>
+    <input type="text" class="dvd-input" id="dvdAddName" value="${esc(title || '')}" placeholder="Nimi">
+    <div class="dvd-item-line dvd-dim">Voit korjata nimen esim. suomeksi. Kannen voi vaihtaa myöhemmin levyn tiedoista.</div>
     <div class="dvd-item-sect">Formaatti</div>
-    <div class="dvd-segs" id="dvdAddFmt">${DVD_FORMATS.map(f => `<button type="button" class="dvd-seg${f === fmt ? ' on' : ''}" data-fmt="${f}" onclick="dvdPickFormat(this)">${f}</button>`).join('')}</div>
+    <div class="dvd-segs" id="dvdAddFmt">${DVD_FORMATS.map(f => `<button type="button" class="dvd-seg${f === fmt ? ' on' : ''}" data-fmt="${f}" onclick="dvdPickSeg(this,'dvdAddFmt')">${f}</button>`).join('')}</div>
     ${extra}
-    <button type="button" class="dvd-confirm" onclick="dvdConfirmAdd()">📀 Lisää hyllyyn</button>`;
+    ${dvdConfirmBtns()}`);
 }
 
-window.dvdAddLastQuery = function(){ return dvdLastAddQuery; };
-
-window.dvdPickFormat = function(btn){
-  document.querySelectorAll('#dvdAddFmt .dvd-seg').forEach(b => b.classList.toggle('on', b === btn));
+window.dvdPickSeg = function(btn, groupId){
+  document.querySelectorAll('#' + groupId + ' .dvd-seg').forEach(b => b.classList.toggle('on', b === btn));
 };
 window.dvdCheckAll = function(on){
   document.querySelectorAll('#dvdAddBody input[name="dvdSeason"]:not(:disabled)').forEach(c => { c.checked = on; });
 };
 
-window.dvdConfirmAdd = async function(){
+window.dvdConfirmAdd = async function(keepGoing){
   const P = dvdPending;
   if(!P) return;
   const d = P.detail;
   const fmtBtn = document.querySelector('#dvdAddFmt .dvd-seg.on');
   const format = fmtBtn ? fmtBtn.dataset.fmt : dvdLastFormat();
   dvdRememberFormat(format);
+  const nameInp = document.getElementById('dvdAddName');
+  const typedName = String((nameInp && nameInp.value) || '').trim();
   const list = ensureDvds();
   const today = dvdToday();
   let msg;
 
-  if(P.type === 'tv'){
+  if(P.type === 'manual'){
+    if(!typedName){ if(nameInp) nameInp.focus(); return; }
+    const kindBtn = document.querySelector('#dvdAddKind .dvd-seg.on');
+    const kind = kindBtn ? kindBtn.dataset.kind : 'movie';
+    const y = String((document.getElementById('dvdAddYear') || {}).value || '').replace(/\D/g, '');
+    list.push({
+      id: dvdNewId(), tmdb_id: null, tmdb_type: kind,
+      name: typedName, orig: '', year: y.length === 4 ? y : null, poster: null,
+      format, added: today, note: '',
+      ...(kind === 'tv' ? { seasons: [], season_count: 0 } : { coll_id: null, coll_name: null, cc: 1 })
+    });
+    msg = `📀 ${typedName} lisätty`;
+  } else if(P.type === 'tv'){
     const seasons = [...document.querySelectorAll('#dvdAddBody input[name="dvdSeason"]:checked')].map(c => Number(c.value));
     const aired = ((P.tvEntry && P.tvEntry.seasons) || []).filter(s => dvdReleased(s.d)).length;
+    const name = typedName || d.name || d.original_name || '';
     list.push({
       id: dvdNewId(), tmdb_id: d.id, tmdb_type: 'tv',
-      name: d.name || d.original_name || '', orig: d.original_name || '',
+      name, orig: d.original_name || '',
       year: dvdYear(d.first_air_date) || null, poster: d.poster_path || null,
       format, added: today, note: '',
       seasons, season_count: aired
     });
-    msg = `📀 ${d.name} lisätty (${seasons.length} kautta)`;
+    msg = `📀 ${name} lisätty (${seasons.length} kautta)`;
   } else {
     const add = [];
     if(!dvdFind('movie', d.id)){
-      add.push({ id: d.id, t: d.title || d.original_title || '', o: d.original_title || '', d: d.release_date || '', p: d.poster_path || '' });
+      add.push({ id: d.id, t: typedName || d.title || d.original_title || '', o: d.original_title || '', d: d.release_date || '', p: d.poster_path || '' });
     }
     if(P.coll){
       const picked = new Set([...document.querySelectorAll('#dvdAddBody input[name="dvdPart"]:checked:not(:disabled)')].map(c => String(c.value)));
@@ -879,8 +1177,12 @@ window.dvdConfirmAdd = async function(){
   }
 
   dvdPending = null;
-  closeModal('dvdAddModal');
-  if(document.getElementById('dvdItemModal').classList.contains('open')) closeModal('dvdItemModal');
+  if(keepGoing && document.getElementById('dvdAddSearchPane')){
+    window.dvdBackToSearch();
+  } else {
+    closeModal('dvdAddModal');
+    if(document.getElementById('dvdItemModal').classList.contains('open')) closeModal('dvdItemModal');
+  }
   dvdQuery = '';
   await dvdSaveAndRender();
   if(window.showStatus) window.showStatus(msg, '#22c55e', 3500);

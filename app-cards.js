@@ -629,6 +629,20 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-10-06.0', items:[
+    { icon:'🔎', title:'Hyllyn haku ei enää sulkeudu',
+      text:'Hakutulosten selaaminen ylöspäin sulki ikkunan, koska se tulkittiin alaspäin vedoksi. Nyt tulokset säilyvät myös kun käyt katsomassa teosta ja palaat takaisin, ja lista jatkuu samasta kohdasta. Mukana myös rajaus elokuviin tai sarjoihin, alkuperäinen nimi, lyhyt kuvaus ja lisää tuloksia -nappi.',
+      view:'dvd' },
+    { icon:'✏️', title:'Levyn nimen ja vuoden muokkaus',
+      text:'Nimen voi korjata jo lisätessä tai myöhemmin levyn tiedoista. Hyödyllinen kun TMDB:ssä on vain englanninkielinen nimi.',
+      view:'dvd' },
+    { icon:'🖼️', title:'Kansikuvan vaihto',
+      text:'Napauta kantta levyn tiedoissa. Valitse TMDB:n kansista (suomenkieliset ensin) tai liitä oman kuvan osoite.',
+      view:'dvd' },
+    { icon:'➕', title:'Lisää ja jatka',
+      text:'Useamman levyn voi lisätä peräkkäin: Lisää ja jatka palaa suoraan samoihin hakutuloksiin. Jos teosta ei löydy TMDB:stä, sen voi lisätä käsin.',
+      view:'dvd' }
+  ]},
   { build:'2026-10-05.0', items:[
     { icon:'📀', title:'DVD-hylly',
       text:'Uusi välilehti omistamillesi levyille. Hae elokuva tai sarja TMDB:stä, niin kansikuva tulee mukaan. Valitse formaatiksi DVD, Blu-ray tai 4K.',
