@@ -629,6 +629,12 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
+  { build:'2026-10-22.0', items:[
+    { icon:'🗂️', title:'Katselulista, listat ja DVD-hylly omiin kokoelmiinsa',
+      text:'Ne asuivat ennen samassa pilvidokumentissa kuin asetukset, jonka koko on rajattu yhteen megatavuun. Nyt jokainen teos, lista ja levy on oma dokumenttinsa, joten raja ei tule vastaan. Siirto tehdään automaattisesti kerran, ja vanhoista tiedoista jää pilveen kopio.' },
+    { icon:'🔄', title:'Muutokset siirtyvät laitteelta toiselle',
+      text:'Katselulistaan, omiin listoihin tai DVD-hyllyyn toisella laitteella tehdyt muutokset näkyvät nyt heti, eikä tämän laitteen tallennus enää kirjoita niiden päälle. Myös vedä ja päivitä toimii taas.' }
+  ]},
   { build:'2026-10-06.0', items:[
     { icon:'🔎', title:'Hyllyn haku ei enää sulkeudu',
       text:'Hakutulosten selaaminen ylöspäin sulki ikkunan, koska se tulkittiin alaspäin vedoksi. Nyt tulokset säilyvät myös kun käyt katsomassa teosta ja palaat takaisin, ja lista jatkuu samasta kohdasta. Mukana myös rajaus elokuviin tai sarjoihin, alkuperäinen nimi, lyhyt kuvaus ja lisää tuloksia -nappi.',

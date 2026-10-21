@@ -1289,7 +1289,10 @@ window.renderPerfInfo = async function(){
         <div class="stat-box-value" id="perfStorage">lasketaan…</div>
         <div class="stat-box-sub">Firestore-välimuisti: ${esc(window._fbCacheMode || 'tuntematon')}
           · varmuuskopio ${fmtBytes(bkpSize)}
-          · asetukset ${size ? fmtBytes(size.metaSize) : '–'}</div></div>
+          · asetukset ${size ? fmtBytes(size.metaSize) : '–'}
+          ${size && size.subs ? `· katselulista ${size.subs.watchlist.count}, listat ${size.subs.lists.count}, levyt ${size.subs.dvds.count}
+            (${fmtBytes(size.subs.watchlist.bytes + size.subs.lists.bytes + size.subs.dvds.bytes)},
+            ${size.split ? 'omissa kokoelmissaan' : 'asetusten sisällä'})` : ''}</div></div>
       <div class="stat-box stat-wide"><div class="stat-box-label">Selaimen välimuisti</div>
         <div class="stat-box-value" id="perfCaches" style="font-size:16px;line-height:1.5;">lasketaan…</div>
         <div class="stat-box-sub">Service worker säilyttää sovelluksen ja julisteet offline-käyttöä varten</div></div>

@@ -5,20 +5,32 @@ window.BUILD_FIREBASE = '2026-10-06.0';
 // Moduuli (type="module"): ajetaan aina tavallisten skriptien JÄLKEEN.
 // Ulospäin näkyvät funktiot asetetaan window-objektiin.
 //
-// TIETORAKENNE (schema 2):
-//   arvostelut/meta                  → kategoriat, genret, budjetti, asetukset
+// TIETORAKENNE (schema 2, split):
+//   arvostelut/meta                  → kategoriat, genret, alalajit, budjetti, asetukset
 //   arvostelut/meta/reviews/{id}     → yksi arvostelu = yksi dokumentti
+//   arvostelut/meta/watchlist/{id}   → yksi katselulistan teos = yksi dokumentti
+//   arvostelut/meta/lists/{id}       → yksi oma lista = yksi dokumentti
+//   arvostelut/meta/dvds/{id}        → yksi levy = yksi dokumentti
+//   arvostelut/meta_v2_backup        → kopio metan taulukoista ennen pilkkomista
 //   arvostelut/data                  → VANHA rakenne, jätetään koskematta varmuuden vuoksi
 //
+// Katselulista, omat listat ja DVD-hylly asuivat ennen meta-dokumentin
+// taulukoissa. Firestoren raja on 1 Mt per dokumentti, ja jokainen
+// asetusmuutos kirjoitti ne kaikki uudelleen. Nyt ne ovat omissa
+// alikokoelmissaan samaan tapaan kuin arvostelut. Siirto tehdään kerran
+// käynnistyksessä (migrateSplit), ja metaan jää merkintä split:true.
+//
 // window.fbSave() toimii ulospäin täsmälleen kuten ennenkin, mutta kirjoittaa
-// vain ne arvostelut jotka ovat oikeasti muuttuneet.
+// vain ne arvostelut ja tietueet jotka ovat oikeasti muuttuneet. appData
+// näyttää muulle koodille samalta kuin ennen: appData.watchlist, .lists ja
+// .dvds ovat edelleen tavallisia taulukoita.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import {
   getFirestore, doc, getDoc, getDocFromServer, setDoc, collection,
   getDocsFromServer, query, limit,
   onSnapshot, writeBatch, updateDoc, waitForPendingWrites,
-  enableNetwork, disableNetwork
+  enableNetwork, disableNetwork, deleteField
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 const FIRESTORE_URL = "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
@@ -50,8 +62,34 @@ const QUEUE_TIMEOUT = 12000;
 
 // Nämä syntyvät vasta initDb():ssä, koska tietokannan asetukset on
 // annettava ennen ensimmäistä käyttöä.
-let db = null, OLD_DOC = null, META_DOC = null, REVIEWS = null;
+let db = null, OLD_DOC = null, META_DOC = null, REVIEWS = null, SPLIT_BKP_DOC = null;
 window._fbCacheMode = 'tuntematon';
+
+// ── ALIKOKOELMAT (katselulista, omat listat, DVD-hylly) ──
+// Jokaisella on sama kirjanpito kuin arvosteluilla: mitä on viimeksi
+// kuitattu pilvessä, mitä odottaa kuittausta ja mitä aiemmista istunnoista
+// on jäänyt jonoon. Avain on appData-kentän nimi ja samalla alikokoelman nimi.
+const SUB_KEYS = ['watchlist', 'lists', 'dvds'];
+const SUB_LABEL = { watchlist:'katselulista', lists:'omat listat', dvds:'DVD-hylly' };
+const SUBS = {};
+SUB_KEYS.forEach(k => {
+  SUBS[k] = {
+    key: k,
+    ref: null,               // collection-viite, syntyy initDb():ssä
+    lastSaved: new Map(),    // id -> JSON (palvelimen kuittaama)
+    pending: new Map(),      // id -> JSON tai DEL_MARK (tämän istunnon kirjoitukset)
+    queued: new Set(),       // latauksessa löytyneet kuittaamattomat (aiemmat istunnot)
+    listening: false,
+    loaded: false            // ensimmäinen tilannekuva saatu → saa kirjoittaa
+  };
+});
+
+// Onko tieto jo pilkottu alikokoelmiin. Ennen sitä taulukot kirjoitetaan
+// metaan kuten ennenkin, jotta mikään ei katoa jos siirto ei onnistu.
+let splitMode = false;
+// Vanha sovellusversio toisella laitteella voi vielä kirjoittaa taulukot
+// metaan. Ne siivotaan seuraavassa meta-kirjoituksessa.
+let legacyLeftover = false;
 
 // Yrittää ottaa käyttöön pysyvän paikallisen välimuistin (IndexedDB).
 // Sen ansiosta sovelluksen avaus lukee arvostelut levyltä ja pyytää
@@ -81,6 +119,8 @@ async function initDb(){
   OLD_DOC  = doc(db, "arvostelut", "data");
   META_DOC = doc(db, "arvostelut", "meta");
   REVIEWS  = collection(db, "arvostelut", "meta", "reviews");
+  SPLIT_BKP_DOC = doc(db, "arvostelut", "meta_v2_backup");
+  SUB_KEYS.forEach(k => { SUBS[k].ref = collection(db, "arvostelut", "meta", k); });
   return db;
 }
 
@@ -184,9 +224,13 @@ function metaWouldWipe(meta){
   if((good.categories||[]).length !== (meta.categories||[]).length) bits.push('kategoriat');
   if((good.genres||[]).length !== (meta.genres||[]).length) bits.push('genret');
   if(((good.budget||{}).periods||[]).length) bits.push('budjetti');
-  if((good.watchlist||[]).length) bits.push('katselulista');
-  if((good.lists||[]).length) bits.push('omat listat');
-  if((good.dvds||[]).length) bits.push('DVD-hylly');
+  // Pilkotussa rakenteessa nämä eivät kulje metan mukana, joten meta-
+  // kirjoitus ei voi pyyhkiä niitä.
+  if(!splitMode){
+    if((good.watchlist||[]).length) bits.push('katselulista');
+    if((good.lists||[]).length) bits.push('omat listat');
+    if((good.dvds||[]).length) bits.push('DVD-hylly');
+  }
   return bits.length ? bits.join(', ') : null;
 }
 
@@ -274,11 +318,23 @@ function ensureSyncBar(){
   return el;
 }
 
+// Odottavien tietueiden määrä alikokoelmittain (katselulista, listat, DVD:t)
+function subPendingCount(){
+  let n = 0;
+  SUB_KEYS.forEach(k => {
+    const s = SUBS[k];
+    const ids = new Set(s.pending.keys());
+    s.queued.forEach(id => ids.add(id));
+    n += ids.size;
+  });
+  return n;
+}
+
 function updateSyncBanner(){
   const ids = new Set(pendingWrites.keys());
   cacheQueuedIds.forEach(id => ids.add(id));
   const n = ids.size;
-  const unsynced = n > 0 || pendingMeta !== null || queueStuck;
+  const unsynced = n > 0 || pendingMeta !== null || queueStuck || subPendingCount() > 0;
   const bar = ensureSyncBar();
 
   if(unsynced){
@@ -304,7 +360,7 @@ function updateSyncBanner(){
 window.fbSyncState = function(){
   const ids = new Set(pendingWrites.keys());
   cacheQueuedIds.forEach(id => ids.add(id));
-  return { pending: ids.size, meta: pendingMeta !== null, queueStuck };
+  return { pending: ids.size + subPendingCount(), meta: pendingMeta !== null, queueStuck };
 };
 
 // Yksityiskohtainen lista tallennusjonosta asetuksia varten.
@@ -342,6 +398,28 @@ window.fbPendingList = function(){
     });
   });
 
+  // Katselulista, omat listat ja DVD-hylly
+  SUB_KEYS.forEach(k => {
+    const s = SUBS[k];
+    const arr = Array.isArray(appData[k]) ? appData[k] : [];
+    const itemName = (id) => {
+      const x = arr.find(o => o && String(o.id) === String(id));
+      return x ? String(x.name || x.title || '(nimetön)') : '(tuntematon)';
+    };
+    s.pending.forEach((val, id) => {
+      rows.push({
+        id,
+        name: SUB_LABEL[k] + ': ' + (val === DEL_MARK ? '(poistettu)' : itemName(id)),
+        kind: val === DEL_MARK ? 'poisto' : 'tallennus',
+        source: 'tämä istunto'
+      });
+    });
+    s.queued.forEach(id => {
+      if(s.pending.has(id)) return;
+      rows.push({ id: String(id), name: SUB_LABEL[k] + ': ' + itemName(id), kind: 'tallennus', source: 'aiempi istunto' });
+    });
+  });
+
   return {
     rows,
     meta: pendingMeta !== null,
@@ -366,6 +444,12 @@ window.fbRetryPending = async function(){
 
   pendingWrites.clear();
   cacheQueuedIds.clear();
+  SUB_KEYS.forEach(k => {
+    // Jonossa olleet merkitään tallentamattomiksi, jotta fbSave lähettää ne
+    SUBS[k].queued.forEach(id => SUBS[k].lastSaved.delete(id));
+    SUBS[k].pending.clear();
+    SUBS[k].queued.clear();
+  });
   pendingMeta = null;
   queueStuck = false;
   updateSyncBanner();
@@ -492,7 +576,7 @@ function metaObject(){
     ? appData.categories : [...DEFAULT_CATS];
   const gens = (Array.isArray(appData.genres) && appData.genres.length)
     ? appData.genres : [...DEFAULT_GENRES];
-  return {
+  const m = {
     categories: cats,
     genres:     gens,
     // Alalajit puuttuivat metasta kokonaan, joten itse luodut alalajit
@@ -500,32 +584,232 @@ function metaObject(){
     subcats:    appData.subcats || {},
     budget:     appData.budget || { monthlyPrice: 26.90, periods: [] },
     settings:   appData.settings || {},
-    // Katselulista elää samassa dokumentissa kuin asetukset. Tietueet on
-    // pidetty kevyinä (ei juonta, ei näyttelijöitä) juuri siksi, ettei
-    // meta-dokumentti kasva hallitsemattomasti.
-    watchlist:  Array.isArray(appData.watchlist) ? appData.watchlist : [],
-    // Omat listat sisältävät vain viittauksia arvostelujen tunnuksiin,
-    // joten ne vievät vähän tilaa myös sadan teoksen listalla.
-    lists:      Array.isArray(appData.lists) ? appData.lists : [],
-    // DVD-hylly: omistetut levyt. Kokoelmien osaluettelot EIVÄT ole täällä
-    // vaan laitteen välimuistissa, ks. app-dvd.js.
-    dvds:       Array.isArray(appData.dvds) ? appData.dvds : [],
     schema:     SCHEMA
   };
+  if(splitMode){
+    // Katselulista, omat listat ja DVD-hylly asuvat omissa alikokoelmissaan.
+    // Merkintä kirjoitetaan joka kerta, jottei se voi kadota.
+    m.split = true;
+  } else {
+    // Vanha rakenne: taulukot metan sisällä. Käytössä vain siihen asti
+    // että siirto alikokoelmiin on tehty.
+    m.watchlist = Array.isArray(appData.watchlist) ? appData.watchlist : [];
+    m.lists     = Array.isArray(appData.lists) ? appData.lists : [];
+    m.dvds      = Array.isArray(appData.dvds) ? appData.dvds : [];
+  }
+  return m;
+}
+
+// ── ALIKOKOELMIEN APUFUNKTIOT ──
+
+function subArr(k){
+  return Array.isArray(appData[k]) ? appData[k] : [];
+}
+
+// Tunnus on dokumentin nimi, joten sen on oltava olemassa, yksilöllinen
+// ja kelvollinen. Kaikki tietueet saavat tunnuksen Date.now()-pohjaisesti,
+// mutta varmuuskopioiden yhdistely tai vanha data voi tuottaa puuttuvan tai
+// kahdesti esiintyvän tunnuksen. Kaksi samaa tunnusta veisi saman
+// dokumentin, ja toinen tietue katoaisi hiljaa seuraavassa latauksessa.
+// Korjaus tehdään paikallaan: tietue saa uuden tunnuksen, sisältö säilyy.
+function fixSubIds(arr){
+  const used = new Set();
+  let fixed = 0;
+  arr.forEach(x => {
+    if(!x || typeof x !== 'object') return;
+    const s = x.id == null ? '' : String(x.id);
+    if(!s || s.includes('/') || s === '.' || s === '..' || s.startsWith('__') || used.has(s)){
+      let id;
+      do { id = Date.now() + Math.floor(Math.random() * 1000000); } while(used.has(String(id)));
+      x.id = id;
+      fixed++;
+    }
+    used.add(String(x.id));
+  });
+  return fixed;
+}
+
+// Sama järjestys kaikilla laitteilla: tunnukset ovat aikaleimoja, joten
+// tunnuksen mukaan lajittelu palauttaa lisäysjärjestyksen.
+function subOrder(a, b){
+  const na = Number(a && a.id), nb = Number(b && b.id);
+  const fa = isFinite(na), fb = isFinite(nb);
+  if(fa && fb) return na - nb;
+  if(fa) return -1;
+  if(fb) return 1;
+  return String(a && a.id).localeCompare(String(b && b.id));
+}
+
+// Kirjoitettavat muutokset yhdestä alikokoelmasta
+function subOps(k, ops){
+  const s = SUBS[k];
+  // Ennen ensimmäistä tilannekuvaa ei tiedetä mitä pilvessä on —
+  // silloin mikään muutos ei ole luotettava.
+  if(!splitMode || !s.loaded || !s.ref) return;
+  const arr = subArr(k);
+  fixSubIds(arr);
+  const seen = new Set();
+  arr.forEach(x => {
+    if(!x || typeof x !== 'object' || x.id == null) return;
+    const id = String(x.id);
+    seen.add(id);
+    const js = JSON.stringify(x);
+    if(s.lastSaved.get(id) === js) return;
+    if(s.pending.get(id) === js) return;
+    ops.push({ coll:k, kind:'set', id, data:x, js });
+  });
+  s.lastSaved.forEach((_, id) => {
+    if(seen.has(id)) return;
+    if(s.pending.get(id) === DEL_MARK) return;
+    ops.push({ coll:k, kind:'del', id });
+  });
+}
+
+// Palauttaa alikokoelman kirjanpidon. Arvostelujen kirjanpito on
+// historiallisista syistä omissa muuttujissaan, joten se haetaan tässä.
+function bookOf(coll){
+  if(coll === 'reviews') return { lastSaved: lastSavedReviews, pending: pendingWrites, queued: cacheQueuedIds };
+  return SUBS[coll];
+}
+
+// Onko meta-dokumentissa vanhan rakenteen taulukoita
+function legacyArraysIn(m){
+  if(!m) return false;
+  return SUB_KEYS.some(k => Array.isArray(m[k]));
+}
+function legacyHasItems(m){
+  if(!m) return false;
+  return SUB_KEYS.some(k => Array.isArray(m[k]) && m[k].length > 0);
+}
+
+// Pilkottuun tilaan siirtyminen kesken istunnon (esim. toinen laite teki
+// siirron). Alikokoelmien kuuntelijat tuovat tiedot.
+function enterSplitMode(){
+  if(splitMode) return;
+  splitMode = true;
+  startSubListeners();
+}
+
+// Vanha sovellusversio kirjoitti taulukot metaan pilkkomisen jälkeen.
+// Ne kopioidaan talteen ennen siivousta, jottei mitään katoa jäljettömiin.
+async function stashLeftover(m){
+  legacyLeftover = true;
+  if(!legacyHasItems(m)) return;
+  try{
+    await setDoc(SPLIT_BKP_DOC, clean({
+      leftover: {
+        at: new Date().toISOString(),
+        watchlist: Array.isArray(m.watchlist) ? m.watchlist : [],
+        lists:     Array.isArray(m.lists) ? m.lists : [],
+        dvds:      Array.isArray(m.dvds) ? m.dvds : []
+      }
+    }), { merge: true });
+  } catch(e){ if(window.logError) window.logError('tallennus', e, 'stashLeftover'); }
+  showStatus('⚠️ Vanha sovellusversio toisella laitteella — päivitä se', '#f59e0b', 8000);
+}
+
+// ── SIIRTO ALIKOKOELMIIN (kerran) ──
+// Ajetaan vain kun meta on luettu PALVELIMELTA eikä siinä ole split-merkintää.
+//   1. Taulukot kopioidaan erilliseen dokumenttiin arvostelut/meta_v2_backup
+//      ja odotetaan palvelimen kuittaus. Ilman kuittausta mitään ei muuteta.
+//   2. Tietueet kirjoitetaan alikokoelmiin. Viimeisessä erässä metaan tulee
+//      split:true ja vanhat taulukot poistetaan — samassa erässä, joten
+//      pilvessä ei ole koskaan tilaa jossa taulukot olisivat kummassakin
+//      tai ei kummassakaan.
+// Firestore lähettää saman laitteen kirjoitukset järjestyksessä, joten
+// varmuuskopio on aina pilvessä ennen kuin taulukot poistetaan.
+async function migrateSplit(meta){
+  const src = {};
+  SUB_KEYS.forEach(k => {
+    src[k] = (Array.isArray(meta[k]) ? meta[k] : []).filter(x => x && typeof x === 'object').map(x => clean(x));
+    fixSubIds(src[k]);
+  });
+
+  const bkp = await withTimeout(setDoc(SPLIT_BKP_DOC, clean({
+    at: new Date().toISOString(),
+    watchlist: src.watchlist, lists: src.lists, dvds: src.dvds
+  })), COMMIT_TIMEOUT);
+  if(!bkp || !bkp.ok){
+    if(window.logError) window.logError('tallennus', (bkp && bkp.error) || 'aikakatkaisu', 'migrateSplit/backup');
+    return false;
+  }
+
+  const ops = [];
+  SUB_KEYS.forEach(k => src[k].forEach(x => ops.push({ coll:k, kind:'set', id:String(x.id), data:x, js:JSON.stringify(x) })));
+
+  // Keskeytynyt aiempi yritys on voinut jättää alikokoelmiin dokumentteja,
+  // jotka on sen jälkeen poistettu taulukosta. Ne poistetaan, jottei
+  // poistettu teos palaa. Jos tätä ei saada luettua, siirtoa ei tehdä.
+  for(const k of SUB_KEYS){
+    const r = await withTimeout(getDocsFromServer(SUBS[k].ref), COMMIT_TIMEOUT);
+    if(!r || !r.ok) return false;
+    const want = new Set(src[k].map(x => String(x.id)));
+    r.value.docs.forEach(d => { if(!want.has(d.id)) ops.push({ coll:k, kind:'del', id:d.id }); });
+  }
+
+  const metaPatch = { split: true };
+  SUB_KEYS.forEach(k => { metaPatch[k] = deleteField(); });
+
+  // Erät: meta-päivitys mahtuu viimeiseen erään (BATCH_MAX < 500)
+  const chunks = [];
+  for(let i = 0; i < ops.length; i += BATCH_MAX) chunks.push(ops.slice(i, i + BATCH_MAX));
+  if(!chunks.length) chunks.push([]);
+
+  const commits = [];
+  chunks.forEach((chunk, ci) => {
+    const batch = writeBatch(db);
+    chunk.forEach(op => {
+      const ref = doc(SUBS[op.coll].ref, op.id);
+      if(op.kind === 'set') batch.set(ref, op.data);
+      else batch.delete(ref);
+      SUBS[op.coll].pending.set(op.id, op.kind === 'set' ? op.js : DEL_MARK);
+    });
+    if(ci === chunks.length - 1) batch.update(META_DOC, metaPatch);
+    const p = batch.commit();
+    p.then(() => confirmChunk(chunk), (e) => {
+      releaseChunk(chunk);
+      if(window.logError) window.logError('tallennus', e, 'migrateSplit');
+    });
+    commits.push(p);
+  });
+
+  // Kirjoitukset ovat nyt Firestoren jonossa. Paikallisesti siirrytään heti
+  // uuteen rakenteeseen: kuuntelijat näkevät jonossa olevat dokumentit
+  // välimuistista, ja jos yhteys katkeaa, jono lähtee myöhemmin.
+  SUB_KEYS.forEach(k => { appData[k] = src[k]; });
+  splitMode = true;
+  updateSyncBanner();
+
+  const res = await withTimeout(Promise.all(commits), COMMIT_TIMEOUT);
+  if(res && res.error){
+    // Palvelin hylkäsi kirjoituksen (esim. säännöt). Palataan vanhaan
+    // rakenteeseen: meta ja taulukot ovat pilvessä ennallaan, koska
+    // viimeinen erä meta-päivityksineen ei mennyt läpi.
+    splitMode = false;
+    SUB_KEYS.forEach(k => { SUBS[k].pending.clear(); });
+    updateSyncBanner();
+    showStatus('⚠️ Tietojen siirto ei onnistunut — jatketaan vanhalla tavalla', '#f59e0b', 6000);
+    return false;
+  }
+  console.info('Katselulista, omat listat ja DVD-hylly siirretty omiin kokoelmiinsa (' + ops.length + ' tietuetta).');
+  return true;
 }
 
 // Kokoaa appData-objektin metasta ja arvostelutaulukosta
 function assembleAppData(meta, reviews){
   const m = meta || {};
+  // Pilkotussa rakenteessa metan taulukot ovat korkeintaan vanhan version
+  // jäänteitä. Oikeat tiedot tuo alikokoelmien kuuntelija.
+  const legacy = (k) => (!m.split && Array.isArray(m[k])) ? m[k] : [];
   return {
     categories: (Array.isArray(m.categories) && m.categories.length) ? m.categories : [...DEFAULT_CATS],
     genres:     (Array.isArray(m.genres) && m.genres.length) ? m.genres : [...DEFAULT_GENRES],
     subcats:    (m.subcats && typeof m.subcats === 'object') ? m.subcats : null,
     budget:     m.budget || { monthlyPrice: 26.90, periods: [] },
     settings:   m.settings || {},
-    watchlist:  Array.isArray(m.watchlist) ? m.watchlist : [],
-    lists:      Array.isArray(m.lists) ? m.lists : [],
-    dvds:       Array.isArray(m.dvds) ? m.dvds : [],
+    watchlist:  legacy('watchlist'),
+    lists:      legacy('lists'),
+    dvds:       legacy('dvds'),
     reviews:    reviews
   };
 }
@@ -534,6 +818,16 @@ function rememberSaved(){
   lastSavedReviews = new Map();
   (appData.reviews||[]).forEach(r => lastSavedReviews.set(String(r.id), JSON.stringify(r)));
   lastSavedMeta = JSON.stringify(metaObject());
+  // Alikokoelmat vain kun niiden tila on oikeasti luettu. Muuten muistissa
+  // voi olla esim. paikallisen varmuuskopion taulukko, jota ei saa pitää
+  // pilven totuutena.
+  SUB_KEYS.forEach(k => {
+    const s = SUBS[k];
+    if(!splitMode || !s.loaded) return;
+    s.lastSaved = new Map();
+    subArr(k).forEach(x => { if(x && x.id != null) s.lastSaved.set(String(x.id), JSON.stringify(x)); });
+    s.queued.forEach(id => s.lastSaved.delete(id));
+  });
 }
 
 // ── TALLENNUS ──
@@ -541,16 +835,18 @@ function rememberSaved(){
 // on sama kuin ennen: await window.fbSave().
 
 // Palvelin kuittasi erän → se on oikeasti pilvessä
+// op.coll kertoo kokoelman: puuttuva = arvostelut, muuten watchlist/lists/dvds.
 function confirmChunk(chunk){
   chunk.forEach(op => {
+    const b = bookOf(op.coll || 'reviews');
     if(op.kind === 'set'){
-      lastSavedReviews.set(op.id, op.js);
-      if(pendingWrites.get(op.id) === op.js) pendingWrites.delete(op.id);
+      b.lastSaved.set(op.id, op.js);
+      if(b.pending.get(op.id) === op.js) b.pending.delete(op.id);
     } else {
-      lastSavedReviews.delete(op.id);
-      if(pendingWrites.get(op.id) === DEL_MARK) pendingWrites.delete(op.id);
+      b.lastSaved.delete(op.id);
+      if(b.pending.get(op.id) === DEL_MARK) b.pending.delete(op.id);
     }
-    cacheQueuedIds.delete(op.id);
+    b.queued.delete(op.id);
   });
   updateSyncBanner();
 }
@@ -559,8 +855,9 @@ function confirmChunk(chunk){
 // yritetään uudelleen seuraavalla tallennuksella
 function releaseChunk(chunk){
   chunk.forEach(op => {
+    const b = bookOf(op.coll || 'reviews');
     const mark = op.kind === 'set' ? op.js : DEL_MARK;
-    if(pendingWrites.get(op.id) === mark) pendingWrites.delete(op.id);
+    if(b.pending.get(op.id) === mark) b.pending.delete(op.id);
   });
   updateSyncBanner();
 }
@@ -575,10 +872,20 @@ window.fbRefresh = async function(){
   if(!db) await initDb();
   if(!REVIEWS || !META_DOC) throw new Error('Ei yhteyttä tietokantaan');
 
-  const [snap, mSnap] = await Promise.all([
+  // withTimeout palauttaa { ok, value } | { error } | { timedOut }.
+  // Aiemmin tulosta käytettiin suoraan tilannekuvana, jolloin aikakatkaisu
+  // kaatui epäselvään virheeseen. Nyt kerrotaan mikä meni pieleen.
+  const unwrap = (r, what) => {
+    if(r && r.ok) return r.value;
+    if(r && r.timedOut) throw new Error('Palvelin ei vastannut (' + what + ')');
+    throw (r && r.error) || new Error('Lukuvirhe (' + what + ')');
+  };
+  const [rSnap, mRes] = await Promise.all([
     withTimeout(getDocsFromServer(REVIEWS), COMMIT_TIMEOUT),
     withTimeout(getDocFromServer(META_DOC), COMMIT_TIMEOUT)
   ]);
+  const snap  = unwrap(rSnap, 'arvostelut');
+  const mSnap = unwrap(mRes, 'asetukset');
 
   const fresh = snap.docs.map(d => d.data()).filter(Boolean);
   const before = JSON.stringify(appData.reviews || []);
@@ -591,8 +898,26 @@ window.fbRefresh = async function(){
     if(m.subcats && typeof m.subcats === 'object') appData.subcats = m.subcats;
     appData.budget     = m.budget || appData.budget;
     appData.settings   = m.settings || appData.settings;
+    if(m.split) splitMode = true;
+    if(!splitMode){
+      // Vanha rakenne: taulukot tulevat metasta
+      SUB_KEYS.forEach(k => { if(Array.isArray(m[k])) appData[k] = m[k]; });
+    }
     metaTrusted = true;
     rememberGoodMeta(m);
+  }
+
+  // Pilkotussa rakenteessa katselulista, listat ja DVD:t luetaan omista
+  // kokoelmistaan, nekin suoraan palvelimelta.
+  if(splitMode){
+    const subSnaps = await Promise.all(SUB_KEYS.map(k => withTimeout(getDocsFromServer(SUBS[k].ref), COMMIT_TIMEOUT)));
+    SUB_KEYS.forEach((k, i) => {
+      const ss = unwrap(subSnaps[i], SUB_LABEL[k]);
+      appData[k] = ss.docs.map(d => d.data()).filter(Boolean).sort(subOrder);
+      SUBS[k].queued = new Set();
+      SUBS[k].loaded = true;
+    });
+    startSubListeners();
   }
 
   try{ if(typeof ensureSettings === 'function') ensureSettings(); } catch(e){}
@@ -665,9 +990,12 @@ window.fbSave = async function(){
       ops.push({ kind:'del', id });
     });
 
+    // Katselulista, omat listat ja DVD-hylly (vain pilkotussa rakenteessa)
+    SUB_KEYS.forEach(k => subOps(k, ops));
+
     const meta = metaObject();
     const metaJs = JSON.stringify(meta);
-    const metaChanged = metaTrusted && metaJs !== lastSavedMeta && metaJs !== pendingMeta;
+    const metaChanged = metaTrusted && (legacyLeftover || (metaJs !== lastSavedMeta && metaJs !== pendingMeta));
 
     if(!ops.length && !metaChanged){
       isSaving = false;
@@ -685,10 +1013,10 @@ window.fbSave = async function(){
       const chunk = ops.slice(i, i + BATCH_MAX);
       const batch = writeBatch(db);
       chunk.forEach(op => {
-        const ref = doc(REVIEWS, op.id);
+        const ref = doc(op.coll ? SUBS[op.coll].ref : REVIEWS, op.id);
         if(op.kind === 'set') batch.set(ref, clean(op.data));
         else batch.delete(ref);
-        pendingWrites.set(op.id, op.kind === 'set' ? op.js : DEL_MARK);
+        bookOf(op.coll || 'reviews').pending.set(op.id, op.kind === 'set' ? op.js : DEL_MARK);
       });
 
       const p = batch.commit();
@@ -711,9 +1039,16 @@ window.fbSave = async function(){
         // koska ne ovat omia dokumenttejaan eikä niitä uhkaa mikään.
       } else {
         pendingMeta = metaJs;
-        const p = setDoc(META_DOC, clean(meta), { merge: true });
+        const payload = clean(meta);
+        // Vanhan version jättämät taulukot pois metasta. merge:true säilyttäisi
+        // ne muuten ikuisesti, ja meta kasvaisi juuri siitä syystä jota
+        // pilkkomisella yritettiin välttää.
+        const wasLeftover = legacyLeftover;
+        if(splitMode && legacyLeftover) SUB_KEYS.forEach(k => { payload[k] = deleteField(); });
+        const p = setDoc(META_DOC, payload, { merge: true });
         p.then(
           () => {
+            if(wasLeftover) legacyLeftover = false;
             lastSavedMeta = metaJs;
             rememberGoodMeta(meta);
             if(pendingMeta === metaJs) pendingMeta = null;
@@ -790,7 +1125,13 @@ window.fbSizeInfo = function(){
     if(n > largest){ largest = n; largestName = String(r.name||'').split('\n')[0]; }
   });
   const metaSize = new Blob([JSON.stringify(metaObject())]).size;
-  return { largest, largestName, metaSize, count: (appData.reviews||[]).length };
+  // Alikokoelmien yhteiskoko: ennen pilkkomista tämä kaikki oli metassa
+  const subs = {};
+  SUB_KEYS.forEach(k => {
+    const arr = subArr(k);
+    subs[k] = { count: arr.length, bytes: new Blob([JSON.stringify(arr)]).size };
+  });
+  return { largest, largestName, metaSize, count: (appData.reviews||[]).length, split: splitMode, subs };
 };
 
 // ── VANHA PILVIKOPIO (arvostelut/data) ──
@@ -898,6 +1239,9 @@ window.fbRestoreMeta = async function(src){
   rememberGoodMeta(metaObject());
   window._metaWipeBlocked = null;
   window._metaMissing = false;
+  // Pilkotussa rakenteessa katselulista, listat ja DVD:t eivät kulkeneet
+  // metan mukana — ne kirjoitetaan omiin kokoelmiinsa tavallista reittiä.
+  if(splitMode){ try{ await window.fbSave(); } catch(e){} }
   if(appData.settings && appData.settings.accent && window.applyAccent) window.applyAccent(appData.settings.accent);
   if(window.renderAll) renderAll();
   return true;
@@ -941,6 +1285,9 @@ async function fbLoad(){
   await initDb();
   let loaded = false;
   let metaBroken = false;
+  // Tarvitaan myös try-lohkon jälkeen (alikokoelmien siirto)
+  let metaSnap = null;
+  let serverAnswered = false;
 
   try{
     // SUOJAUS 1: meta luetaan ensisijaisesti PALVELIMELTA.
@@ -948,8 +1295,6 @@ async function fbLoad(){
     // tilannekuvalla jossa exists() === false ja fromCache === true.
     // Vanha koodi tulkitsi sen "metaa ei ole" ja käynnisti migraation,
     // joka kirjoitti elokuun varmuuskopion kaiken päälle.
-    let metaSnap = null;
-    let serverAnswered = false;
     try{
       metaSnap = await getDocFromServer(META_DOC);
       serverAnswered = true;
@@ -1025,6 +1370,25 @@ async function fbLoad(){
       const bkp = localStorage.getItem('arvostelut_bkp');
       if(bkp) appData = JSON.parse(bkp);
     } catch(e){}
+  }
+
+  // ── KATSELULISTA, OMAT LISTAT, DVD-HYLLY ──
+  // Ajetaan vasta paikallisen varmuuskopion jälkeen, koska se korvaa koko
+  // appData-objektin ja pyyhkisi kuuntelijoiden tuomat taulukot.
+  try{
+    const metaData = (metaSnap && metaSnap.exists()) ? metaSnap.data() : null;
+    if(metaData && metaData.split){
+      splitMode = true;
+    } else if(metaData && serverAnswered && loaded && !metaBroken
+              && metaData.schema >= SCHEMA && !window._sandbox){
+      // Meta on luettu palvelimelta eikä siirtoa ole vielä tehty → tehdään nyt.
+      // Epäonnistuessa jatketaan vanhalla rakenteella ja yritetään seuraavalla
+      // käynnistyksellä uudelleen.
+      await migrateSplit(metaData);
+    }
+    if(splitMode) await startSubListeners();
+  } catch(e){
+    if(window.logError) window.logError('tallennus', e, 'split');
   }
 
   if(appData.queue) delete appData.queue;
@@ -1177,6 +1541,90 @@ function startReviewListener(){
   });
 }
 
+// ── ALIKOKOELMIEN KUUNTELIJAT ──
+// Sama periaate kuin arvosteluissa: ensimmäinen tilannekuva on samalla
+// ensilataus, sen jälkeen käsitellään vain muutokset. Ero arvosteluihin:
+// omat kirjoitukset ohitetaan dokumentti kerrallaan eikä koko tilannekuvaa,
+// jottei toiselta laitteelta samaan aikaan tullut muutos huku.
+function startSubListener(k){
+  const s = SUBS[k];
+  if(s.listening || !s.ref) return Promise.resolve();
+  s.listening = true;
+
+  return new Promise(resolve => {
+    let first = true;
+    const finishFirst = () => { if(first){ first = false; resolve(); } };
+    const timer = setTimeout(finishFirst, 8000);
+
+    onSnapshot(s.ref, snap => {
+      if(window._sandbox && s.loaded) return;
+
+      // Ensimmäinen tilannekuva (tai ensimmäinen aikakatkaisun jälkeen):
+      // koko taulukko korvataan pilven tilalla.
+      if(!s.loaded){
+        clearTimeout(timer);
+        appData[k] = snap.docs.map(d => d.data()).filter(Boolean).sort(subOrder);
+        s.queued = new Set();
+        snap.docs.forEach(d => { if(d.metadata && d.metadata.hasPendingWrites) s.queued.add(d.id); });
+        s.lastSaved = new Map();
+        appData[k].forEach(x => {
+          const id = String(x.id);
+          if(!s.queued.has(id)) s.lastSaved.set(id, JSON.stringify(x));
+        });
+        s.loaded = true;
+        updateSyncBanner();
+        if(first){ finishFirst(); }
+        else { try{ renderAll(); } catch(e){} }
+        return;
+      }
+
+      const arr = Array.isArray(appData[k]) ? appData[k] : (appData[k] = []);
+      let changed = false;
+
+      snap.docChanges().forEach(ch => {
+        const id = ch.doc.id;
+        // Oma kirjoitus joka ei ole vielä palvelimella → kirjanpito hoitaa
+        if(ch.doc.metadata && ch.doc.metadata.hasPendingWrites) return;
+        const idx = arr.findIndex(x => x && String(x.id) === id);
+
+        if(ch.type === 'removed'){
+          // Oma poisto: confirmChunk kuittaa sen kun palvelin vastaa
+          if(s.pending.get(id) === DEL_MARK) return;
+          if(idx > -1 && !s.pending.has(id)){ arr.splice(idx, 1); changed = true; }
+          s.lastSaved.delete(id);
+        } else {
+          const data = ch.doc.data();
+          const js = JSON.stringify(data);
+          // Jos tällä laitteella on odottava oma versio, se voittaa —
+          // se lähtee pilveen heti perään joka tapauksessa.
+          if(!s.pending.has(id)){
+            if(idx > -1){
+              if(JSON.stringify(arr[idx]) !== js){ arr[idx] = data; changed = true; }
+            } else {
+              arr.push(data); changed = true;
+            }
+          }
+          s.lastSaved.set(id, js);
+          if(s.pending.get(id) === js) s.pending.delete(id);
+        }
+        s.queued.delete(id);
+      });
+
+      updateSyncBanner();
+      if(changed){ try{ renderAll(); } catch(e){} }
+    }, err => {
+      clearTimeout(timer);
+      s.listening = false;
+      if(window.logError) window.logError('verkko', err, 'kuuntelija/' + k);
+      finishFirst();
+    });
+  });
+}
+
+function startSubListeners(){
+  return Promise.all(SUB_KEYS.map(k => startSubListener(k)));
+}
+
 function startMetaListener(){
   if(metaListenerReady) return;
   metaListenerReady = true;
@@ -1209,6 +1657,22 @@ function startMetaListener(){
     if(m.subcats && typeof m.subcats === 'object') appData.subcats = m.subcats;
     appData.budget     = m.budget || appData.budget;
     appData.settings   = m.settings || appData.settings;
+
+    if(m.split){
+      // Toinen laite on tehnyt siirron alikokoelmiin tämän istunnon aikana
+      if(!splitMode && !snap.metadata.fromCache) enterSplitMode();
+      // Vanha versio kirjoitti taulukot takaisin metaan → talteen ja siivotaan
+      if(splitMode && !snap.metadata.fromCache && legacyArraysIn(m) && !legacyLeftover){
+        stashLeftover(m).then(() => { if(metaTrusted && window.fbSave) window.fbSave(); });
+      }
+    } else if(!splitMode){
+      // Vanha rakenne. Aiemmin katselulista, omat listat ja DVD-hylly
+      // jätettiin tässä kokonaan päivittämättä: toisen laitteen muutokset
+      // eivät näkyneet, ja tämän laitteen seuraava tallennus kirjoitti
+      // vanhan taulukon niiden päälle.
+      SUB_KEYS.forEach(k => { if(Array.isArray(m[k])) appData[k] = m[k]; });
+    }
+
     // Täydennä oletusasetukset ENNEN vertailuarvon laskentaa, muutoin
     // ne näyttäisivät muutokselta ja aiheuttaisivat turhan kirjoituksen.
     try{ if(typeof ensureSettings === 'function') ensureSettings(); } catch(e){}
