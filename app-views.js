@@ -3030,6 +3030,7 @@ window.openAddPart = function(reviewId, seasonIdx){
   }
   document.getElementById('partName').value='';
   document.getElementById('partNote').value='';
+  window._partPlotMode = !!isJaksot;
   window.renderPartPlot(null);
   selectedPartScore=null;
   const psi=document.getElementById('partScoreInput'); if(psi) psi.value='';
@@ -3046,13 +3047,16 @@ window.autoFillEpisodeName = function(initial) {
   const r = findReview(editingPartReviewId);
   const epEl = document.getElementById('partEpisode');
   const siEl = document.getElementById('partSeasonSelect');
-  if (!r || !r.seasons || !epEl || !siEl) { window.renderPartPlot(null); return; }
+  // Muokkaustilassa kenttä kuuluu muokattavalle jaksolle, eikä käyttäjän
+  // jo kirjoittamaa juonta vaihdeta toisen jakson juoneen.
+  const keepPlot = editingPartId !== null || _partPlotDirty;
+  if (!r || !r.seasons || !epEl || !siEl) { if(!keepPlot) window.renderPartPlot(null); return; }
 
   const epNum = +epEl.value;
   const si = +siEl.value;
   const season = (!epNum || isNaN(si)) ? null : r.seasons[si];
   const ep = season ? (season.episodes || []).find(e => e.episode === epNum) : null;
-  if (!ep) { window.renderPartPlot(null); return; }
+  if (!ep) { if(!keepPlot) window.renderPartPlot(null); return; }
 
   // Täytä nimi vain jos kenttä on tyhjä — käyttäjän omaa tekstiä ei korvata
   const nameEl = document.getElementById('partName');
@@ -3061,39 +3065,122 @@ window.autoFillEpisodeName = function(initial) {
     nameEl.style.borderColor = 'var(--accent)';
     setTimeout(() => { if(nameEl) nameEl.style.borderColor = 'var(--border)'; }, 1200);
   }
-  // Juoni EI mene muistiinpanokenttään — se on TMDB:n tekstiä, ei sinun.
-  // Se näytetään omassa laatikossaan, josta sen voi halutessaan kopioida.
-  window.renderPartPlot(ep);
+  // Juoni EI mene muistiinpanokenttään — se näytetään omassa
+  // muokattavassa kentässään, josta sen voi halutessaan kopioida.
+  if(!keepPlot) window.renderPartPlot(ep);
 };
 
-// Jakson juoni luettavaksi arvostelua kirjoittaessa.
+// Jakson juoni arvostelua kirjoittaessa. Kenttä on muokattava: TMDB:n
+// juoni täyttyy valmiiksi, ja jos sitä ei löydy, juonen voi kirjoittaa
+// itse. Itse kirjoitettu teksti merkitään omaksi (plotSource 'oma'), joten
+// TMDB-päivitykset eivät ylikirjoita sitä (ks. mergeSeasonInto).
+//
+// ep = jakso-olio, jonka juoni näytetään (tai null jos sellaista ei ole).
+// Laatikko näytetään aina jaksottain-moodissa, myös ilman TMDB-dataa.
+let _partPlotEp = null;      // jakso, jonka juoni kenttään ladattiin
+let _partPlotDirty = false;  // onko käyttäjä muokannut kenttää
+window._partPlotMode = false;
+
 window.renderPartPlot = function(ep){
   const box = document.getElementById('partPlotBox');
   if(!box) return;
-  if(!ep || !ep.plot){
+  _partPlotEp = ep || null;
+  _partPlotDirty = false;
+  if(!window._partPlotMode){
     box.style.display = 'none';
     box.innerHTML = '';
-    window._currentPartPlot = null;
     return;
   }
-  const mark = ep.plotLang === 'en'
-    ? '<span class="plot-lang">EN</span>'
-    : (ep.plotLang === 'fi-auto' ? '<span class="plot-lang auto">konekäännös</span>' : '');
+  const text = (ep && ep.plot) || '';
+  const mark = !ep || isOwnPlot(ep) ? ''
+    : (ep.plotLang === 'en' ? '<span class="plot-lang">EN</span>'
+      : (ep.plotLang === 'fi-auto' ? '<span class="plot-lang auto">konekäännös</span>' : ''));
   box.style.display = 'block';
   box.innerHTML = `
-    <div class="part-plot-head"><span>📖 Jakson juoni</span>${mark}</div>
-    <div class="part-plot-text">${escNl(ep.plot)}</div>
-    <button type="button" class="part-plot-copy" onclick="copyPlotToNote()">⬇️ Kopioi muistiinpanoon</button>
+    <div class="part-plot-head"><span>📖 Jakson juoni</span><span id="partPlotMark">${mark}</span></div>
+    <textarea id="partPlotText" class="part-plot-input" spellcheck="true" lang="fi" autocapitalize="sentences"
+      oninput="onPartPlotInput()" placeholder="Kirjoita jakson juoni tähän..."></textarea>
+    <div class="plot-meta" id="partPlotMeta"></div>
+    <button type="button" class="part-plot-copy" id="partPlotCopyBtn" onclick="copyPlotToNote()">⬇️ Kopioi muistiinpanoon</button>
   `;
-  window._currentPartPlot = ep.plot;
+  document.getElementById('partPlotText').value = text;
+  renderPartPlotMeta();
 };
+
+function partPlotOwnNow(){
+  const ta = document.getElementById('partPlotText');
+  const t = ta ? ta.value.trim() : '';
+  if(!t) return false;
+  const ep = _partPlotEp;
+  const orig = String((ep && ep.plot) || '').trim();
+  if(t === orig) return isOwnPlot(ep);
+  if(ep && isOwnPlot(ep) && ep.plot_tmdb && t === String(ep.plot_tmdb).trim()) return false;
+  return true;
+}
+
+function renderPartPlotMeta(){
+  const el = document.getElementById('partPlotMeta');
+  const ta = document.getElementById('partPlotText');
+  if(!el || !ta) return;
+  const ep = _partPlotEp;
+  const own = partPlotOwnNow();
+  const n = ta.value.trim().length;
+  const badge = !n
+    ? '<span class="plot-badge none">EI JUONTA</span>'
+    : (own ? '<span class="plot-badge own">OMA</span>' : '<span class="plot-badge tmdb">TMDB</span>');
+  const info = !n
+    ? 'Kirjoita juoni itse, jos TMDB:stä ei löytynyt.'
+    : (own ? 'Oma teksti. TMDB-päivitykset eivät ylikirjoita tätä.' : 'Tuotu TMDB:stä. Muokkaus tekee siitä oman.');
+  const backup = ep && (ep.plot_tmdb || (!isOwnPlot(ep) ? ep.plot : null));
+  const restore = own && backup && ta.value.trim() !== String(backup).trim()
+    ? '<button type="button" class="plot-restore" onclick="restorePartPlot()">↩️ Palauta TMDB:n juoni</button>'
+    : '';
+  el.innerHTML = `${badge}<span>${n} merkkiä</span><span>·</span><span>${info}</span>${restore}`;
+  const mark = document.getElementById('partPlotMark');
+  if(mark && own) mark.innerHTML = '';
+  const copy = document.getElementById('partPlotCopyBtn');
+  if(copy) copy.style.display = n ? '' : 'none';
+}
+
+window.onPartPlotInput = function(){
+  _partPlotDirty = true;
+  renderPartPlotMeta();
+};
+
+window.restorePartPlot = function(){
+  const ta = document.getElementById('partPlotText');
+  const ep = _partPlotEp;
+  if(!ta || !ep) return;
+  const backup = ep.plot_tmdb || (!isOwnPlot(ep) ? ep.plot : null);
+  if(!backup) return;
+  ta.value = backup;
+  _partPlotDirty = true;
+  renderPartPlotMeta();
+};
+
+// Kirjoittaa kentän juonen tallennettavaan jaksoon. Muuttumaton teksti ei
+// koske mihinkään, joten TMDB:n juoni pysyy TMDB:n juonena.
+function applyPartPlot(target){
+  const ta = document.getElementById('partPlotText');
+  if(!target || !ta || !window._partPlotMode) return;
+  const t = ta.value.trim();
+  const orig = String(target.plot || '').trim();
+  if(t === orig) return;
+  if(isOwnPlot(target) && target.plot_tmdb && t === String(target.plot_tmdb).trim()){
+    restoreTmdbPlot(target);
+    return;
+  }
+  setOwnPlot(target, t);
+}
 
 window.copyPlotToNote = function(){
   const noteEl = document.getElementById('partNote');
-  if(!noteEl || !window._currentPartPlot) return;
+  const ta = document.getElementById('partPlotText');
+  const t = ta ? ta.value.trim() : '';
+  if(!noteEl || !t) return;
   noteEl.value = noteEl.value
-    ? noteEl.value.replace(/\s*$/, '') + '\n\n' + window._currentPartPlot
-    : window._currentPartPlot;
+    ? noteEl.value.replace(/\s*$/, '') + '\n\n' + t
+    : t;
   noteEl.focus();
 };
 
@@ -3120,6 +3207,7 @@ window.editEpisode = function(reviewId, si, ei){
   sel.innerHTML = seasons.map((s,i)=>`<option value="${i}" ${i===si?'selected':''}>${esc(s.name)}</option>`).join('');
   document.getElementById('partName').value = ep.name||'';
   document.getElementById('partNote').value = ep.note||'';
+  window._partPlotMode = true;
   window.renderPartPlot(ep);
   const pe=document.getElementById('partEpisode'); if(pe) pe.value=ep.episode||'';
   const psi=document.getElementById('partScoreInput'); if(psi) psi.value=selectedPartScore!==null?selectedPartScore:'';
@@ -3158,6 +3246,7 @@ window.editPart = function(reviewId, partIdx){
   document.getElementById('partEpisodeRow').style.display = 'none';
   document.getElementById('partName').value = p.name||'';
   document.getElementById('partNote').value = p.note||'';
+  window._partPlotMode = false;
   window.renderPartPlot(null);
   buildScorePicker('partScorePicker','partScore');
   document.getElementById('partModal').classList.add('open');
@@ -3196,6 +3285,7 @@ window.savePart = async function(){
       if(ep){
         from.episodes.splice(editingPartId, 1);
         Object.assign(ep, epData);
+        applyPartPlot(ep);
         r.seasons[si].episodes.push(ep);
         r.seasons[si].episodes.sort((a,b)=>(a.episode||0)-(b.episode||0));
       }
@@ -3209,14 +3299,20 @@ window.savePart = async function(){
       const target = r.seasons[si].episodes[editingPartId];
       // Puuttuva kohde tarkoitti aiemmin sitä, että muutokset kirjoitettiin
       // väliaikaiseen olioon ja katosivat kertomatta siitä mitään.
-      if(target) Object.assign(target, epData);
-      else r.seasons[si].episodes.push(epData);
+      if(target){ Object.assign(target, epData); applyPartPlot(target); }
+      else { applyPartPlot(epData); r.seasons[si].episodes.push(epData); }
     } else {
       const existIdx = epData.episode != null
         ? r.seasons[si].episodes.findIndex(e => e.episode === epData.episode)
         : -1;
-      if(existIdx >= 0) Object.assign(r.seasons[si].episodes[existIdx], epData);
-      else r.seasons[si].episodes.push(epData);
+      if(existIdx >= 0){
+        const target = r.seasons[si].episodes[existIdx];
+        Object.assign(target, epData);
+        applyPartPlot(target);
+      } else {
+        applyPartPlot(epData);
+        r.seasons[si].episodes.push(epData);
+      }
     }
   } else {
     const name = document.getElementById('partName').value.trim();
