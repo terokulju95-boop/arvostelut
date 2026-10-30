@@ -1169,6 +1169,8 @@
           <button type="button" class="btn-primary" onclick="saveGeminiKey()">Tallenna</button>
         </div>
         <button type="button" class="thr-reset" onclick="clearGeminiKey()">🗑️ Poista tallennettu avain</button>
+        <button type="button" class="btn-secondary" style="width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:14px;" onclick="openAiBulk()">📝 Joukkoarvostelu</button>
+        <div class="toggle-row-sub" style="margin-top:6px;">Valitse useita arvosteluja, ja AI kirjoittaa ne kaikki kerralla omien muistiinpanojesi pohjalta. Voit hyväksyä tekstit yksitellen tai kirjata ne suoraan.</div>
         <div class="toggle-row-sub" style="margin-top:8px;">Ilmaisen avaimen saa osoitteesta <strong>aistudio.google.com</strong> → Get API key → Create API key. Maksukorttia ei tarvita. Avain tallennetaan vain omaan pilveesi. Kun omaa avainta ei ole, ✨-nappi käyttää Firebase AI Logicia.</div>
         </div>
       </div>
@@ -1430,6 +1432,15 @@
     <div class="modal-grab"><div class="modal-handle"></div></div>
     <div class="modal-title">🔄 Tietojen massapäivitys</div>
     <div id="bulkBody"></div>
+  </div>
+</div>
+
+<!-- AI-JOUKKOARVOSTELU -->
+<div class="modal-overlay" id="aiBulkModal" onclick="closeModalIfOutside(event,'aiBulkModal')">
+  <div class="modal-sheet" style="max-width:560px;">
+    <div class="modal-grab"><div class="modal-handle"></div></div>
+    <div class="modal-title">📝 AI-joukkoarvostelu</div>
+    <div id="aiBulkBody"></div>
   </div>
 </div>
 
