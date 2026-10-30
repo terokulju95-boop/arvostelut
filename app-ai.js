@@ -1,5 +1,5 @@
 // Versioleima — tools/bump-version.js päivittää tämän automaattisesti.
-window.BUILD_AI = '2026-10-30.3';
+window.BUILD_AI = '2026-10-26.0';
 
 // ════════════════════════════════════════════════════════════
 // AI-ARVOSTELU
@@ -116,58 +116,34 @@ window.BUILD_AI = '2026-10-30.3';
     return L.join('\n');
   }
 
-  // ── REITTI 1: OMA AVAIN (suoratoisto) ──
-  // Vastaus luetaan suoratoistona (SSE), jolloin teksti ilmestyy ruudulle
-  // sitä mukaa kun malli kirjoittaa. Aikaraja on "hiljaisuusraja": pyyntö
-  // katkaistaan vain jos Googlelta ei kuulu mitään IDLE_MS aikaan.
-  async function streamDirect(model, prompt, apiKey, onText, thinking){
+  // ── REITTI 1: OMA AVAIN ──
+  // Tavallinen (ei suoratoistettu) pyyntö ilman mietintäasetuksia: tämä
+  // muoto on todettu toimivaksi AQ.-avaimella. Malli saa miettiä
+  // oletuksensa mukaan. Aikaraja estää loputtoman odotuksen.
+  async function callDirect(model, prompt, apiKey, timeoutMs){
     const ctrl = new AbortController();
-    let timer = null;
-    const arm = () => { clearTimeout(timer); timer = setTimeout(() => ctrl.abort(), IDLE_MS); };
-    arm();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try{
-      const res = await fetch(API + model + ':streamGenerateContent?alt=sse', {
+      const res = await fetch(API + model + ':generateContent', {
         method: 'POST',
         signal: ctrl.signal,
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: Object.assign({ temperature: 1.0, maxOutputTokens: 8192 },
-            thinking ? { thinkingConfig: thinking } : {})
+          generationConfig: { temperature: 1.0, maxOutputTokens: 8192 }
         })
       });
+      let data = null;
+      try{ data = await res.json(); } catch(e){}
       if(!res.ok){
-        let data = null;
-        try{ data = await res.json(); } catch(e){}
         const err = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status));
         err.customErrorData = { status: res.status };
         err.directKey = true;
         throw err;
       }
-      onPhase('thinking');
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = '', text = '';
-      for(;;){
-        const { done, value } = await reader.read();
-        if(done) break;
-        arm();
-        buf += dec.decode(value, { stream: true });
-        let i;
-        while((i = buf.indexOf('\n')) >= 0){
-          const line = buf.slice(0, i).trim();
-          buf = buf.slice(i + 1);
-          if(!line.startsWith('data:')) continue;
-          let obj = null;
-          try{ obj = JSON.parse(line.slice(5)); } catch(e){ continue; }
-          const parts = obj && obj.candidates && obj.candidates[0] &&
-                        obj.candidates[0].content && obj.candidates[0].content.parts;
-          (parts || []).filter(p => p.thought && p.text).forEach(p => onThought(p.text));
-          const piece = (parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
-          if(piece){ text += piece; onText(text); }
-        }
-      }
-      text = text.trim();
+      const parts = data && data.candidates && data.candidates[0] &&
+                    data.candidates[0].content && data.candidates[0].content.parts;
+      const text = (parts || []).filter(p => !p.thought).map(p => p.text || '').join('').trim();
       if(!text) throw new Error('Tyhjä vastaus');
       return text;
     } finally {
@@ -175,31 +151,21 @@ window.BUILD_AI = '2026-10-30.3';
     }
   }
 
-  // Yritykset järjestyksessä:
-  //  1. Päämalli, rajattu mietintä + mietinnän tiivistelmät (pitävät
-  //     yhteyden elossa ja näyttävät käyttäjälle mitä tapahtuu)
-  //  2. Sama ilman mietintäasetuksia, jos malli ei hyväksy niitä
-  //  3. Kevyt malli ilman mietintää, jos päämalli on jumissa/ruuhkassa
-  const THINK = { thinkingBudget: 2048, includeThoughts: true };
-  async function generateDirect(prompt, apiKey, onText){
+  // Päämalli saa aikaa 75 s (mietintä mukaan lukien). Jos se ei ehdi
+  // tai on ruuhkassa, kevyt malli yrittää vielä 40 s.
+  async function generateDirect(prompt, apiKey){
     const attempts = [
-      { model: MODELS[0], thinking: THINK },
-      { model: MODELS[1], thinking: { thinkingBudget: 0 }, fallback: true }
+      { model: MODELS[0], ms: 75000 },
+      { model: MODELS[1], ms: 40000, fallback: true }
     ];
     let lastErr = null;
     for(const a of attempts){
       if(a.fallback) onPhase('fallback');
-      try{
-        try{ return await streamDirect(a.model, prompt, apiKey, onText, a.thinking); }
-        catch(e){
-          if(statusOf(e) === 400 && /thinking|thought/i.test(String(e.message)))
-            return await streamDirect(a.model, prompt, apiKey, onText, null);
-          throw e;
-        }
-      } catch(e){
+      try{ return await callDirect(a.model, prompt, apiKey, a.ms); }
+      catch(e){
         lastErr = e;
         const s = statusOf(e);
-        if(s === 400 || s === 401 || s === 403) break;
+        if(s === 401 || s === 403) break;
       }
     }
     throw lastErr || new Error('Tuntematon virhe');
@@ -219,24 +185,17 @@ window.BUILD_AI = '2026-10-30.3';
     return aiPromise;
   }
 
-  async function generateFirebase(prompt, onText){
+  async function generateFirebase(prompt){
     const { ai, getGenerativeModel } = await loadAi();
     let lastErr = null;
     for(const name of MODELS){
       try{
         const model = getGenerativeModel(ai, {
           model: name,
-          generationConfig: { temperature: 1.0, maxOutputTokens: 8192, thinkingConfig: { thinkingBudget: 2048 } }
-        }, { timeout: 90000 });
-        const res = await model.generateContentStream(prompt);
-        onPhase('thinking');
-        let text = '';
-        for await (const chunk of res.stream){
-          let piece = '';
-          try{ piece = chunk.text(); } catch(e){}
-          if(piece){ text += piece; onText(text); }
-        }
-        text = text.trim();
+          generationConfig: { temperature: 1.0, maxOutputTokens: 8192 }
+        }, { timeout: 75000 });
+        const res = await model.generateContent(prompt);
+        const text = String(res.response.text() || '').trim();
         if(!text) throw new Error('Tyhjä vastaus');
         return text;
       } catch(e){
@@ -249,26 +208,28 @@ window.BUILD_AI = '2026-10-30.3';
     throw lastErr || new Error('Tuntematon virhe');
   }
 
-  async function generate(prompt, keyOverride, onText){
-    const cb = onText || function(){};
+  async function generate(prompt, keyOverride){
     const k = keyOverride || ownKey();
-    if(k) return generateDirect(prompt, k, cb);
-    return generateFirebase(prompt, cb);
+    if(k) return generateDirect(prompt, k);
+    return generateFirebase(prompt);
   }
 
   function friendly(e){
     const msg = String((e && e.message) || '');
     const s = statusOf(e);
     if(!navigator.onLine) return 'Ei verkkoyhteyttä.';
-    if(isTimeout(e)) return 'Google ei vastannut. Sen palvelu voi olla juuri nyt ruuhkainen — yritä hetken päästä uudelleen.';
-    if(e && e.directKey && (s === 400 || s === 401 || s === 403))
-      return 'Gemini-avain ei kelpaa tai sen rajaukset estävät pyynnön. Tarkista avain: Asetukset → TMDB → ✨ AI-arvostelu.';
+    if(isTimeout(e)) return 'Google ei vastannut ajoissa. Sen palvelu voi olla juuri nyt ruuhkainen — yritä hetken päästä uudelleen.';
+    const g = msg ? ' (Google: ' + msg.slice(0, 200) + ')' : '';
+    if(e && e.directKey && (s === 401 || s === 403))
+      return 'Gemini-avain ei kelpaa tai sen rajaukset estävät pyynnön.' + g;
+    if(e && e.directKey && s === 400)
+      return 'Google hylkäsi pyynnön.' + g;
     if(/genai config/i.test(msg))
       return 'Firebase AI Logic ei vielä toimi. Lisää oma ilmainen Gemini-avain: Asetukset → TMDB → ✨ AI-arvostelu.';
     if(/api-not-enabled|not been used|disabled|Get started/i.test(msg) || s === 403)
       return 'AI Logic ei ole vielä käytössä. Ota se käyttöön Firebase-konsolissa tai lisää oma Gemini-avain asetuksiin.';
-    if(s === 429) return 'Päivän ilmainen kiintiö on täynnä tai pyyntöjä tuli liian tiheään. Yritä hetken päästä uudelleen.';
-    if(s >= 500) return 'Googlen palvelu on juuri nyt ruuhkautunut. Yritä hetken päästä uudelleen.';
+    if(s === 429) return 'Päivän ilmainen kiintiö on täynnä tai pyyntöjä tuli liian tiheään. Yritä hetken päästä uudelleen.' + g;
+    if(s >= 500) return 'Googlen palvelu on juuri nyt ruuhkautunut. Yritä hetken päästä uudelleen.' + g;
     if(/app-check|appcheck/i.test(msg)) return 'App Check esti pyynnön. Tarkista App Check -asetukset Firebase-konsolista.';
     return 'Arvostelun luonti epäonnistui: ' + (msg || 'tuntematon virhe');
   }
@@ -308,15 +269,14 @@ window.BUILD_AI = '2026-10-30.3';
     const box = document.getElementById('aiSuggestBox');
     if(!box) return;
     box.style.display = '';
-    const msg = phase === 'send'     ? 'Lähetetään Googlelle…'
-              : phase === 'writing'  ? 'Kirjoittaa…'
-              : phase === 'fallback' ? 'Päämalli ei vastannut — kokeillaan nopeampaa mallia…'
-              : secs >= 40           ? 'Miettii yhä — pitkä mietintä on normaalia, odota vielä hetki…'
-              :                        'Miettii arvostelua…';
+    const msg = phase === 'fallback' ? 'Päämalli ei ehtinyt — kokeillaan nopeampaa mallia…'
+              : secs < 2             ? 'Lähetetään Googlelle…'
+              : secs < 20            ? 'AI miettii ja kirjoittaa arvostelua…'
+              : secs < 45            ? 'Hiotaan tekstiä — mietintä kestää yleensä 15–40 s…'
+              :                        'Kestää tavallista pidempään, odota vielä hetki…';
     box.innerHTML =
       '<div class="ai-suggest-head">✨ AI <span class="ai-suggest-meta">' + secs + ' s</span></div>' +
       '<div class="ai-live"><span class="ai-dots"><i></i><i></i><i></i></span> ' + msg + '</div>' +
-      (thought && phase !== 'writing' ? '<div class="ai-thought">💭 ' + esc(thought) + '</div>' : '') +
       (text ? '<div class="ai-suggest-text">' + esc(text).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>').replace(/^/, '<p>') + '</p></div>' : '');
   }
 
@@ -335,7 +295,7 @@ window.BUILD_AI = '2026-10-30.3';
     let phase = 'send', live = '', thought = '';
     const secs = () => Math.round((Date.now() - started) / 1000);
     const paint = () => {
-      if(btn) btn.textContent = '⏳ ' + (phase === 'writing' ? 'Kirjoittaa' : phase === 'send' ? 'Lähetetään' : phase === 'fallback' ? 'Uusi yritys' : 'Miettii') + '… ' + secs() + ' s';
+      if(btn) btn.textContent = '⏳ ' + (phase === 'fallback' ? 'Uusi yritys' : 'Kirjoitetaan') + '… ' + secs() + ' s';
       renderLive(phase, secs(), live, thought);
     };
     onPhase = p => {
@@ -355,7 +315,7 @@ window.BUILD_AI = '2026-10-30.3';
     const box = document.getElementById('aiSuggestBox');
     if(box && box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     try{
-      suggestion = await generate(buildPrompt(notes), null, t => { phase = 'writing'; live = t; paint(); });
+      suggestion = await generate(buildPrompt(notes));
       renderSuggestion();
     } catch(e){
       console.warn('[AI-arvostelu]', e);
