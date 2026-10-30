@@ -456,6 +456,11 @@
       </div>
       <textarea id="formNote" spellcheck="true" lang="fi" autocapitalize="sentences" placeholder="Omat ajatuksesi teoksesta..."></textarea>
       <div class="md-hint">**lihavointi** · *kursiivi* · ~~yliviivaus~~ · rivin alussa - tekee luettelon</div>
+      <div class="ai-row">
+        <button type="button" class="btn-secondary ai-btn" id="aiReviewBtn" onclick="aiWriteReview()">✨ Tee arvostelu</button>
+        <button type="button" class="btn-secondary ai-btn" id="aiUndoBtn" onclick="aiUndoReview()" style="display:none;">↩️ Palauta omat</button>
+      </div>
+      <div class="ai-status" id="aiReviewStatus"></div>
     </div>
 
     <div class="form-group" id="dateSection">
@@ -1521,6 +1526,7 @@
 <script src="app-restore.js"></script>
 <script src="app-home.js"></script>
 <script src="app-devmode.js"></script>
+<script src="app-ai.js"></script>
 <script type="module" src="app-firebase.js"></script>
 
 <!-- Service worker: offline-tuki sekä julisteiden ja TMDB-vastausten välimuisti.

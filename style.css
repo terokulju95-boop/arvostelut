@@ -2785,3 +2785,9 @@ html[data-cardstyle="vhs"] .review-card .card-top{
 .dvd-confirm{width:100%;margin-top:16px;background:var(--accent);color:var(--bg);border:none;border-radius:12px;
   padding:13px;font-family:'DM Sans',sans-serif;font-size:calc(14.5px * var(--ts,1));font-weight:800;cursor:pointer;}
 .dvd-confirm:active{transform:scale(0.98);}
+
+/* AI-arvostelu */
+.ai-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+.ai-btn{padding:9px 14px;border-radius:10px;font-size:calc(14px * var(--ts,1));font-weight:600;cursor:pointer;}
+.ai-btn:disabled{opacity:.6;cursor:default;}
+.ai-status{font-size:calc(12px * var(--ts,1));color:var(--muted);margin-top:6px;line-height:1.4;min-height:0;}

@@ -34,6 +34,7 @@ const ASSETS = [
   './app-restore.js',
   './app-home.js',
   './app-devmode.js',
+  './app-ai.js',
   './app-firebase.js',
   './manifest.json',
   './icons/icon-192.png',
