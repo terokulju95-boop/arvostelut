@@ -461,6 +461,7 @@
         <button type="button" class="btn-secondary ai-btn" id="aiUndoBtn" onclick="aiUndoReview()" style="display:none;">↩️ Palauta omat</button>
       </div>
       <div class="ai-status" id="aiReviewStatus"></div>
+      <div class="ai-suggest" id="aiSuggestBox" style="display:none;"></div>
     </div>
 
     <div class="form-group" id="dateSection">
@@ -1162,7 +1163,7 @@
         <div class="token-state" id="geminiKeyState"></div>
         <label style="margin-top:10px;">Oma Gemini API -avain</label>
         <textarea class="token-input" id="geminiKeyInput" rows="2" spellcheck="false" autocapitalize="off" autocorrect="off"
-          placeholder="Liitä Gemini API -avain (alkaa AIza)"></textarea>
+          placeholder="Liitä Gemini API -avain"></textarea>
         <div class="token-row">
           <button type="button" class="btn-secondary" onclick="testGeminiKey()">🧪 Testaa</button>
           <button type="button" class="btn-primary" onclick="saveGeminiKey()">Tallenna</button>
