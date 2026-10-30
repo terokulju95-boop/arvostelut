@@ -1,7 +1,7 @@
 // ══ ARVOSTELUT · korttien ja yläpalkin asetukset ══
 // Versioleima: jokaisessa tiedostossa sama. Jos yksi tiedosto jää
 // päivittämättä GitHubiin, asetukset näyttävät siitä varoituksen.
-window.BUILD_CARDS = '2026-10-30.4';
+window.BUILD_CARDS = '2026-10-30.5';
 // Tavallinen skripti. Ajetaan app-core.js:n JÄLKEEN.
 // Sisältää neljä asiaa:
 //   1. Kortin sisällön valinta (listakortti ja iso kortti erikseen)
@@ -629,7 +629,7 @@ const SEEN_BUILD_KEY = 'arvostelut_seenBuild';
 // siihen julkaisuun jossa ominaisuus tuli. Älä korvaa niitä massahaulla
 // kun leimoja päivitetään — lista rikkoutuu.
 const WHATS_NEW = [
-  { build:'2026-10-30.4', items:[
+  { build:'2026-10-30.5', items:[
     { icon:'🗂️', title:'Katselulista, listat ja DVD-hylly omiin kokoelmiinsa',
       text:'Ne asuivat ennen samassa pilvidokumentissa kuin asetukset, jonka koko on rajattu yhteen megatavuun. Nyt jokainen teos, lista ja levy on oma dokumenttinsa, joten raja ei tule vastaan. Siirto tehdään automaattisesti kerran, ja vanhoista tiedoista jää pilveen kopio.' },
     { icon:'🔄', title:'Muutokset siirtyvät laitteelta toiselle',
