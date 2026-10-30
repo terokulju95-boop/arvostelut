@@ -1,5 +1,5 @@
 // Versioleima — tools/bump-version.js päivittää tämän automaattisesti.
-window.BUILD_AI = '2026-10-30.0';
+window.BUILD_AI = '2026-10-26.0';
 
 // ════════════════════════════════════════════════════════════
 // AI-ARVOSTELU (Firebase AI Logic)
@@ -71,7 +71,61 @@ window.BUILD_AI = '2026-10-30.0';
     return m ? +m[1] : 0;
   }
 
-  async function generate(prompt){
+
+  // ── OMA AVAIN (Google AI Studio) ──
+  // Jos asetuksiin on tallennettu oma Gemini-avain, sitä käytetään
+  // suoraan. Muuten käytetään Firebase AI Logicia.
+  const API = 'https://generativelanguage.googleapis.com/v1beta/models/';
+
+  function ownKey(){
+    const st = (typeof appData !== 'undefined' && appData && appData.settings) || {};
+    return String(st.geminiKey || '').trim();
+  }
+
+  async function callDirect(model, prompt, apiKey){
+    const res = await fetch(API + model + ':generateContent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+      })
+    });
+    let data = null;
+    try{ data = await res.json(); } catch(e){}
+    if(!res.ok){
+      const err = new Error((data && data.error && data.error.message) || ('HTTP ' + res.status));
+      err.customErrorData = { status: res.status };
+      err.directKey = true;
+      throw err;
+    }
+    const parts = data && data.candidates && data.candidates[0] &&
+                  data.candidates[0].content && data.candidates[0].content.parts;
+    const text = (parts || []).map(p => p.text || '').join('').trim();
+    if(!text) throw new Error('Tyhjä vastaus');
+    return text;
+  }
+
+  async function generateDirect(prompt, apiKey){
+    let lastErr = null;
+    for(const name of MODELS){
+      try{ return await callDirect(name, prompt, apiKey); }
+      catch(e){
+        lastErr = e;
+        const s = statusOf(e);
+        if(s === 400 || s === 401 || s === 403) break;
+      }
+    }
+    throw lastErr || new Error('Tuntematon virhe');
+  }
+
+  async function generate(prompt, keyOverride){
+    const k = keyOverride || ownKey();
+    if(k) return generateDirect(prompt, k);
+    return generateFirebase(prompt);
+  }
+
+  async function generateFirebase(prompt){
     const { ai, getGenerativeModel } = await loadAi();
     let lastErr = null;
     for(const name of MODELS){
@@ -89,7 +143,7 @@ window.BUILD_AI = '2026-10-30.0';
         const s = statusOf(e);
         // Käyttöönotto- tai oikeusongelma ei korjaannu toisella mallilla
         if(s === 401 || s === 403) break;
-        if(/api-not-enabled|not been used|disabled/i.test(String(e && e.message))) break;
+        if(/api-not-enabled|not been used|disabled|genai config/i.test(String(e && e.message))) break;
       }
     }
     throw lastErr || new Error('Tuntematon virhe');
@@ -99,6 +153,10 @@ window.BUILD_AI = '2026-10-30.0';
     const msg = String((e && e.message) || '');
     const s = statusOf(e);
     if(!navigator.onLine) return 'Ei verkkoyhteyttä.';
+    if(e && e.directKey && (s === 400 || s === 401 || s === 403))
+      return 'Gemini-avain ei kelpaa tai sen rajaukset estävät pyynnön. Tarkista avain: Asetukset → TMDB → ✨ AI-arvostelu.';
+    if(/genai config/i.test(msg))
+      return 'Firebase AI Logic ei vielä toimi (Googlen puolelta puuttuu avain). Lisää oma ilmainen Gemini-avain: Asetukset → TMDB → ✨ AI-arvostelu.';
     if(/api-not-enabled|not been used|disabled|Get started/i.test(msg) || s === 403)
       return 'AI Logic ei ole vielä käytössä. Ota se käyttöön Firebase-konsolissa: AI Logic → Get started → Gemini Developer API.';
     if(s === 429) return 'Päivän ilmainen kiintiö on täynnä tai pyyntöjä tuli liian tiheään. Yritä hetken päästä uudelleen.';
@@ -156,6 +214,56 @@ window.BUILD_AI = '2026-10-30.0';
     showUndo(false);
     setStatus('');
   };
+
+  // ── ASETUKSET ──
+  window.renderGeminiSettings = function(){
+    const inp = document.getElementById('geminiKeyInput');
+    const st = document.getElementById('geminiKeyState');
+    const has = !!ownKey();
+    if(inp) inp.placeholder = has ? 'Avain on tallennettu (liitä uusi korvataksesi)' : 'Liitä Gemini API -avain (alkaa AIza)';
+    if(st) st.textContent = has ? '✅ Oma avain tallennettu — ✨-nappi käyttää sitä.' : 'Ei omaa avainta — ✨-nappi käyttää Firebase AI Logicia.';
+  };
+
+  window.testGeminiKey = async function(){
+    const inp = document.getElementById('geminiKeyInput');
+    const st = document.getElementById('geminiKeyState');
+    const typed = inp ? inp.value.trim() : '';
+    const k = typed || ownKey();
+    if(!k){ if(st) st.textContent = 'Liitä ensin avain.'; return; }
+    if(st) st.textContent = '⏳ Testataan...';
+    try{
+      await generate('Vastaa pelkällä sanalla: toimii', k);
+      if(st) st.textContent = '✅ Avain toimii.' + (typed ? ' Muista vielä tallentaa.' : '');
+    } catch(e){
+      console.warn('[AI-arvostelu]', e);
+      if(st) st.textContent = '❌ ' + friendly(e);
+    }
+  };
+
+  window.saveGeminiKey = async function(){
+    const inp = document.getElementById('geminiKeyInput');
+    if(!inp) return;
+    const v = inp.value.trim();
+    if(!v) return;
+    ensureSettings().geminiKey = v;
+    inp.value = '';
+    window.renderGeminiSettings();
+    await window.fbSave();
+  };
+
+  window.clearGeminiKey = async function(){
+    if(!ownKey()) return;
+    if(!confirm('Poistetaanko tallennettu Gemini-avain? ✨-nappi käyttää sen jälkeen Firebase AI Logicia.')) return;
+    ensureSettings().geminiKey = '';
+    window.renderGeminiSettings();
+    await window.fbSave();
+  };
+
+  document.addEventListener('click', function(ev){
+    const t = ev.target;
+    if(t && t.closest && t.closest('[data-sec="ai"] .set-sec-head')) setTimeout(window.renderGeminiSettings, 0);
+  });
+
   function watchModal(){
     const m = document.getElementById('addModal');
     if(!m) return;

@@ -1152,6 +1152,25 @@
         <div class="toggle-row-sub" style="margin-top:8px;">Tunnuksen saa osoitteesta themoviedb.org → Settings → API → <strong>API Read Access Token</strong> (ei API Key v3). Se tallennetaan vain omaan pilveesi, ei koodiin eikä versiohistoriaan. Ilman tunnusta TMDB-haut, julisteet ja Löydä-osio eivät toimi.</div>
         </div>
       </div>
+      <div class="set-sec" data-sec="ai">
+        <button type="button" class="set-sec-head" onclick="toggleSetSec('ai')" aria-expanded="false">
+          <span class="set-sec-icon">✨</span>
+          <span class="set-sec-title">AI-arvostelu<span class="set-sec-sum" id="sum-ai"></span></span>
+          <span class="set-sec-arrow">▸</span>
+        </button>
+        <div class="set-sec-body" id="sec-ai" hidden>
+        <div class="token-state" id="geminiKeyState"></div>
+        <label style="margin-top:10px;">Oma Gemini API -avain</label>
+        <textarea class="token-input" id="geminiKeyInput" rows="2" spellcheck="false" autocapitalize="off" autocorrect="off"
+          placeholder="Liitä Gemini API -avain (alkaa AIza)"></textarea>
+        <div class="token-row">
+          <button type="button" class="btn-secondary" onclick="testGeminiKey()">🧪 Testaa</button>
+          <button type="button" class="btn-primary" onclick="saveGeminiKey()">Tallenna</button>
+        </div>
+        <button type="button" class="thr-reset" onclick="clearGeminiKey()">🗑️ Poista tallennettu avain</button>
+        <div class="toggle-row-sub" style="margin-top:8px;">Ilmaisen avaimen saa osoitteesta <strong>aistudio.google.com</strong> → Get API key → Create API key. Maksukorttia ei tarvita. Avain tallennetaan vain omaan pilveesi. Kun omaa avainta ei ole, ✨-nappi käyttää Firebase AI Logicia.</div>
+        </div>
+      </div>
       <div class="set-sec" data-sec="kutsut">
         <button type="button" class="set-sec-head" onclick="toggleSetSec('kutsut')" aria-expanded="false">
           <span class="set-sec-icon">📊</span>
