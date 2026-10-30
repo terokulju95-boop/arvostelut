@@ -1,5 +1,5 @@
 // Versioleima — tools/bump-version.js päivittää tämän automaattisesti.
-window.BUILD_AI = '2026-10-26.0';
+window.BUILD_AI = '2026-10-30.3';
 
 // ════════════════════════════════════════════════════════════
 // AI-ARVOSTELU
