@@ -1368,7 +1368,7 @@ async function fbLoad(){
     // Ei mitään pilvessä — kokeile paikallista varmuuskopiota
     try{
       const bkp = localStorage.getItem('arvostelut_bkp');
-      if(bkp) appData = JSON.parse(bkp);
+      if(bkp){ const d = JSON.parse(bkp); if(window.sanitizeIncomingData) window.sanitizeIncomingData(d); appData = d; }
     } catch(e){}
   }
 

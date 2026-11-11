@@ -703,7 +703,7 @@ window.downloadBackup = function(){
       window.buildBackupPayload ? window.buildBackupPayload() : {
         _tyyppi: 'arvostelut-varmuuskopio',
         _paivays: new Date().toISOString(),
-        data: appData
+        data: withoutSecrets(appData)
       }, null, 2);
     const blob = new Blob([payload], { type:'application/json' });
     const url = URL.createObjectURL(blob);
@@ -830,6 +830,7 @@ window.restoreMetaFile = function(input){
     try{ parsed = JSON.parse(reader.result); }
     catch(e){ alert('Tiedostoa ei voitu lukea — onko se kelvollinen JSON-varmuuskopio?'); return; }
     const d = (parsed && parsed.data) ? parsed.data : parsed;
+    if(d && typeof d === 'object') sanitizeIncomingData(d);
     if(!d || !Array.isArray(d.categories) || !d.categories.length){
       alert('Tiedostosta ei löytynyt kategorioita.');
       return;
@@ -907,6 +908,8 @@ window.restoreBackup = function(input){
       alert('Tiedosto ei näytä Arvostelut-varmuuskopiolta (reviews-taulukko puuttuu).');
       return;
     }
+    const san = sanitizeIncomingData(incoming);
+    if(san.dropped) alert(`Tiedostosta ohitettiin ${san.dropped} kohdetta, joiden tunnisteessa oli kiellettyjä merkkejä.`);
     const nykyiset = (appData.reviews||[]).length;
     const tulevat = incoming.reviews.length;
     if(!confirm(`Korvataanko nykyiset tiedot?\n\nNykyisin: ${nykyiset} arvostelua\nTiedostossa: ${tulevat} arvostelua\n\nTämä korvaa kaiken myös pilvessä.`)) return;

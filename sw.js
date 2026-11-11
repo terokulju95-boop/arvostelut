@@ -10,6 +10,8 @@ const IMG_CORS_CACHE = 'tmdb-img-cors-v1'; // julisteet värianalyysia varten (c
 const API_CACHE   = 'tmdb-api-v1';   // TMDB-hakutulokset – vanhenevat 24 h:ssa
 
 const KEEP = [SHELL_CACHE, IMG_CACHE, IMG_CORS_CACHE, API_CACHE];
+// Samassa osoitteessa on muitakin sovelluksia: niiden välimuisteihin ei kosketa.
+const isOwnCache = k => k.startsWith('arvostelut-') || k.startsWith('tmdb-');
 
 const ASSETS = [
   './',
@@ -68,7 +70,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => !KEEP.includes(k)).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => isOwnCache(k) && !KEEP.includes(k)).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -266,6 +268,6 @@ self.addEventListener('message', e => {
     e.ports[0].postMessage({ version: VERSION });
   }
   if (e.data === 'CLEAR_CACHES') {
-    e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))));
+    e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(isOwnCache).map(k => caches.delete(k)))));
   }
 });

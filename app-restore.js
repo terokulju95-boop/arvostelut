@@ -40,7 +40,8 @@ function checksum(str){
 }
 
 window.buildBackupPayload = function(){
-  const data = appData;
+  // Gemini-avain ja TMDB-tunnus jätetään pois tiedostosta (ne ovat Firestoressa)
+  const data = withoutSecrets(appData);
   return {
     _tyyppi: 'arvostelut-varmuuskopio',
     _paivays: new Date().toISOString(),
@@ -179,6 +180,9 @@ window.restoreBackup = function(input){
     if(parsed && parsed._tarkiste){
       checksumOk = (checksum(canonical(data)) === parsed._tarkiste);
     }
+
+    const san = sanitizeIncomingData(data);
+    if(san.dropped) alert(`Tiedostosta ohitettiin ${san.dropped} kohdetta, joiden tunnisteessa oli kiellettyjä merkkejä.`);
 
     rsFile = {
       data,

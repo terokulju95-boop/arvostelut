@@ -192,6 +192,58 @@ function escJs(s){
 }
 window.esc = esc; window.escNl = escNl; window.escJs = escJs;
 
+// ── VARMUUSKOPION TARKISTUS JA AVAIMET ──
+// Varmuuskopiotiedosto on ulkopuolista dataa: muokattu tiedosto voisi
+// sisältää koodia kentissä, joita ei ajeta esc():n läpi (tunnisteet,
+// vuosi, listan kuvake). Sovellus ei itse koskaan tee tällaisia arvoja,
+// joten tarkistus ei vaikuta omiin varmuuskopioihin.
+const SECRET_KEYS = ['geminiKey', 'tmdbToken'];
+const BAD_ID = /['"<>\\&`\r\n]/;
+function sanitizeIncomingData(d){
+  const out = { dropped: 0 };
+  if(!d || typeof d !== 'object') return out;
+  const walk = (v) => {
+    if(Array.isArray(v)){
+      for(let i = v.length - 1; i >= 0; i--){
+        const x = v[i];
+        if(x && typeof x === 'object' && !Array.isArray(x) && 'id' in x &&
+           (typeof x.id === 'string' ? BAD_ID.test(x.id) : (x.id != null && typeof x.id !== 'number'))){
+          v.splice(i, 1); out.dropped++; continue;
+        }
+        walk(x);
+      }
+    } else if(v && typeof v === 'object'){
+      if('year' in v && v.year != null && typeof v.year !== 'number' && BAD_ID.test(String(v.year)))
+        v.year = String(v.year).replace(/[^0-9]/g, '').slice(0, 4);
+      Object.keys(v).forEach(k => walk(v[k]));
+    }
+  };
+  walk(d);
+  if(Array.isArray(d.lists) && typeof LIST_ICONS !== 'undefined'){
+    d.lists.forEach(l => { if(l && l.icon != null && !LIST_ICONS.includes(l.icon)) l.icon = LIST_ICONS[0]; });
+  }
+  // Avaimia ei ole varmuuskopiossa: nykyiset säilytetään palautuksessa
+  keepSecrets(d);
+  return out;
+}
+function keepSecrets(d){
+  if(!d || typeof d !== 'object') return;
+  const cur = (typeof appData !== 'undefined' && appData && appData.settings) || {};
+  if(!d.settings || typeof d.settings !== 'object') return;
+  SECRET_KEYS.forEach(k => {
+    if(!d.settings[k] && cur[k]) d.settings[k] = cur[k];
+  });
+}
+// Varmuuskopiotiedostoon ei kirjoiteta avaimia (ne ovat Firestoressa)
+function withoutSecrets(data){
+  if(!data || !data.settings) return data;
+  const s = { ...data.settings };
+  SECRET_KEYS.forEach(k => { delete s[k]; });
+  return { ...data, settings: s };
+}
+window.sanitizeIncomingData = sanitizeIncomingData;
+window.withoutSecrets = withoutSecrets;
+
 let appData = { categories: [...DEFAULT_CATS], genres: [...DEFAULT_GENRES], reviews: [], budget: { monthlyPrice: 26.90, periods: [] } };
 let activeCat = null;
 let sortMode = 'uusin';
