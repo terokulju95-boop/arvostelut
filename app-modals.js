@@ -1288,16 +1288,51 @@ function renderSubcatManage(){
     el.innerHTML = `<div class="cat-row" style="opacity:0.6;"><span class="cat-row-name">Ei alalajeja — kaikki näkyy yhtenä listana</span></div>`;
     return;
   }
+  const sets = (typeof ratingSets === 'function') ? ratingSets() : {};
   el.innerHTML = subs.map((sc, i) => {
     const n = (appData.reviews || []).filter(r => r.category === cat && subcatOf(r) === sc).length;
-    return `<div class="cat-row">
+    // Laaja arvio: oma samanniminen sarja on aina käytössä, muille valitaan
+    let setLine;
+    if(sets[sc]){
+      setLine = `Laaja arvio: <strong>${esc(sets[sc].label)}</strong>`;
+    } else {
+      const cur = ratingSetKey(sc);
+      const opts = Object.keys(sets).map(k =>
+        `<option value="${esc(k)}" ${k === cur ? 'selected' : ''}>${esc(sets[k].label)}</option>`
+      ).join('');
+      setLine = `Laaja arvio: <select class="subcat-set-sel" onchange="setSubcatSet('${escJs(sc)}', this.value, this)">${opts}</select>`;
+    }
+    return `<div class="cat-row" style="flex-wrap:wrap;">
       <span class="cat-row-name">${esc(sc)}</span>
       <span class="cat-row-count">${n} kpl</span>
       <button class="cat-del" onclick="deleteSubcat(${i})">Poista</button>
+      <div class="subcat-set-line" style="flex-basis:100%;display:flex;align-items:center;gap:8px;font-size:calc(13px * var(--ts,1));color:var(--muted);">${setLine}</div>
     </div>`;
   }).join('');
 }
 window.renderSubcatManage = renderSubcatManage;
+
+// Alalajin laajan arvion kysymyssarja. Arvosteluihin ei kosketa: pisteet
+// lasketaan valitun sarjan kysymyksistä, ja toisen sarjan vastaukset jäävät
+// talteen (näkyvät lukunäkymässä muiden kysymysten alla).
+window.setSubcatSet = async function(sub, key, sel){
+  if(typeof ratingSets !== 'function') return;
+  const sets = ratingSets();
+  if(!(key in sets)) return;
+  ensureSettings();
+  const prev = ratingSetKey(sub);
+  if(prev === key) return;
+  const n = (appData.reviews || []).filter(r => subcatOf(r) === sub).length;
+  if(n && !confirm(`Vaihdetaanko alalajin "${sub}" laaja arvio sarjaan ${sets[key].label}? ${n} arvostelun pisteet lasketaan jatkossa sen kysymyksistä. Vanhoja vastauksia ei poisteta.`)){
+    if(sel) sel.value = prev;
+    return;
+  }
+  if(!appData.settings.subcatSets || typeof appData.settings.subcatSets !== 'object') appData.settings.subcatSets = {};
+  appData.settings.subcatSets[sub] = key;
+  renderSubcatManage();
+  renderAll();
+  await window.fbSave();
+};
 
 window.addSubcat = async function(){
   const cat = document.getElementById('subcatCatSelect')?.value;

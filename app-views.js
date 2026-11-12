@@ -1875,9 +1875,32 @@ function ratingSets(){
 }
 window.ratingSets = ratingSets;
 
+// ── ALALAJIN KYSYMYSSARJA ──
+// Alalaji käyttää samannimistä sarjaa, jos sellainen on (Animaatiot →
+// Animaatiot). Muuten se voi lainata toisen sarjan kysymykset: asetuksissa
+// valitaan esim. Supersankarianimaatiot → Animaatiot. Valinnat ovat
+// settings.subcatSets-objektissa { alalaji: sarja-avain }, '' = Perus.
+// Kuten sarjat, valinta on sama elokuville ja sarjoille: avain on alalaji.
+// Arvosteluihin ei tallenneta mitään uutta, joten valinnan voi vaihtaa
+// milloin tahansa ja vanhat vastaukset säilyvät.
+const DEFAULT_SUBCAT_SETS = { 'Supersankarianimaatiot': 'Animaatiot' };
+
+function subcatSetLink(sub){
+  const k = String(sub || '');
+  const m = appData.settings && appData.settings.subcatSets;
+  if(m && typeof m === 'object' && Object.prototype.hasOwnProperty.call(m, k)){
+    return typeof m[k] === 'string' ? m[k] : '';
+  }
+  return DEFAULT_SUBCAT_SETS[k] || '';
+}
+window.subcatSetLink = subcatSetLink;
+
 function ratingSetKey(sub){
   const k = String(sub || '');
-  return ratingSets()[k] ? k : '';
+  const sets = ratingSets();
+  if(sets[k]) return k;                       // oma samanniminen sarja
+  const link = subcatSetLink(k);
+  return (link && sets[link]) ? link : '';    // lainattu sarja tai Perus
 }
 window.ratingSetKey = ratingSetKey;
 

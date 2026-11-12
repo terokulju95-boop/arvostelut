@@ -393,21 +393,22 @@ window.fabClick = function(){
 const SUB_ALL = '__all';
 window.SUB_ALL = SUB_ALL;
 const DEFAULT_SUBCATS = {
-  'Elokuvat':  ['Dokumentit', 'Animaatiot', 'Tositarinat'],
-  'TV-sarjat': ['Dokumentit', 'Animaatiot', 'Tositarinat']
+  'Elokuvat':  ['Dokumentit', 'Animaatiot', 'Tositarinat', 'Supersankarianimaatiot'],
+  'TV-sarjat': ['Dokumentit', 'Animaatiot', 'Tositarinat', 'Supersankarianimaatiot']
 };
 
 // Uusien oletusalalajien lisäys vanhaan dataan ajetaan kerran.
 // Merkki tallentuu subcats-objektiin, joten poistetut alalajit eivät
 // palaa takaisin seuraavalla latauksella.
-const SUBCAT_SEED = 2;   // 1 = Animaatiot, 2 = Tositarinat
+const SUBCAT_SEED = 3;   // 1 = Animaatiot, 2 = Tositarinat, 3 = Supersankarianimaatiot
 
 // Kukin seed-taso lisää omat alalajinsa. Vanhalla datalla ajetaan kaikki
 // väliin jääneet tasot kerralla, joten seed 0 saa sekä Animaatiot että
 // Tositarinat, ja seed 1 pelkän Tositarinat-alalajin.
 const SUBCAT_SEED_ADDS = {
   1: ['Animaatiot'],
-  2: ['Tositarinat']
+  2: ['Tositarinat'],
+  3: ['Supersankarianimaatiot']
 };
 
 function ensureSubcats(){
