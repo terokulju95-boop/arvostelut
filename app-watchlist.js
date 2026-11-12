@@ -1,6 +1,6 @@
 // ══ ARVOSTELUT · katselulista ══
 // Versioleima: jokaisessa tiedostossa sama.
-window.BUILD_WATCHLIST = '2026-11-11.0';
+window.BUILD_WATCHLIST = '2026-11-12.0';
 //
 // Tavallinen skripti. Ajetaan app-core.js:n ja app-views.js:n JÄLKEEN.
 //
