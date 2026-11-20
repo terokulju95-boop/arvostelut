@@ -2429,17 +2429,81 @@ async function searchTmdb(query) {
   // Valitaan haku kategorian mukaan
   const cat = document.getElementById('formCat')?.value || '';
   const isTv = cat === 'TV-sarjat';
-  const searchType = isTv ? 'tv' : 'multi';
+
+  // Vuosi hakusanasta: "X-MEN 2000" -> nimi "X-MEN" + vuosi 2000. TMDB:n haku
+  // ei ymmärrä vuotta nimen seassa, vaan "2000" jää osaksi hakusanaa ja pudottaa
+  // oikean elokuvan pois. Vuosi lähetetään erillisenä parametrina.
+  let q = query.trim();
+  let year = '';
+  const ym = q.match(/(?:^|[\s(])((?:19|20)\d{2})\)?\s*$/);
+  if (ym && q.replace(ym[0], '').trim().length >= 2) {
+    year = ym[1];
+    q = q.replace(ym[0], '').trim();
+  }
+  const qe = encodeURIComponent(q);
+  const H = { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } };
+  const base = 'https://api.themoviedb.org/3/search/';
+  const get = async (path, type) => {
+    const r = await window.tmdbFetch(base + path, H);
+    const d = await r.json();
+    return (d.results || []).map(i => Object.assign({ media_type: type }, i));
+  };
+
+  // Vain viimeisin haku saa piirtää tulokset (nopea kirjoittaminen)
+  const mySeq = (window._tmdbSearchSeq = (window._tmdbSearchSeq || 0) + 1);
 
   try {
-    const url = `https://api.themoviedb.org/3/search/${searchType}?query=${encodeURIComponent(query)}&language=fi-FI&page=1`;
-    const res = await window.tmdbFetch(url, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } });
-    const data = await res.json();
+    let all = [];
+    if (isTv) {
+      const yq = year ? `&first_air_date_year=${year}` : '';
+      const [a, b] = await Promise.all([
+        get(`tv?query=${qe}&language=fi-FI&page=1${yq}`, 'tv'),
+        get(`tv?query=${qe}&language=fi-FI&page=2${yq}`, 'tv')
+      ]);
+      all = a.concat(b);
+    } else if (year) {
+      // Vuosi annettu: haetaan elokuvat ja sarjat erikseen vuosirajauksella
+      const [m, t] = await Promise.all([
+        get(`movie?query=${qe}&language=fi-FI&page=1&year=${year}`, 'movie'),
+        get(`tv?query=${qe}&language=fi-FI&page=1&first_air_date_year=${year}`, 'tv')
+      ]);
+      all = m.concat(t);
+      // Jos vuosi oli osa nimeä (esim. "Blade Runner 2049"), vuosirajaus ei
+      // löytänyt mitään: haetaan uudestaan koko hakusanalla ilman vuotta.
+      if (!all.length) {
+        const full = encodeURIComponent(query.trim());
+        all = await get(`multi?query=${full}&language=fi-FI&page=1`, null);
+        year = '';
+      }
+    } else {
+      // Ei vuotta: kaksi sivua (20 osumaa) ja lisäksi pelkät elokuvat, jotta
+      // laajan sarjan (esim. X-Men) uudemmat osat eivät työnnä vanhempia ulos.
+      const [a, b, m] = await Promise.all([
+        get(`multi?query=${qe}&language=fi-FI&page=1`, null),
+        get(`multi?query=${qe}&language=fi-FI&page=2`, null),
+        get(`movie?query=${qe}&language=fi-FI&page=1`, 'movie')
+      ]);
+      all = a.concat(b, m);
+    }
+    if (mySeq !== window._tmdbSearchSeq) return;
     window.loaderHide(spinner);
-    // Suodatus ENNEN rajausta. Toisin päin TMDB:n kärkeen nostamat
-    // henkilöosumat söivät kuuden paikan kiintiön, ja näyttelijän nimellä
-    // haettaessa näkyviin jäi vain yksi elokuva kuuden sijaan.
-    const items = (data.results || []).filter(i => i.media_type !== 'person').slice(0, 6);
+
+    // Poista henkilöt ja tuplat
+    const seen = new Set();
+    let items = all.filter(i => {
+      if (!i || i.media_type === 'person' || !i.id) return false;
+      const k = i.media_type + ':' + i.id;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    // Vuosihaussa tarkka vuosiosuma ensin
+    if (year) items.sort((a, b) => {
+      const ya = ((a.release_date || a.first_air_date || '').slice(0, 4) === year) ? 0 : 1;
+      const yb = ((b.release_date || b.first_air_date || '').slice(0, 4) === year) ? 0 : 1;
+      return ya - yb;
+    });
+    items = items.slice(0, 12);
     if (!items.length) { results.style.display = 'none'; return; }
     // Tallennetaan tulokset muuttujaan — ei JSON-enkoodausta onclickiin
     window._tmdbSearchResults = items;
